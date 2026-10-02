@@ -615,6 +615,14 @@ OpenOK:
 	mov	[CPDATE],dx			; Save DATE
 	mov	[CPTIME],cx			; Save TIME
 
+IFDEF FREEDOS
+; FreeDOS FAT files have no OS/2 extended attributes (INT 21h AX=5703h).
+; Keep ordinary timestamp and file I/O error handling unchanged.
+	xor	cx,cx
+	mov	src_xa_size,cx
+	mov	xa_list_attr,cx
+	jmp	no_cp_get
+ELSE
 	mov	cx,xa_list_attr 		;AN000; get old code page in cx
 	push	cx				;AN000; save old attribute
 	mov	xa_list_attr,0			;AN000; initialize code page
@@ -633,6 +641,7 @@ OpenOK:
 	invoke	get_file_code_page_tag		;AN000; get file's code page
 	pop	cx				;AN030	retrieve old code page
 	jnc	no_cp_get			;AN000; no error - continue
+ENDIF
 src_cp_error:					;AN022;
 	jmp	error_on_source 		;AC022; and exit
 
@@ -851,10 +860,12 @@ DODCLOSE:
 	INT	int_command			; Set date and time
 	jc	xa_cleanup_err			;AN022; handle error
 
+IFNDEF FREEDOS
 	mov	ax,(file_times SHL 8)+set_XA	;AN000; set code page
 	mov	di,offset trangroup:xa_cp_out	;AC030; offset of attr list
 	int	int_command			;AN000;
 	jc	xa_cleanup_err			;AN030; exit if error
+ENDIF
 
 ;
 ; See if the destination has *anything* in it.	If not, just close and delete

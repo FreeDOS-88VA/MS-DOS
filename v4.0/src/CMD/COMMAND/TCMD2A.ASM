@@ -399,6 +399,14 @@ assume	ds:trangroup,es:trangroup
 ANSI_installed		equ    0ffh
 
 CLS:
+IFDEF PC88VA
+; The VA CON driver clears and homes on form feed. Never call IBM INT 10h.
+; DOS output also preserves ordinary stdout redirection.
+	mov	ah,2
+	mov	dl,0Ch
+	int	int_command
+	ret
+ELSE
 	mov	ah,Mult_ANSI			;AN000; see if ANSI.SYS installed
 	mov	al,0				;AN000;
 	int	2fh				;AN000;
@@ -515,6 +523,7 @@ reg_cls proc	near				;AC000;
 	ret					;AC000;
 
 reg_cls endp					;AC000;
+ENDIF
 
 
 

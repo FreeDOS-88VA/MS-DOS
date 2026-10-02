@@ -608,6 +608,13 @@ printvol_end:
 
 Set_file_code_page proc near			;AN000;
 
+IFDEF FREEDOS
+; No per-file code-page extended attributes on the FreeDOS FAT profile.
+; This does not suppress errors from the actual read/write operations.
+	clc
+	ret
+ELSE
+
 	push	bx				;AN000; save registers
 	push	di				;AN000;
 	push	dx				;AN000;
@@ -637,6 +644,7 @@ set_file_cp_exit:
 
 	ret					;AN000; return
 
+ENDIF
 Set_file_code_page endp 			;AN000;
 
 

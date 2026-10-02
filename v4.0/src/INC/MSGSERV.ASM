@@ -741,12 +741,23 @@ $M_CHECKSTDOUT ENDP					     ;AN001;
 							     ;;
 $M_VERSION_CHECK PROC NEAR				     ;;AN000;;
 							     ;;
+IFDEF FREEDOS
+; Explicit compatibility build: accept FreeDOS's native version and OEM ID.
+; Do not require a system-wide VERSION=4.00 override for other applications.
+	  MOV	  AX,DOS_GET_VERSION SHL 8
+	  INT	  21H
+	  CMP	  BH,0FDH
+	  JNE $MIF25
+	  CMP	  AL,4
+	  JB $MIF25
+ELSE
 	  MOV	  AH,DOS_GET_VERSION			     ;;AN000;; Check that version matches VERSIONA.INC
 	  INT	  21H					     ;;AN000;;
 							     ;;
 	  CMP	  AX,EXPECTED_VERSION			     ;;AN000;; IF DOS_MAJOR is correct
 ;	  $IF	  E					     ;;AN000;;
 	  JNE $MIF25
+ENDIF
 	    CLC 					     ;;AN000;;	 Clear the carry flag
 ;	  $ELSE 					     ;;AN000;; ELSE
 	  JMP SHORT $MEN25
