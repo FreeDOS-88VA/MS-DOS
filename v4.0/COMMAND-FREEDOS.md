@@ -10,9 +10,12 @@ Without that definition the original source paths remain selected.
 - The FreeDOS FAT profile has no OS/2 per-file extended attributes. COPY and
   TYPE omit the extended-attribute/code-page-tag operations. Normal open,
   read, write, timestamp and close errors are still handled normally.
-- `/DPC88VA` additionally selects DOS form-feed output for CLS, using the
-  VA CON driver's clear/home operation instead of IBM INT 10h. This selector
-  must be used together with `/DFREEDOS` on the PC-88VA FreeDOS port.
+- `/DPC88VA` additionally selects native text-BIOS clear/home output for CLS
+  only when stdout is standard CON. The DOS character adapter filters escape
+  and form-feed bytes, so DOS form feed alone cannot clear the display.
+  Redirected output uses DOS AH=40h and receives the ANSI clear/home sequence.
+  The adapter preserves registers/flags and rejects an absent text-BIOS vector;
+  it never calls IBM INT 10h. Use this selector with `/DFREEDOS` on PC-88VA.
 
 The ordinary environment, DOS file operations and transient reload algorithm
 remain from the original COMMAND sources. No FAT long filenames, OS/2 extended

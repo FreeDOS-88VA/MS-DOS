@@ -400,12 +400,56 @@ ANSI_installed		equ    0ffh
 
 CLS:
 IFDEF PC88VA
-; The VA CON driver clears and homes on form feed. Never call IBM INT 10h.
-; DOS output also preserves ordinary stdout redirection.
-	mov	ah,2
-	mov	dl,0Ch
+; The VA DOS character adapter filters escape/control bytes. Use the native
+; text BIOS only for standard CON; redirected output stays ordinary DOS I/O.
+	pushf
+	push	ax
+	push	bx
+	push	cx
+	push	dx
+	push	si
+	push	di
+	push	bp
+	push	ds
+	push	es
+	mov	ax,4400h
+	mov	bx,stdout
 	int	int_command
+	jc	va_cls_done
+	and	dx,009fh
+	cmp	dx,0093h
+	jne	va_cls_redirect
+	xor	ax,ax
+	mov	es,ax
+	mov	ax,es:[083h*4]
+	or	ax,es:[083h*4+2]
+	jz	va_cls_done
+	mov	si,offset trangroup:va_cls_sequence
+	mov	dx,8000h
+	mov	ah,02h
+	int	083h
+	jmp	short va_cls_done
+va_cls_redirect:
+	mov	dx,offset trangroup:va_cls_sequence
+	mov	cx,va_cls_end-va_cls_sequence
+	mov	bx,stdout
+	mov	ah,40h
+	int	int_command
+va_cls_done:
+	pop	es
+	pop	ds
+	pop	bp
+	pop	di
+	pop	si
+	pop	dx
+	pop	cx
+	pop	bx
+	pop	ax
+	popf
 	ret
+va_cls_sequence db 27,'[2J',27,'[H'
+va_cls_end label byte
+	db	0
 ELSE
 	mov	ah,Mult_ANSI			;AN000; see if ANSI.SYS installed
 	mov	al,0				;AN000;
