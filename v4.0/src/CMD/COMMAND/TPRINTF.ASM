@@ -42,6 +42,9 @@ TITLE	COMMAND Transient Printf routine
 
 datares segment public
 	extrn	pipeflag:byte
+IFDEF FREEDOS
+        EXTRN FREEDOS_MSG_TABLE:WORD
+ENDIF
 datares ends
 
 TRANDATA	SEGMENT PUBLIC BYTE	;AC000;

@@ -508,7 +508,6 @@ ENDIF							     ;;AN000;;
 	PUSH	DI					     ;;AN000;
 	XOR	CX,CX					     ;;AN000;  Reset to zero
 IFDEF FREEDOS
-        EXTRN FREEDOS_MSG_TABLE:WORD
 IF COMR
         ; The resident loader runs in the shell's original segment. Only
         ; initialize once: later setup may mark parse/extended classes on disk.
