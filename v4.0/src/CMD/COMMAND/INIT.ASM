@@ -81,6 +81,9 @@ DATARES 	SEGMENT PUBLIC BYTE	;AC000;
 ;AD060; EXTRN	pars_msg_off:word	;AN000;
 ;AD060; EXTRN	pars_msg_seg:word	;AN000;
 	EXTRN	parse_msg_start:byte	;AN000;
+IFDEF FREEDOS
+        EXTRN FREEDOS_MSG_TABLE:WORD
+ENDIF
 	EXTRN	parsemes_ptr:word	;AN000;
 	EXTRN	PERMCOM:BYTE
 	EXTRN	RES_TPA:WORD
@@ -1577,7 +1580,12 @@ setup_for_messages	proc	near		;AN060;
 	MOV	AX,DOS_GET_EXT_PARSE_ADD	;AN060;; 2FH Interface
 	MOV	DL,DOS_SET_ADDR 		;AN060;; Set the READ_DISK_PROC address
 	LEA	DI,READ_DISK_PROC		;AN060;;
+IFDEF FREEDOS
+        MOV WORD PTR FREEDOS_MSG_TABLE+12,DI
+        MOV WORD PTR FREEDOS_MSG_TABLE+14,ES
+ELSE
 	INT	2FH				;AN060;; Private interface
+ENDIF
 	jmp	short permcom_end		;AN060; and exit
 
 permcom_slash_msg:				;AN060; Keep messages in memory
@@ -1595,11 +1603,13 @@ no_permcom:					;AN060;
 	call	print_message			;AN060; issue error message
 
 no_slash_msg:
+IFNDEF FREEDOS
 	mov	ax,(multdos shl 8 or message_2f);AN060; reset parse message pointers
 	mov	dl,set_parse_msg		;AN060; set up parse message address
 	mov	di,pars_msg_off 		;AN060; old offset of parse messages
 	mov	es,pars_msg_seg 		;AN060; old segment of parse messages
 	int	2fh				;AN060; go set it
+ENDIF ; FreeDOS message tables are private to this shell, not kernel globals.
 
 permcom_end:
 	call	sysloadmsg			;AN060; load message addresses
@@ -1630,9 +1640,14 @@ setup_for_messages	endp			;AN060;
 
 Set_parse_2f	proc	near			;AN060;
 
+IFDEF FREEDOS
+        MOV WORD PTR CS:FREEDOS_MSG_TABLE+4,DI
+        MOV WORD PTR CS:FREEDOS_MSG_TABLE+6,ES
+ELSE
 	mov	ax,(multdos shl 8 or message_2f);AN060; set up to call DOS through int 2fh
 	mov	dl,set_parse_msg		;AN060; set up parse message address
 	int	2fh				;AN060;
+ENDIF
 
 	ret					;AN060;
 
@@ -1655,9 +1670,14 @@ Set_parse_2f	endp				;AN060;
 
 Set_ext_2f	proc	near			;AN060;
 
+IFDEF FREEDOS
+        MOV WORD PTR CS:FREEDOS_MSG_TABLE,DI
+        MOV WORD PTR CS:FREEDOS_MSG_TABLE+2,ES
+ELSE
 	mov	ax,(multdos shl 8 or message_2f);AN060; set up to call DOS through int 2fh
 	mov	dl,set_extended_msg		;AN060; set up extended error message address
 	int	2fh				;AN060;
+ENDIF
 
 	ret					;AN060;
 

@@ -587,6 +587,18 @@ MSG_UTILNAME <COMMAND>				;AN000; define utility name
 MSG_SERVICES <COMR,MSGDATA,COMMAND.CLA>  ;AN054; get message services data and resident messages
 
 
+IFDEF FREEDOS
+; FreeDOS does not store the MS-DOS INT 2Fh/122Eh message pointers.
+; Keep an independent table in each shell; segment words are set on load.
+PUBLIC FREEDOS_MSG_TABLE
+EXTRN READ_DISK_PROC:FAR
+FREEDOS_MSG_TABLE LABEL WORD
+    DW OFFSET RESGROUP:EXTENDED_MSG_START,0
+    DW OFFSET RESGROUP:PARSE_MSG_START,0
+    DW OFFSET RESGROUP:CRITICAL_MSG_START,0
+    DW OFFSET RESGROUP:READ_DISK_PROC,0
+ENDIF
+
 CRITICAL_MSG_START	LABEL	BYTE		;AN000; start of critical error messages
 
 MSG_SERVICES <COMR,COMMAND.CLD> 		;AN000; get critical error messages

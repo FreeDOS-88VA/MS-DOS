@@ -507,6 +507,42 @@ ENDIF							     ;;AN000;;
 	PUSH	ES					     ;;AN000;
 	PUSH	DI					     ;;AN000;
 	XOR	CX,CX					     ;;AN000;  Reset to zero
+IFDEF FREEDOS
+        EXTRN FREEDOS_MSG_TABLE:WORD
+IF COMR
+        ; The resident loader runs in the shell's original segment. Only
+        ; initialize once: later setup may mark parse/extended classes on disk.
+        CMP WORD PTR FREEDOS_MSG_TABLE+10,0
+        JNE FD_MSG_READY
+        MOV WORD PTR FREEDOS_MSG_TABLE+2,CS
+        MOV WORD PTR FREEDOS_MSG_TABLE+6,CS
+        MOV WORD PTR FREEDOS_MSG_TABLE+10,CS
+        MOV WORD PTR FREEDOS_MSG_TABLE+14,CS
+FD_MSG_READY:
+        PUSH CS
+        POP ES
+ELSE
+        MOV ES,WORD PTR RESSEG
+ENDIF
+        MOV BX,ES:FREEDOS_MSG_TABLE
+        MOV WORD PTR $M_RT.$M_EXT_COMMAND,BX
+        MOV BX,ES:FREEDOS_MSG_TABLE+2
+        MOV WORD PTR $M_RT.$M_EXT_COMMAND+2,BX
+        MOV BX,ES:FREEDOS_MSG_TABLE+4
+        MOV WORD PTR $M_RT.$M_PARSE_COMMAND,BX
+        MOV BX,ES:FREEDOS_MSG_TABLE+6
+        MOV WORD PTR $M_RT.$M_PARSE_COMMAND+2,BX
+        MOV BX,ES:FREEDOS_MSG_TABLE+8
+        MOV WORD PTR $M_RT.$M_CRIT_COMMAND,BX
+        MOV BX,ES:FREEDOS_MSG_TABLE+10
+        MOV WORD PTR $M_RT.$M_CRIT_COMMAND+2,BX
+        MOV BX,ES:FREEDOS_MSG_TABLE+12
+        MOV WORD PTR $M_RT.$M_DISK_PROC_ADDR,BX
+        MOV BX,ES:FREEDOS_MSG_TABLE+14
+        MOV WORD PTR $M_RT.$M_DISK_PROC_ADDR+2,BX
+        MOV WORD PTR $M_RT.$M_EXT_FILE,0
+        MOV WORD PTR $M_RT.$M_EXT_FILE+2,0
+ELSE
 	MOV	ES,CX					     ;;AN000;
 	XOR	DI,DI					     ;;AN000;
 	MOV	AX,DOS_GET_EXT_PARSE_ADD		     ;;AN000;; 2FH Interface
@@ -532,6 +568,7 @@ ENDIF							     ;;AN000;;
 	INT	2FH					     ;;AN001;; Private interface
 	MOV	WORD PTR $M_RT.$M_EXT_FILE+2,ES 	     ;;AN001;;	Move into first avaliable table location
 	MOV	WORD PTR $M_RT.$M_EXT_FILE,DI		     ;;AN001;;
+ENDIF ; FREEDOS
 
 IF	COMR						     ;;  ** Special case for RESIDENT COMMAND.COM
 	IF2
@@ -561,9 +598,11 @@ ENDIF							     ;;
 							     ;;
 	MOV	AX,DOS_GET_EXT_PARSE_ADD		     ;;AN001;; 2FH Interface
 	MOV	DL,DOS_GET_ADDR 			     ;;AN001;; Where is the READ_DISK_PROC in COMMAND.COM
+IFNDEF FREEDOS
 	INT	2FH					     ;;AN001;; Private interface
 	MOV	WORD PTR $M_RT.$M_DISK_PROC_ADDR+2,ES	     ;;AN001;;	Move into first avaliable table location
 	MOV	WORD PTR $M_RT.$M_DISK_PROC_ADDR,DI	     ;;AN001;;
+ENDIF
 
 	$M_BUILD_PTRS %$M_NUM_CLS			     ;;AN000;; Build all utility classes
 							     ;;AN000;;
