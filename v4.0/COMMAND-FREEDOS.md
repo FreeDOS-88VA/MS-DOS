@@ -10,6 +10,12 @@ Without that definition the original source paths remain selected.
 - The FreeDOS FAT profile has no OS/2 per-file extended attributes. COPY and
   TYPE omit the extended-attribute/code-page-tag operations. Normal open,
   read, write, timestamp and close errors are still handled normally.
+- Keep parser, extended-error and critical-error message pointers inside each
+  shell instead of relying on MS-DOS INT 2Fh/122Eh registration (ignored by
+  FreeDOS). Preserve the original on-disk message loading for permanent shells
+  without `/MSG`. This is shell-local adaptation, not a replacement kernel API
+  for other MS-DOS utilities. `/Y` remains unsupported and reports an invalid
+  switch; this profile does not add AUTOEXEC single-stepping.
 - `/DPC88VA` additionally selects native text-BIOS clear/home output for CLS
   only when stdout is standard CON. The DOS character adapter filters escape
   and form-feed bytes, so DOS form feed alone cannot clear the display.
