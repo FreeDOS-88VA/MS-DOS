@@ -14,8 +14,14 @@ Without that definition the original source paths remain selected.
   shell instead of relying on MS-DOS INT 2Fh/122Eh registration (ignored by
   FreeDOS). Preserve the original on-disk message loading for permanent shells
   without `/MSG`. This is shell-local adaptation, not a replacement kernel API
-  for other MS-DOS utilities. `/Y` remains unsupported and reports an invalid
-  switch; this profile does not add AUTOEXEC single-stepping.
+  for other MS-DOS utilities.
+- Accept `/Y` (also lowercase and repeated) as a no-op startup compatibility
+  hint, including the flag FreeDOS supplies after F8 CONFIG processing. This
+  does not add AUTOEXEC/batch single-stepping: CONFIG confirmations remain the
+  kernel's responsibility and AUTOEXEC executes normally. `/Y` accepts no
+  value; unknown or malformed switches still use the original diagnostics.
+  Arguments following `/C` remain command text. Without `/DFREEDOS`, `/Y`
+  remains an invalid switch and the original binary must remain unchanged.
 - `/DPC88VA` additionally selects native text-BIOS clear/home output for CLS
   only when stdout is standard CON. The DOS character adapter filters escape
   and form-feed bytes, so DOS form feed alone cannot clear the display.

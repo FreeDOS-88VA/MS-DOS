@@ -145,6 +145,9 @@ PUBLIC	COMMAND_C_SYN				;AN000;
 PUBLIC	COMMAND_D_SYN				;AN000;
 PUBLIC	COMMAND_E_SYN				;AN000;
 PUBLIC	COMMAND_M_SYN				;AN000;
+IFDEF FREEDOS
+PUBLIC COMMAND_Y_SYN
+ENDIF
 
 ;
 ;  The following parse control block is used for COMMAND.  This block is
@@ -166,13 +169,20 @@ PARSE_COMMAND	LABEL	BYTE			;AN000;
 COMMAND_PARMS	LABEL	BYTE			;AN000;
 		DB	0,1			;AN000; 1 positional parm
 		DW	RESGROUP:COMMAND_FILE	;AN000;
+IFDEF FREEDOS
+                DB      7               ; Also accept the FreeDOS startup /Y hint
+ELSE
 		DB	6			;AN000; 6 switches
+ENDIF
 		DW	RESGROUP:COMMAND_SWITCH1 ;AN000;
 		DW	RESGROUP:COMMAND_SWITCH2 ;AN000;
 		DW	RESGROUP:COMMAND_SWITCH3 ;AN000;
 		DW	RESGROUP:COMMAND_SWITCH4 ;AN000;
 		DW	RESGROUP:COMMAND_SWITCH5 ;AN000;
 		DW	RESGROUP:COMMAND_SWITCH6 ;AN000;
+IFDEF FREEDOS
+                DW      RESGROUP:COMMAND_SWITCH_Y
+ENDIF
 		DB	0			;AN000; no keywords
 
 COMMAND_FILE	LABEL	BYTE			;AN000;
@@ -237,6 +247,16 @@ COMMAND_SWITCH6 LABEL	BYTE			;AN000;
 		DW	RESGROUP:NO_VAL 	;AN000;
 		DB	1			;AN000; 1 keyword
 COMMAND_M_SYN	DB	"/MSG",0                ;AN000; /MSG switch
+
+IFDEF FREEDOS
+COMMAND_SWITCH_Y LABEL BYTE
+                DW      0               ; No value or prefix matching
+                DW      2               ; Capitalize using the character table
+                DW      RESGROUP:COMND1_OUTPUT
+                DW      RESGROUP:NO_VAL
+                DB      1
+COMMAND_Y_SYN   DB      "/Y",0
+ENDIF
 
 COMND1_OUTPUT	LABEL	BYTE			;AN000;
 COMND1_TYPE	DB	0			;AN000; type

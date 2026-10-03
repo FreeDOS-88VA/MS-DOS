@@ -154,6 +154,9 @@ INIT	SEGMENT PUBLIC PARA
 	EXTRN	command_c_syn:byte	;AN000;
 	EXTRN	command_d_syn:byte	;AN000;
 	EXTRN	command_e_syn:byte	;AN000;
+IFDEF FREEDOS
+        EXTRN command_y_syn:byte
+ENDIF
 	EXTRN	command_f_syn:byte	;AN000;
 	EXTRN	command_m_syn:byte	;AN000;
 	EXTRN	command_p_syn:byte	;AN000;
@@ -508,6 +511,14 @@ parse_line_error_disp:
 	jmp	short parse_command_line	;AN000; continue parsing
 
 parse_cont:
+IFDEF FREEDOS
+        ; FreeDOS adds /Y after F8 CONFIG processing. Accept the startup hint
+        ; without changing MS-DOS 4 batch execution (no AUTOEXEC stepping).
+        cmp comnd1_syn,offset resgroup:command_y_syn
+        jne not_freedos_y
+        jmp parse_command_line
+not_freedos_y:
+ENDIF
 ;
 ; See if a switch was entered
 ;
