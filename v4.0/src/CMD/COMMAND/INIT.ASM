@@ -465,7 +465,13 @@ parse_command_line:
 	call	init_parse			;AN054; call parser
 	mov	num_positionals,cx		;AN000; Save number of positionals
 	cmp	ax,end_of_line			;AC000; are we at end of line?
+IFDEF FREEDOS
+        jnz freedos_more_args
+        jmp ArgsDoneJ3
+freedos_more_args:
+ELSE
 	jz	ArgsDoneJ3			;AC000; yes - exit
+ENDIF
 	cmp	ax,result_no_error		;AN000; did an error occur
 	jz	parse_cont			;AN000; no - continue
 
