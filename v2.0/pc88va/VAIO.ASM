@@ -271,8 +271,8 @@ CHAR    DB      0               ;One-character type-ahead.
 OUTBUF  DB      0,0             ;NUL-terminated output string.
 
 ; Return ZF=1 if no character is waiting, else ZF=0 and AL = character.
-; The ROM keyboard BIOS returns two-byte codes; keep single-byte ANK
-; characters and drop soft-key and two-byte codes.
+; Read the primitive KB queue (functions 0Ah and 09h), which bypasses the
+; Japanese front-end processor; keys without an internal code are dropped.
 CISTAT: MOV     AL,CS:[CHAR]
         OR      AL,AL
         JNZ     CISTA9
@@ -284,14 +284,12 @@ CISTAT: MOV     AL,CS:[CHAR]
         PUSH    BP
         PUSH    DS
         PUSH    ES
-CISTA1: MOV     AH,1            ;Sense the queue.
+CISTA1: MOV     AH,0AH          ;Sense the KB queue: CF=1 if empty.
         INT     82H
         JC      CISTA8
-        MOV     AH,0            ;Take the character.
+        MOV     AH,09H          ;Take the key code.
         INT     82H
-        OR      AH,AH
-        JNZ     CISTA1
-        OR      AL,AL
+        OR      AL,AL           ;AL = internal code.
         JZ      CISTA1
         MOV     CS:[CHAR],AL
 CISTA8: MOV     AL,CS:[CHAR]
