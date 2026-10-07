@@ -580,16 +580,10 @@ DSK_FL1:
 
 RESEND  LABEL   BYTE            ;End of the resident BIOS.
 
-        DW      128 DUP (0)
-INITSTK LABEL   WORD
-
-; Entered from VABOOT with DX = MSDOS.SYS segment.
-HWINIT: CLI
-        MOV     AX,CS
-        MOV     SS,AX
-        MOV     SP,OFFSET INITSTK
-        STI
-        CLD
+; Entered from VABOOT with DX = MSDOS.SYS segment.  Keep the boot stack:
+; SYSINIT moves MSDOS.SYS over this initialization code while it still
+; uses the stack it inherits, so that stack must lie outside IO.SYS.
+HWINIT: CLD
         PUSH    CS
         POP     DS
         MOV     BP,DX

@@ -4,7 +4,8 @@
 ;
 ; The ROM loads this 1024-byte sector at 3000:0000 and jumps to it.  It
 ; reads the contiguous IO.SYS + MSDOS.SYS extent to BIOSSEG:0 and enters
-; IO.SYS with DX = MSDOS.SYS segment.  The image builder fills the BPB
+; IO.SYS with DX = MSDOS.SYS segment and SS:SP = 3000:1000, a stack that
+; IO.SYS and SYSINIT keep using during initialization.  The image builder fills the BPB
 ; (offsets 3-61), the three extent words and the 55AAh signatures.
 
 BOOTSEG EQU     3000H
