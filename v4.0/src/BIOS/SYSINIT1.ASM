@@ -390,6 +390,11 @@ ConfigMsgFlag		dw	0	;AN014;AN022; Used to control "Error in CONFIG.SYS line #" m
 TempStack		DB	80h DUP (?)
 
 GOINIT:
+	IFDEF	PC88VA
+; PC-88VA: INT 11h and INT 15h are not the IBM services; keep the default
+; model byte 0FFh (no default hardware stacks) and the real floppy drives.
+	jmp	short Move_Myself
+	ENDIF
 ;J.K. before doing anything else, let's set the model byte
 ;SB33043*****************************************************************
 	mov	ah,0c0h 		;get system configuration     ;SB ;3.30*
@@ -532,6 +537,9 @@ LOCSTACK LABEL BYTE
 ;SB	definition of the sysinitvars struct in inc\sysvar.inc
 ;SB		5 LOCS
 
+	IFDEF	PC88VA
+	jmp	short No_Ext_Memory		;No IBM INT 15h service.
+	ENDIF
 	mov	ah,88h
 	int	15h				;check extended memory size
 	jc	No_Ext_Memory
@@ -1567,6 +1575,9 @@ GOAUX2: MOV	DX,OFFSET AUXDEV
 ; call (INT 15h), function AH=0C0h returns the system configuration parameters
 ;
 
+	IFDEF	PC88VA
+	jmp	Set_Sysinit_Base		;No IBM shared-interrupt rearm ports.
+	ENDIF
 	cmp	[sys_model_byte], 0FDh		;PCjr?
 ;	 je	 GoCheckInstall
 	je	Set_Sysinit_Base
