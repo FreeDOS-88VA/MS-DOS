@@ -173,6 +173,11 @@ MEDSTAT   EQU   14
 BPBPTR    EQU   18
 
 PTRSAV  DD      0               ;Request packet pointer.
+SAVESP  DW      0               ;DOS stack during a request.
+SAVESS  DW      0
+SAVEAX  DW      0
+        DW      256 DUP (0)     ;Private request stack.
+STKTOP  LABEL   WORD
 
 STRATP  PROC    FAR
 STRATEGY:
@@ -205,7 +210,16 @@ DSK_INT:
         PUSH    SI
         MOV     SI,OFFSET DSKTBL
 
-ENTRY:  CLD
+; The DOS stack is shallow and the ROM services need more, so requests
+; run on a private stack.  MOV SS inhibits interrupts for one instruction.
+ENTRY:  MOV     CS:[SAVESP],SP
+        MOV     CS:[SAVESS],SS
+        MOV     CS:[SAVEAX],AX
+        MOV     AX,CS
+        MOV     SS,AX
+        MOV     SP,OFFSET STKTOP
+        MOV     AX,CS:[SAVEAX]
+        CLD
         PUSH    AX
         PUSH    CX
         PUSH    DX
@@ -258,6 +272,8 @@ EXIT1:  CLD
         POP     DX
         POP     CX
         POP     AX
+        MOV     SS,CS:[SAVESS]
+        MOV     SP,CS:[SAVESP]
         POP     SI
         RET
 EXITP   ENDP
