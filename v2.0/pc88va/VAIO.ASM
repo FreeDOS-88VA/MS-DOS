@@ -205,7 +205,8 @@ DSK_INT:
         PUSH    SI
         MOV     SI,OFFSET DSKTBL
 
-ENTRY:  PUSH    AX
+ENTRY:  CLD
+        PUSH    AX
         PUSH    CX
         PUSH    DX
         PUSH    DI
@@ -240,12 +241,14 @@ CMDERR: MOV     AL,3            ;Unknown command.
 
 ERR_EXIT:
         MOV     AH,10000001B    ;Error and done.
-        STC
         JMP     SHORT EXIT1
 
 EXITP   PROC    FAR
 EXIT:   MOV     AH,00000001B    ;Done.
-EXIT1:  LDS     BX,CS:[PTRSAV]
+; ROM services may return with DF set; DOS string instructions expect
+; DF=0, so clear it on every return.
+EXIT1:  CLD
+        LDS     BX,CS:[PTRSAV]
         MOV     [BX.STATUS],AX
         POP     BX
         POP     ES
