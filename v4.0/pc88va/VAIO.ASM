@@ -74,7 +74,8 @@ TIMDEV: DW      DSKDEV,BIOSSEG
         DB      'CLOCK$  '
 
 DSKDEV: DW      -1,-1           ;Last device.
-        DW      2000H           ;Block device, media byte from the BPB.
+        DW      2040H           ;Block device, media byte from the BPB,
+                                ;generic IOCTL (DOS 3.2 driver).
         DW      STRATEGY
         DW      DSK_INT
         DB      NUNITS
@@ -241,7 +242,7 @@ ENTRY:  MOV     CS:[SAVESP],SP
         MOV     AL,[BX.CMD]
         XOR     AH,AH
         CMP     AL,12
-        JA      CMDERR
+        JA      HICMD
         ADD     SI,AX
         ADD     SI,AX
         XCHG    AX,DI
@@ -249,6 +250,22 @@ ENTRY:  MOV     CS:[SAVESP],SP
         PUSH    CS
         POP     DS
         JMP     WORD PTR [SI]
+
+; Commands above 12 exist only for the disk: 19 generic IOCTL and
+; 23/24 get/set logical drive map.
+HICMD:  CMP     SI,OFFSET DSKTBL
+        JNE     CMDERR
+        XCHG    AX,DI           ;AL = unit, DI = command.
+        PUSH    CS
+        POP     DS
+        CMP     DI,19
+        JNE     HICMD1
+        JMP     DSK_GIO
+HICMD1: CMP     DI,23
+        JB      CMDERR
+        CMP     DI,24
+        JA      CMDERR
+        JMP     DSK_OWN
 
 BUS_EXIT:
         MOV     AH,00000011B    ;Busy and done.
@@ -499,15 +516,56 @@ MEDIAC: CMP     AL,NUNITS
         MOV     AL,0
         JMP     EXIT
 
+; Read the boot sector into the DOS buffer at ES:DI and keep its volume
+; serial number, label and file system type for IOCTL "get media ID".
+; The BPB itself is the fixed 2HD BPB.
 GET_BPB:
         CMP     AL,NUNITS
         JAE     BADUNIT
-        LDS     BX,[PTRSAV]
+        MOV     [GUNIT],AL
+        MOV     [OPCODE],81H
+        MOV     CX,1
+        XOR     DX,DX
+        PUSH    ES
+        PUSH    DI
+        CALL    DSK_XFER
+        POP     DI
+        POP     ES
+        JC      GBPB_ERR
+        CALL    MIDSLOT         ;SI = cache slot of the unit.
+        MOV     BYTE PTR [SI],0
+        CMP     BYTE PTR ES:[DI+38],29H
+        JNE     GBPB1
+        MOV     BYTE PTR [SI],1
+        PUSH    DS
+        PUSH    ES
+        PUSH    DS              ;Copy ES:DI+39 to DS:SI+1.
+        PUSH    ES
+        POP     DS
+        POP     ES
+        XCHG    SI,DI
+        INC     DI
+        ADD     SI,39
+        MOV     CX,23
+        REP     MOVSB
+        POP     ES
+        POP     DS
+GBPB1:  LDS     BX,[PTRSAV]
         MOV     [BX.MEDIA],0FEH
         MOV     WORD PTR [BX+BPBPTR],OFFSET BPB
         MOV     WORD PTR [BX+BPBPTR+2],CS
         MOV     AL,0
         JMP     EXIT
+GBPB_ERR:
+        JMP     ERR_EXIT
+
+; SI = media ID cache slot of unit [GUNIT].
+MIDSLOT:
+        MOV     AL,24
+        MUL     [GUNIT]
+        ADD     AX,OFFSET MIDCACHE
+        MOV     SI,AX
+        RET
 
 BADUNIT:
         MOV     AL,1
@@ -522,8 +580,21 @@ DSK_WRT:
 DSK_COM:
         CMP     AL,NUNITS
         JAE     BADUNIT
+        CALL    DSK_XFER
+        JC      DSK_ERR
+        MOV     AL,0
+        JMP     EXIT
+DSK_ERR:
+        LDS     BX,CS:[PTRSAV]
+        MOV     [BX.COUNT],0
+        JMP     ERR_EXIT
+
+; Transfer CX sectors from logical sector DX of unit AL to or from ES:DI
+; with ROM operation [OPCODE] (81h read, 82h write), one sector per call.
+; CF=1 and AL = DOS error code on failure.
+DSK_XFER:
         MOV     [DRIVE],AL
-        JCXZ    DSK_DONE
+        JCXZ    DSK_X9
 DSK_SEC:
         PUSH    CX
         MOV     AX,DX
@@ -579,11 +650,11 @@ DSK_TRY:
         INC     DX
         POP     CX
         LOOP    DSK_SEC
-DSK_DONE:
-        MOV     AL,0
-        JMP     EXIT
+DSK_X9: CLC
+        RET
 
 DSK_FAIL:
+        MOV     CS:[XSTAT],AH
         POP     DS
         POP     ES
         POP     DI
@@ -591,14 +662,129 @@ DSK_FAIL:
         DEC     [TRIES]
         JNZ     DSK_TRY
         POP     CX
-        LDS     BX,CS:[PTRSAV]
-        MOV     [BX.COUNT],0
-        MOV     AL,11           ;Read fault.
-        CMP     CS:[OPCODE],82H
-        JNE     DSK_FL1
-        MOV     AL,10           ;Write fault.
+        MOV     AL,[XSTAT]      ;Map the ROM status to a DOS error.
+        MOV     BX,OFFSET ERRMAP
 DSK_FL1:
+        MOV     AH,[BX]
+        INC     BX
+        CMP     AH,0FFH
+        JE      DSK_FL2
+        CMP     AH,AL
+        JE      DSK_FL3
+        INC     BX
+        JMP     DSK_FL1
+DSK_FL2:
+        MOV     BL,11           ;Read fault.
+        CMP     [OPCODE],82H
+        JNE     DSK_FL4
+        MOV     BL,10           ;Write fault.
+        JMP     SHORT DSK_FL4
+DSK_FL3:
+        MOV     BL,[BX]
+DSK_FL4:
+        MOV     AL,BL
+        STC
+        RET
+
+; ROM floppy status, DOS error code.
+ERRMAP  DB      03H,2, 04H,2, 05H,0, 06H,4, 07H,4, 08H,8, 09H,6, 0AH,6
+        DB      0BH,7, 0CH,8, 0FFH
+
+        SUBTTL  Generic IOCTL.
+        PAGE
+
+; Generic IOCTL for the disk (category 08h).  AL = unit, DS = CS.
+DSK_GIO:
+        CMP     AL,NUNITS
+        JAE     GIO_BAD
+        MOV     [GUNIT],AL
+        LDS     BX,[PTRSAV]
+        CMP     BYTE PTR [BX+13],08H
+        JNE     GIO_BAD
+        MOV     AH,[BX+14]
+        LES     DI,[BX+19]
+        PUSH    CS
+        POP     DS
+        CMP     AH,60H
+        JE      GIO_GDP
+        CMP     AH,61H
+        JE      GIO_RD
+        CMP     AH,41H
+        JE      GIO_WR
+        CMP     AH,66H
+        JE      GIO_GMI
+        CMP     AH,67H
+        JE      GIO_GAF
+        CMP     AH,40H          ;Set device parameters: nothing to change.
+        JE      GIO_OK
+        CMP     AH,47H          ;Set access flag: always accessible.
+        JE      GIO_OK
+GIO_BAD:
+        JMP     CMDERR
+
+; Get device parameters: 80-cylinder removable drive with the 2HD BPB.
+GIO_GDP:
+        MOV     BYTE PTR ES:[DI+1],1
+        MOV     WORD PTR ES:[DI+2],0
+        MOV     WORD PTR ES:[DI+4],80
+        MOV     BYTE PTR ES:[DI+6],0
+        ADD     DI,7
+        MOV     SI,OFFSET BPB
+        MOV     CX,25
+        REP     MOVSB
+        XOR     AL,AL
+        MOV     CX,6
+        REP     STOSB
+GIO_OK: MOV     AL,0
+        JMP     EXIT
+
+GIO_GAF:
+        MOV     BYTE PTR ES:[DI+1],1
+        JMP     GIO_OK
+
+; Read or write track: head, cylinder, first sector (0-based), count and
+; transfer address in the packet at ES:DI.
+GIO_RD: MOV     [OPCODE],81H
+        JMP     SHORT GIO_TRK
+GIO_WR: MOV     [OPCODE],82H
+GIO_TRK:
+        MOV     DX,ES:[DI+3]
+        SHL     DX,1
+        ADD     DX,ES:[DI+1]
+        MOV     CL,3
+        SHL     DX,CL
+        ADD     DX,ES:[DI+5]
+        MOV     CX,ES:[DI+7]
+        LES     DI,ES:[DI+9]
+        MOV     AL,[GUNIT]
+        CALL    DSK_XFER
+        JNC     GIO_OK
         JMP     ERR_EXIT
+
+; Get media ID from the boot sector data cached by GET_BPB.
+GIO_GMI:
+        CALL    MIDSLOT
+        CMP     BYTE PTR [SI],0
+        JE      GIO_NMI
+        INC     SI
+        ADD     DI,2
+        MOV     CX,23
+        REP     MOVSB
+        JMP     GIO_OK
+GIO_NMI:
+        MOV     AL,7            ;No extended BPB on this disk.
+        JMP     ERR_EXIT
+
+; Get/set logical drive map: each unit has a single drive letter.
+DSK_OWN:
+        LDS     BX,[PTRSAV]
+        MOV     BYTE PTR [BX+1],0
+        MOV     AL,0
+        JMP     EXIT
+
+GUNIT   DB      0
+XSTAT   DB      0
+MIDCACHE DB     NUNITS*24 DUP (0) ;Per unit: valid flag, serial, label, type.
 
         SUBTTL  Initialization (overlaid by MSDOS.SYS).
         PAGE
