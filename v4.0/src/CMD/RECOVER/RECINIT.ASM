@@ -662,7 +662,16 @@ Procedure Check_Target_Drive		;				;AN000;
 	push	dx			;Save results			;AN000;
 	push	ax			;     "  "			;AN000;
 	mov	ax,BPB_Buffer.RootEntries ;Find number of sectors in root ;AN000;
+	IFDEF	PC88VA
+	mov	cx,BPB_Buffer.BytePerSector ; entries per sector = bytes / 32
+	shr	cx,1
+	shr	cx,1
+	shr	cx,1
+	shr	cx,1
+	shr	cx,1
+	ELSE
 	mov	cl,Dir_Entries_Per_Sector ; by dividing RootEntries	  ;AN000;
+	ENDIF
 	div	cl			; by (512/32)			;AN000;
 	pop	bx			;Get low sectors per FAT back	;AN000;
 	pop	dx			;Get high part			;AN000;

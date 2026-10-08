@@ -1048,7 +1048,16 @@ $$IF37:
 										;ac048;bgb
 CLUSISOK:									;ac048;bgb
 ;calc cluster number and offset 						;ac048;bgb
+	IFDEF	PC88VA
+	mov	cx,[SSIZE]		;entries per sector = bytes / 32
+	shr	cx,1
+	shr	cx,1
+	shr	cx,1
+	shr	cx,1
+	shr	cx,1
+	ELSE
 	mov	cx,16			;32 bytes/entry  /  512 bytes/sec	;ac048;bgb
+	ENDIF
 	xor	dx,dx			;zero out hi word for divide		;ac048;bgb
 	div	cx    ;NOW- bx=first clus, ax=sec-offset, dx=entry-offset	;ac048;bgb
 				    ;NOTE: ax can be > 1 cluster		;ac048;bgb

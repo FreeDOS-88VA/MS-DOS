@@ -995,6 +995,10 @@ Check_Target_Drive endp 			;				;an000;bgb;AN000;
 ;****************************************************************************** ;an053;bgb;an000;bgb
 Procedure get_boot_info        ;						;an053;bgb;an000;bgb
 	      mov     cx,[bx].BytePerSector	; usually 512			;an053;bgb;an000;bgb	  ;an015;bgb
+	IFDEF	PC88VA
+	      cmp     cx,1024		;PC-88VA 2HD diskettes
+	      JE $$IF65
+	ENDIF
 	      cmp     cx,512 ;vdisk sizes					;an053;bgb
 ;	      $IF     NE,AND ;vdisk sizes					;an053;bgb
 	      JE $$IF65
@@ -1073,7 +1077,16 @@ $$LL71:
 ;	      $ENDIF								;an053;bgb
 $$IF71:
 										;an053;bgb
+	IFDEF	PC88VA
+	      mov     cx,bytes_per_sector	; entries per sector = bytes / 32
+	      shr     cx,1
+	      shr     cx,1
+	      shr     cx,1
+	      shr     cx,1
+	      shr     cx,1
+	ELSE
 	      mov     cl,Dir_Entries_Per_Sector       ; by dividing RootEntries ;an053;bgb;an000;bgb	  ;AN000;
+	ENDIF
 	      cmp     cl,0							;an053;bgb;an000;bgb;an022;bgb
 ;	      $IF     NE							;an053;bgb;an000;bgb;an022;bgb
 	      JE $$IF73
