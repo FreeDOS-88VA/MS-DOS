@@ -2733,6 +2733,10 @@ assign_there:
 	jmp	conflict_exit						  ; @@01
 									  ; @@01
 check_Topview:								  ; @@01
+	IFDEF	PC88VA
+; PC-88VA: INT 15h is a hardware interrupt vector; no TopView check.
+	jmp	replace_vector
+	ENDIF
 	mov	bx,0			; incase not there		  ; @@01
 	mov	ax,10h*256+34		; TopView version check 	  ; @@01
 	int	15h							  ; @@01

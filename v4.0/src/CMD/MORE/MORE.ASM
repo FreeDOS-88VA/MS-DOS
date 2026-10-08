@@ -100,8 +100,12 @@ START1:
 	    MOV    MAXROW,AL		 ;AN000; ;default (25) is assumed.
 	  .ENDIF			 ;AN000;
 	.ENDIF				 ;AN000;
+	IFDEF	PC88VA
+	MOV	AH,80			;INT 10h is a hardware vector on the PC-88VA.
+	ELSE
 	MOV	AH,0FH
 	INT	10H
+	ENDIF
 	MOV	MAXCOL,AH
 
 	XOR	BX,BX			; DUP FILE HANDLE 0

@@ -467,6 +467,10 @@ NOLIST:
 	ADD	ES:WORD PTR [8],BX
 
 	IF	IBMVER
+	IFDEF	PC88VA
+; PC-88VA: INT 10h is a hardware interrupt vector; the screen is 80 columns.
+	    JMP     PARSCHK
+	ENDIF
 ; Get screen size and initialize display related variables
 	    MOV     AH,15		;function = "request current video state"
 	    INT     10H 		;set al=screen mode

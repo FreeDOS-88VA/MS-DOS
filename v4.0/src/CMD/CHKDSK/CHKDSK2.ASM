@@ -330,6 +330,12 @@ avail_clus:
 ;dcl Jan 8, 87 Compensate for RAM Carving - Start
 
 ramcarv:
+	IFDEF	PC88VA
+; PC-88VA: INT 15h is a hardware interrupt vector; no RAM carving.
+	push	es
+	xor	bx,bx			;No adjustment.
+	jmp	short $$IF22
+	ENDIF
 	push	es								;AN000;
 	xor	bx,bx								;AN000;
 	mov	ah,0c1h 		; return Ext'd Bios Data Seg Address    ;AN000;

@@ -663,6 +663,12 @@ void DisplayBaseSummary()                                                       
         FP_SEG(PSPptr) = OutRegs.x.bx;          /* PSP segment */                                                                /* ;an000; */
         FP_OFF(PSPptr) = 0;                     /* offset 0 */                                                                   /* ;an000; */
 
+#ifdef PC88VA
+/* PC-88VA: INT 12h and INT 15h are hardware interrupt vectors.  The
+   memory arena ends at the conventional-memory size measured at boot. */
+        total_mem = (unsigned long int) DOS_TopOfMemory * 16l;
+        avail_mem = total_mem;
+#else
 /* Get total memory in system */                                                                                                 /* ;an000; */
         int86(MEMORY_DET,&InRegs,&OutRegs);                                                                                      /* ;an000; */
                                                                                                                                  /* ;an000; */
@@ -679,6 +685,7 @@ void DisplayBaseSummary()                                                       
                 total_mem = total_mem + ( (unsigned long int) (*CarvedPtr) * 1024l) ;   /* ;an002; dms;adjust total for */
                 }                                                                       /*             RAM carve value  */
                                                                                                                                  /* ;an000; */
+#endif
         Sub1_Message(TotalMemoryMsg,STDOUT,Utility_Msg_Class,&total_mem);                                                        /* ;an000; */
                                                                                                                                  /* ;an000; */
         Sub1_Message(AvailableMemoryMsg,STDOUT,Utility_Msg_Class,&avail_mem);                                                    /* ;an000; */

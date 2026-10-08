@@ -1798,12 +1798,22 @@ $$EN26:
 
 INTERRL:jmp INTERRL			; hang here - we're sick
 
+   IFDEF PC88VA
+; PC-88VA: print the NUL-terminated string at DS:SI with the text BIOS.
+gout: push dx
+   mov	dx,8000h
+   mov	ah,2
+   int	83h
+   pop	dx
+   ret
+   ELSE
 gout: lodsb
    or	al,al
    retz
    mov	ah,14
    int	10h
    jmp	gout
+   ENDIF
 
 IntErrMsg DB "Share: Internal error", 13, 10, 0
 
