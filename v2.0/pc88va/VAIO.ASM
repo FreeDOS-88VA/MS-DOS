@@ -416,25 +416,15 @@ AUX_READ:
 AUX_REA9:
         JMP     EXIT
 
-; The clock keeps the date and time last set through DOS:
-; days since 1-1-80 (word), minutes, hours, hundredths, seconds.
-TIMBUF  DB      6 DUP (0)
+; CLOCK$ reads and sets the PC-88VA calendar.
+        INCLUDE VACLOCK.INC
 
 TIM_RED:
-        MOV     SI,OFFSET TIMBUF
-        MOV     CX,6
-        REP     MOVSB
+        CALL    VA_RDCLK
         JMP     EXIT
 
 TIM_WRT:
-        MOV     SI,DI
-        PUSH    ES
-        POP     DS
-        PUSH    CS
-        POP     ES
-        MOV     DI,OFFSET TIMBUF
-        MOV     CX,6
-        REP     MOVSB
+        CALL    VA_WRCLK
         JMP     EXIT
 
         SUBTTL  Floppy disk.
