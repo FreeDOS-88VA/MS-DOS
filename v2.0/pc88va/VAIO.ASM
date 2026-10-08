@@ -442,25 +442,12 @@ BPB     DW      SECSIZ          ;Bytes per sector.
 BPBTAB  DW      BPB,BPB
 
 CALLFL  DW      0245H           ;Flags for ROM disk calls.
-OPCODE  DB      0               ;81H read, 82H write.
-DRIVE   DB      0
-TRACK   DB      0               ;Cylinder * 2 + head.
-SECTOR  DB      0               ;1-based sector.
-TRIES   DB      0
 
 DSK_INIT:
         LDS     BX,[PTRSAV]
         MOV     BYTE PTR [BX+INITUNITS],NUNITS
         MOV     WORD PTR [BX+INITBPB],OFFSET BPBTAB
         MOV     WORD PTR [BX+INITBPB+2],CS
-        MOV     AL,0
-        JMP     EXIT
-
-; The ROM does not report changes; "don't know" lets DOS decide.
-MEDIAC: CMP     AL,NUNITS
-        JAE     BADUNIT
-        LDS     BX,[PTRSAV]
-        MOV     BYTE PTR [BX+MEDSTAT],0
         MOV     AL,0
         JMP     EXIT
 
@@ -478,92 +465,7 @@ BADUNIT:
         MOV     AL,1
         JMP     ERR_EXIT
 
-; AL = unit, ES:DI = transfer address, CX = sectors, DX = first sector.
-DSK_RED:
-        MOV     [OPCODE],81H
-        JMP     SHORT DSK_COM
-DSK_WRT:
-        MOV     [OPCODE],82H
-DSK_COM:
-        CMP     AL,NUNITS
-        JAE     BADUNIT
-        MOV     [DRIVE],AL
-        JCXZ    DSK_DONE
-DSK_SEC:
-        PUSH    CX
-        MOV     AX,DX
-        AND     AL,SECTRK-1
-        INC     AL
-        MOV     [SECTOR],AL
-        MOV     AX,DX
-        MOV     CL,3            ;Divide by SECTRK.
-        SHR     AX,CL
-        MOV     [TRACK],AL
-        MOV     [TRIES],3
-DSK_TRY:
-        PUSH    DX
-        PUSH    DI
-        PUSH    ES
-        PUSH    DS
-        MOV     AH,0AH          ;Select the 2HD/1024-byte mode.
-        MOV     AL,FDMODE
-        MOV     CH,[DRIVE]
-        PUSH    CS:[CALLFL]
-        POPF
-        INT     80H
-        POP     DS
-        PUSH    DS
-        JC      DSK_FAIL
-        OR      AH,AH
-        JNZ     DSK_FAIL
-        MOV     BP,DI           ;ES:BP = transfer address.
-        MOV     AL,[TRACK]
-        MOV     CL,AL
-        MOV     CH,[DRIVE]
-        MOV     BH,AL
-        SHR     BH,1            ;Cylinder.
-        MOV     BL,AL
-        AND     BL,1            ;Head.
-        MOV     DH,[SECTOR]
-        MOV     DL,SECLEN
-        MOV     AH,[OPCODE]
-        MOV     AL,1
-        PUSH    CS:[CALLFL]
-        POPF
-        INT     80H
-        JC      DSK_FAIL
-        OR      AH,AH
-        JNZ     DSK_FAIL
-        POP     DS
-        POP     ES
-        POP     DI
-        POP     DX
-        MOV     AX,ES           ;Advance by one sector.
-        ADD     AX,SECSIZ/16
-        MOV     ES,AX
-        INC     DX
-        POP     CX
-        LOOP    DSK_SEC
-DSK_DONE:
-        MOV     AL,0
-        JMP     EXIT
-
-DSK_FAIL:
-        POP     DS
-        POP     ES
-        POP     DI
-        POP     DX
-        DEC     [TRIES]
-        JNZ     DSK_TRY
-        POP     CX
-        LDS     BX,CS:[PTRSAV]
-        MOV     [BX.COUNT],0
-        MOV     AL,11           ;Read fault.
-        CMP     CS:[OPCODE],82H
-        JNE     DSK_FL1
-        MOV     AL,10           ;Write fault.
-DSK_FL1:
-        JMP     ERR_EXIT
+        INCLUDE VAFDXFER.INC
 
         SUBTTL  Initialization (overlaid by MSDOS.SYS).
         PAGE

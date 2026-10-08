@@ -494,25 +494,12 @@ BPB     DW      SECSIZ          ;Bytes per sector.
 BPBTAB  DW      BPB,BPB
 
 CALLFL  DW      0245H           ;Flags for ROM disk calls.
-OPCODE  DB      0               ;81H read, 82H write.
-DRIVE   DB      0
-TRACK   DB      0               ;Cylinder * 2 + head.
-SECTOR  DB      0               ;1-based sector.
-TRIES   DB      0
 
 DSK_INIT:
         LDS     BX,[PTRSAV]
         MOV     BYTE PTR [BX+INITUNITS],NUNITS
         MOV     WORD PTR [BX+INITBPB],OFFSET BPBTAB
         MOV     WORD PTR [BX+INITBPB+2],CS
-        MOV     AL,0
-        JMP     EXIT
-
-; The ROM does not report changes; "don't know" lets DOS decide.
-MEDIAC: CMP     AL,NUNITS
-        JAE     BADUNIT
-        LDS     BX,[PTRSAV]
-        MOV     BYTE PTR [BX+MEDSTAT],0
         MOV     AL,0
         JMP     EXIT
 
@@ -571,124 +558,7 @@ BADUNIT:
         MOV     AL,1
         JMP     ERR_EXIT
 
-; AL = unit, ES:DI = transfer address, CX = sectors, DX = first sector.
-DSK_RED:
-        MOV     [OPCODE],81H
-        JMP     SHORT DSK_COM
-DSK_WRT:
-        MOV     [OPCODE],82H
-DSK_COM:
-        CMP     AL,NUNITS
-        JAE     BADUNIT
-        CALL    DSK_XFER
-        JC      DSK_ERR
-        MOV     AL,0
-        JMP     EXIT
-DSK_ERR:
-        LDS     BX,CS:[PTRSAV]
-        MOV     [BX.COUNT],0
-        JMP     ERR_EXIT
-
-; Transfer CX sectors from logical sector DX of unit AL to or from ES:DI
-; with ROM operation [OPCODE] (81h read, 82h write), one sector per call.
-; CF=1 and AL = DOS error code on failure.
-DSK_XFER:
-        MOV     [DRIVE],AL
-        JCXZ    DSK_X9
-DSK_SEC:
-        PUSH    CX
-        MOV     AX,DX
-        AND     AL,SECTRK-1
-        INC     AL
-        MOV     [SECTOR],AL
-        MOV     AX,DX
-        MOV     CL,3            ;Divide by SECTRK.
-        SHR     AX,CL
-        MOV     [TRACK],AL
-        MOV     [TRIES],3
-DSK_TRY:
-        PUSH    DX
-        PUSH    DI
-        PUSH    ES
-        PUSH    DS
-        MOV     AH,0AH          ;Select the 2HD/1024-byte mode.
-        MOV     AL,FDMODE
-        MOV     CH,[DRIVE]
-        PUSH    CS:[CALLFL]
-        POPF
-        INT     80H
-        POP     DS
-        PUSH    DS
-        JC      DSK_FAIL
-        OR      AH,AH
-        JNZ     DSK_FAIL
-        MOV     BP,DI           ;ES:BP = transfer address.
-        MOV     AL,[TRACK]
-        MOV     CL,AL
-        MOV     CH,[DRIVE]
-        MOV     BH,AL
-        SHR     BH,1            ;Cylinder.
-        MOV     BL,AL
-        AND     BL,1            ;Head.
-        MOV     DH,[SECTOR]
-        MOV     DL,SECLEN
-        MOV     AH,[OPCODE]
-        MOV     AL,1
-        PUSH    CS:[CALLFL]
-        POPF
-        INT     80H
-        JC      DSK_FAIL
-        OR      AH,AH
-        JNZ     DSK_FAIL
-        POP     DS
-        POP     ES
-        POP     DI
-        POP     DX
-        MOV     AX,ES           ;Advance by one sector.
-        ADD     AX,SECSIZ/16
-        MOV     ES,AX
-        INC     DX
-        POP     CX
-        LOOP    DSK_SEC
-DSK_X9: CLC
-        RET
-
-DSK_FAIL:
-        MOV     CS:[XSTAT],AH
-        POP     DS
-        POP     ES
-        POP     DI
-        POP     DX
-        DEC     [TRIES]
-        JNZ     DSK_TRY
-        POP     CX
-        MOV     AL,[XSTAT]      ;Map the ROM status to a DOS error.
-        MOV     BX,OFFSET ERRMAP
-DSK_FL1:
-        MOV     AH,[BX]
-        INC     BX
-        CMP     AH,0FFH
-        JE      DSK_FL2
-        CMP     AH,AL
-        JE      DSK_FL3
-        INC     BX
-        JMP     DSK_FL1
-DSK_FL2:
-        MOV     BL,11           ;Read fault.
-        CMP     [OPCODE],82H
-        JNE     DSK_FL4
-        MOV     BL,10           ;Write fault.
-        JMP     SHORT DSK_FL4
-DSK_FL3:
-        MOV     BL,[BX]
-DSK_FL4:
-        MOV     AL,BL
-        STC
-        RET
-
-; ROM floppy status, DOS error code.
-ERRMAP  DB      03H,2, 04H,2, 05H,0, 06H,4, 07H,4, 08H,8, 09H,6, 0AH,6
-        DB      0BH,7, 0CH,8, 0FFH
+        INCLUDE VAFDXFER.INC
 
         SUBTTL  Generic IOCTL.
         PAGE
@@ -783,7 +653,6 @@ DSK_OWN:
         JMP     EXIT
 
 GUNIT   DB      0
-XSTAT   DB      0
 MIDCACHE DB     NUNITS*24 DUP (0) ;Per unit: valid flag, serial, label, type.
 
         SUBTTL  Initialization (overlaid by MSDOS.SYS).

@@ -117,45 +117,71 @@ LOADF3: CMP     AX,2
         JMP     FAIL
 LOADF6: CMP     AX,0FF8H
         JAE     LOADF5
-        PUSH    AX
+        MOV     [RUN0],AX       ;Collect a run of consecutive clusters.
+        MOV     [RUNN],0
+LOADF7: INC     [RUNN]
+        CALL    NEXTCL
+        MOV     DX,[RUN0]
+        ADD     DX,[RUNN]
+        CMP     AX,DX
+        JE      LOADF7
+        PUSH    AX              ;First cluster of the next run.
+        MOV     AX,[RUN0]
         SUB     AX,2
         MOV     CL,[SPC]
         XOR     CH,CH
         MUL     CX
         ADD     AX,[DATALBA]
+        PUSH    AX
+        MOV     AX,[RUNN]
+        MUL     CX
+        MOV     CX,AX
+        POP     AX
         PUSH    ES
         MOV     ES,[LOADSEG]
         XOR     DI,DI
-        CALL    READN           ;Advances ES:DI past the cluster.
-        MOV     AX,DI
-        MOV     CL,4
-        SHR     AX,CL
-        MOV     DX,ES
-        ADD     AX,DX
+        CALL    READN
         MOV     [LOADSEG],AX
         POP     ES
         POP     AX
-        MOV     BX,AX           ;Next FAT12 entry.
+        JMP     LOADF3
+LOADF5: RET
+
+; AX = cluster; returns AX = next cluster from the FAT12 buffer.
+NEXTCL: MOV     BX,AX
         SHR     BX,1
         ADD     BX,AX
         MOV     DX,[FATBUF+BX]
         TEST    AL,1
-        JZ      LOADF4
+        JZ      NEXTC1
         MOV     CL,4
         SHR     DX,CL
-LOADF4: AND     DX,0FFFH
+NEXTC1: AND     DX,0FFFH
         MOV     AX,DX
-        JMP     LOADF3
-LOADF5: RET
+        RET
 
-; Read CX sectors from LBA AX to ES:DI; DI advances by the bytes read.
-READN:  JCXZ    READN9
-READN1: PUSH    AX
-        PUSH    CX
+; Read CX sectors from LBA AX to ES:DI, the sectors of one track in one
+; ROM call.  ES is preserved; AX returns the segment that follows the data
+; (for DI = 0).
+READN:  PUSH    ES
+        JMP     SHORT READN0
+READN9: MOV     AX,ES
+        POP     ES
+        RET
+READN0: OR      CX,CX
+        JZ      READN9
+        MOV     [LBA],AX
+        MOV     [CNT],CX
         MOV     [TRIES],3
-READN2: PUSH    AX
+READN2: MOV     AX,[LBA]
         XOR     DX,DX
         DIV     [SPT]
+        MOV     BX,[SPT]
+        SUB     BX,DX           ;Sectors left on this track.
+        CMP     BX,[CNT]
+        JBE     READN4
+        MOV     BX,[CNT]
+READN4: MOV     [NREAD],BL
         INC     DL
         MOV     [SECTOR],DL
         XOR     DX,DX
@@ -169,23 +195,29 @@ READN2: PUSH    AX
         MOV     DH,[SECTOR]
         MOV     DL,SECLEN
         MOV     BP,DI
-        MOV     AX,8101H        ;Read one sector to ES:BP.
+        MOV     AH,81H          ;Read AL sectors to ES:BP.
+        MOV     AL,[NREAD]
         PUSH    DS
         PUSH    ES
         INT     80H
         POP     ES
         POP     DS
-        POP     AX
         JNC     READN3
         DEC     [TRIES]
         JNZ     READN2
-        JMP     SHORT FAIL
-READN3: POP     CX
-        POP     AX
-        ADD     DI,[BPS]
-        INC     AX
-        LOOP    READN1
-READN9: RET
+        JMP     FAIL
+READN3: MOV     AL,[NREAD]
+        XOR     AH,AH
+        ADD     [LBA],AX
+        SUB     [CNT],AX
+        MOV     CL,6            ;1024-byte sectors = 64 paragraphs.
+        SHL     AX,CL
+        MOV     DX,ES
+        ADD     DX,AX
+        MOV     ES,DX
+        MOV     AX,[LBA]
+        MOV     CX,[CNT]
+        JMP     READN0
 
 FAIL:   PUSH    CS
         POP     DS
@@ -211,7 +243,12 @@ ROOTLBA DW      0
 ROOTN   DW      0
 DATALBA DW      0
 LOADSEG DW      0
-DOSSEGV  DW      0
+DOSSEGV DW      0
+RUN0    DW      0
+RUNN    DW      0
+LBA     DW      0
+CNT     DW      0
+NREAD   DB      0
 TRIES   DB      0
 SECTOR  DB      0
 
