@@ -1,0 +1,4 @@
+ABCDEF
+@wait 100
+@key escape
+@text TD

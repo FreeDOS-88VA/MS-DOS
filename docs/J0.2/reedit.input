@@ -1,0 +1,12 @@
+ABCDEF
+@wait 100
+@text XYZ
+@key escape
+@text J
+@key escape
+@text S
+@key escape
+@text E
+@wait 150
+@key escape
+@text U
