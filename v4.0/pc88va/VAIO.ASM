@@ -323,6 +323,12 @@ RE_INIT:
         MOV     DS:[33H*4],AX
         MOV     AX,WORD PTR CS:[OLD33+2]
         MOV     DS:[33H*4+2],AX
+        ; DCh is free on VA/VA2 (technical manual 2.1, C0h-FFh).
+        PUSHF
+        CLI
+        MOV     WORD PTR DS:[0DCH*4],OFFSET KEYINT
+        MOV     DS:[0DCH*4+2],CS
+        POPF
         POP     DS
         POP     AX
         RET
@@ -391,6 +397,156 @@ CONEDIT LABEL   BYTE
         DB      1AH,5 DUP (0)   ;HOME/CLR
         DB      6 DUP (0)       ;HELP
         DB      1EH,5 DUP (0)   ;SHIFT+HOME/CLR
+
+; NEC INT DCh programmable keys, DS:DX = buffer. AX and flags unchanged.
+; AX=0 is the compact table; FFh uses PC-98 ordering, including slots
+; for keys not wired up on VA (zero on read, ignored on write).
+KEYINT  PROC    FAR
+        CMP     CL,0CH
+        JE      KIENTER
+        CMP     CL,0DH
+        JE      KIENTER
+        IRET
+KIENTER:PUSH    AX
+        PUSH    BX
+        PUSH    CX
+        PUSH    DX
+        PUSH    SI
+        PUSH    DI
+        PUSH    ES
+        PUSH    DS
+        CLD
+        MOV     DI,DX           ;Caller buffer, kept in ES:DI.
+        PUSH    DS
+        POP     ES
+        PUSH    CS
+        POP     DS
+        MOV     DL,CL           ;Operation, preserved by helpers.
+        MOV     BX,AX           ;Slot number or bulk selector.
+        CMP     BX,0FFH
+        JE      KIFULL
+        CMP     BX,3AH
+        JE      KICTRL
+        CMP     BX,39H
+        JA      KIDONE
+        CMP     BX,1
+        JB      KICOMPACT
+        CMP     BX,31
+        JBE     KISINGLE
+        MOV     CX,16
+        CALL    KIZERO
+        JMP     SHORT KIDONE
+KICTRL: MOV     CX,11*16
+        CALL    KIZERO
+        JMP     SHORT KIDONE
+KISINGLE:
+        MOV     DH,BL
+        CALL    KISLOT
+        JMP     SHORT KIDONE
+KICOMPACT:
+        MOV     BX,1
+        MOV     DH,31
+        CALL    KIRANGE
+        JMP     SHORT KIDONE
+KIFULL: MOV     BX,1
+        MOV     DH,10
+        CALL    KIRANGE
+        MOV     CX,5*16         ;VF1–VF5.
+        CALL    KIZERO
+        MOV     DH,20
+        CALL    KIRANGE
+        MOV     CX,5*16         ;Shift+VF1–VF5.
+        CALL    KIZERO
+        MOV     DH,31
+        CALL    KIRANGE
+        MOV     CX,15*16        ;Ctrl+F1–F10 and Ctrl+VF1–VF5.
+        CALL    KIZERO
+KIDONE: POP     DS
+        POP     ES
+        POP     DI
+        POP     SI
+        POP     DX
+        POP     CX
+        POP     BX
+        POP     AX
+        IRET
+KEYINT  ENDP
+
+KIZERO: CMP     DL,0CH
+        JNE     KISKIP
+        XOR     AL,AL
+        REP     STOSB
+        RET
+KISKIP: ADD     DI,CX
+        RET
+
+; Transfer BX through DH inclusive. BX advances to the next selector.
+KIRANGE:CALL    KISLOT
+        INC     BX
+        CMP     BL,DH
+        JBE     KIRANGE
+        RET
+
+KISLOT: MOV     AX,BX
+        DEC     AX
+        CMP     BX,20
+        JA      KIEDIT
+        MOV     CL,4
+        SHL     AX,CL
+        ADD     AX,OFFSET CONKEYS
+        MOV     CX,16
+        JMP     SHORT KIXFER
+KIEDIT: SUB     AX,20
+        MOV     CL,6
+        MUL     CL
+        ADD     AX,OFFSET CONEDIT
+        MOV     CX,6
+KIXFER: MOV     SI,AX
+        CMP     DL,0DH
+        JE      KIWRITE
+        REP     MOVSB
+        RET
+KIWRITE:MOV     [KEYNEXT],0     ;Drop an in-flight expanded string only.
+        DEC     CX              ;Never store a nonzero final byte.
+KIWCOPY:MOV     AL,ES:[DI]
+        MOV     [SI],AL
+        INC     DI
+        INC     SI
+        LOOP    KIWCOPY
+        MOV     BYTE PTR [SI],0
+        INC     DI
+        CMP     [LABELON],-1
+        JE      KIWBCK
+        ; ES:DX = new ROM definition; CL = ROM soft-key number.
+        ; DefSft is display-only (ROM expansion remains off).
+        PUSH    BX
+        PUSH    DX
+        PUSH    DI
+        PUSH    ES
+        MOV     DX,SI
+        SUB     DX,15
+        CMP     BX,20
+        JBE     KIROM
+        ADD     DX,10
+KIROM:  MOV     CX,BX
+        CALL    ROMKEY
+        POP     ES
+        POP     DI
+        POP     DX
+        POP     BX
+KIWBCK: RET
+
+; DefSft is also used by INITTEXT. Keep DS and BP across the ROM call.
+ROMKEY: PUSH    DS
+        PUSH    BP
+        PUSH    CS
+        POP     ES
+        MOV     AH,03H
+        INT     82H
+        CLD
+        POP     BP
+        POP     DS
+        RET
 
 ; Peek: ZF=1 if no character is waiting, else ZF=0 and AL = byte.
 ; A selected string takes precedence over any later primitive queue
@@ -983,10 +1139,7 @@ INITTEXT:
         MOV     DX,OFFSET CONKEYS
 INITKEY:PUSH    CX
         PUSH    DX
-        PUSH    CS
-        POP     ES
-        MOV     AH,03H          ;DefSft: CL=key number, ES:DX=string.
-        INT     82H
+        CALL    ROMKEY
         POP     DX
         POP     CX
         ADD     DX,16
