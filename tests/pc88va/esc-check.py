@@ -109,7 +109,7 @@ def check(run):
     row(22, 8, '   ]')
     for y, text in [(3,'Z OK'), (5,'? OK'), (7,'LONG OK'), (9,'X OK'),
                     (11,'[11;20HESC OK'), (13,'OVER OK'),
-                    (15,'789012345678901234567890zHARD OK')]:
+                    (15,'6789012345678901234567890zHARD OK')]:  # byte 96 is replayed
         row(23, y, text)
     for n in (24, 25):
         assert len(pages[n]) == 25
