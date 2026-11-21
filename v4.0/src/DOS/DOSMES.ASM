@@ -202,13 +202,14 @@ COLLATE_TAB    label   byte
 ; DBCS for DOS 4.00			   2/12/KK
    PUBLIC    DBCS_TAB
 DBCS_TAB	label byte		;AN000;  2/12/KK
-		dw	0		;AN000;  2/12/KK      max number
-		db	16 dup(0)	;AN000;  2/12/KK
-
-;		dw	6		;  2/12/KK
-;		db	081h,09fh	;  2/12/KK
-;		db	0e0h,0fch	;  2/12/KK
-;		db	0,0		;  2/12/KK
+IFDEF PC88VA
+		dw	6		; byte count includes the terminator
+		db	081h,09fh,0e0h,0fch,0,0
+		db	10 dup(0)	; retain space for NLS table updates
+ELSE
+		dw	0
+		db	16 dup(0)
+ENDIF
 ;
 ;
 include divmes.asm
