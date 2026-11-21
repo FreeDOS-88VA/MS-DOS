@@ -346,33 +346,135 @@ KEYSTS_Func DB  1
         SUBTTL  Console.
         PAGE
 
-CHAR    DB      0               ;One-character type-ahead.
+CHAR    DB      0               ;Cached ordinary character, or 0.
+KEYNEXT DW      0               ;Offset of next string byte, or 0.
 OUTBUF  DB      0,0             ;NUL-terminated output string.
 
-; Return ZF=1 if no character is waiting, else ZF=0 and AL = character.
-; Read the primitive KB queue (functions 0Ah and 09h), which bypasses the
-; Japanese front-end processor; keys without an internal code are dropped.
+; NEC CON key table: 20 x 16 bytes followed by 11 x 6 bytes. Each
+; slot has a NUL terminator; the F-key prefix is display metadata.
+NECFKEY MACRO   field,letter
+        DB      0FEH,field,1BH,letter,8 DUP (0)
+        ENDM
+
+CONKEYS LABEL   BYTE
+        NECFKEY <' C1  '>,'S'
+        NECFKEY <' CU  '>,'T'
+        NECFKEY <' CA  '>,'U'
+        NECFKEY <' S1  '>,'V'
+        NECFKEY <' SU  '>,'W'
+        NECFKEY <'VOID '>,'E'
+        NECFKEY <'NWL  '>,'J'
+        NECFKEY <'INS  '>,'P'
+        NECFKEY <'REP  '>,'Q'
+        NECFKEY <' ^Z  '>,'Z'
+        DB      'dir a:',0DH,9 DUP (0)
+        DB      'dir b:',0DH,9 DUP (0)
+        DB      'copy ',11 DUP (0)
+        DB      'del ',12 DUP (0)
+        DB      'ren ',12 DUP (0)
+        DB      'chkdsk a:',0DH,6 DUP (0)
+        DB      'chkdsk b:',0DH,6 DUP (0)
+        DB      'type ',11 DUP (0)
+        DB      'date',0DH,11 DUP (0)
+        DB      'time',0DH,11 DUP (0)
+CONEDIT LABEL   BYTE
+        DB      6 DUP (0)       ;ROLL UP
+        DB      6 DUP (0)       ;ROLL DOWN
+        DB      1BH,'P',4 DUP (0) ;INS
+        DB      1BH,'D',4 DUP (0) ;DEL
+        DB      0BH,5 DUP (0)   ;UP
+        DB      08H,5 DUP (0)   ;LEFT
+        DB      0CH,5 DUP (0)   ;RIGHT
+        DB      0AH,5 DUP (0)   ;DOWN
+        DB      1AH,5 DUP (0)   ;HOME/CLR
+        DB      6 DUP (0)       ;HELP
+        DB      1EH,5 DUP (0)   ;SHIFT+HOME/CLR
+
+; Peek: ZF=1 if no character is waiting, else ZF=0 and AL = byte.
+; A selected string takes precedence over any later primitive queue
+; entries. Status can cache a key but never advances its string.
 CISTAT: MOV     AL,CS:[CHAR]
         OR      AL,AL
-        JNZ     CISTA9
-        PUSH    BX
-        PUSH    CX
+        JZ      CISTAP
+        RET
+CISTAP: PUSH    BX
+        MOV     BX,CS:[KEYNEXT]
+        OR      BX,BX
+        JZ      CISTA0
+        MOV     AL,CS:[BX]
+        OR      AL,AL
+        JZ      CISTAZ
+        POP     BX
+        RET
+CISTAZ: MOV     CS:[KEYNEXT],0
+CISTA0: PUSH    CX
         PUSH    DX
         PUSH    SI
         PUSH    DI
         PUSH    BP
         PUSH    DS
         PUSH    ES
-CISTA1: MOV     AH,0AH          ;Sense the KB queue: CF=1 if empty.
+; PrmSnsK/PrmGetK bypass the JFP. Decode AH before falling back to AL,
+; so a known special scan always uses the CON definition.
+CISTA1: MOV     AH,0AH
         INT     82H
-        JC      CISTA8
-        MOV     AH,09H          ;Take the key code.
+        JNC     CISTAG
+        XOR     AL,AL
+        JMP     CISTAR
+CISTAG: MOV     AH,09H
         INT     82H
-        OR      AL,AL           ;AL = internal code.
-        JZ      CISTA1
+        MOV     DL,AL           ;Save internal code for ordinary keys.
+        MOV     AL,AH
+        SUB     AL,62H
+        CMP     AL,10
+        JB      CISTAF
+        SUB     AL,20H
+        CMP     AL,10
+        JAE     CISTAE
+        ADD     AL,10
+CISTAF: XOR     AH,AH
+        MOV     CL,4
+        SHL     AX,CL
+        MOV     BX,OFFSET CONKEYS
+        ADD     BX,AX
+        CMP     BYTE PTR CS:[BX],0FEH
+        JNE     CISTAS
+        ADD     BX,6
+        JMP     SHORT CISTAS
+
+CISTAE: MOV     AL,AH           ;Shift and Ctrl arrows share base slots.
+        CMP     AL,0AAH
+        JB      CISTAB
+        CMP     AL,0ADH
+        JBE     CISTAX
+        CMP     AL,0AEH
+        JE      CISTAH
+        CMP     AL,0BAH
+        JB      CISTAA
+        CMP     AL,0BDH
+        JA      CISTAA
+        SUB     AL,10H
+CISTAX: SUB     AL,70H
+CISTAB: SUB     AL,36H
+        CMP     AL,10
+        JB      CISTAI
+CISTAA: MOV     AL,DL
+        OR      AL,AL
+        JZ      CISTA1          ;Unknown scan without an internal code.
         MOV     CS:[CHAR],AL
-CISTA8: MOV     AL,CS:[CHAR]
-        POP     ES
+        JMP     SHORT CISTAR
+CISTAH: MOV     AL,10           ;SHIFT+HOME/CLR follows HELP.
+CISTAI: XOR     AH,AH
+        MOV     BL,6
+        MUL     BL
+        MOV     BX,OFFSET CONEDIT
+        ADD     BX,AX
+CISTAS: MOV     AL,CS:[BX]
+        OR      AL,AL
+        JNZ     CISTAC
+        JMP     CISTA1          ;Empty definition; try the next key.
+CISTAC: MOV     CS:[KEYNEXT],BX
+CISTAR: POP     ES
         POP     DS
         POP     BP
         POP     DI
@@ -381,11 +483,15 @@ CISTA8: MOV     AL,CS:[CHAR]
         POP     CX
         POP     BX
         OR      AL,AL
-CISTA9: RET
+        RET
 
 CINP:   CALL    CISTAT
         JZ      CINP
-        MOV     CS:[CHAR],0
+        CMP     CS:[KEYNEXT],0
+        JE      CINP1
+        INC     CS:[KEYNEXT]
+        RET
+CINP1:  MOV     CS:[CHAR],0
         RET
 
 CON_RDND:
@@ -401,6 +507,7 @@ CON_READ:
         JCXZ    CON_REA9
 CON_REA1:
         CALL    CINP
+        CLD                     ;The keyboard BIOS may change DF.
         STOSB
         LOOP    CON_REA1
 CON_REA9:
@@ -408,12 +515,9 @@ CON_REA9:
 
 CON_FLSH:
         MOV     [CHAR],0
-CON_FLS1:
-        CALL    CISTAT
-        JZ      CON_FLS9
-        MOV     [CHAR],0
-        JMP     CON_FLS1
-CON_FLS9:
+        MOV     [KEYNEXT],0
+        CALL    CISTAT          ;Drain ROM queue, discarding whole strings.
+        JNZ     CON_FLSH
         JMP     EXIT
 
 CON_WRIT:
