@@ -260,7 +260,12 @@ CANCHAR DB	CANCEL			;Cancel line character
 ESCCHAR DB	ESCCH			;Lead-in character for escape sequences
 	IF	NOT Rainbow
 ESCTAB	LABEL BYTE
-	IF	NOT IBM
+	IFDEF	PC88VA
+IBMEDIT EQU	FALSE			; Use the ESC-letter table, not IBM scan codes
+	ELSE
+IBMEDIT EQU	IBM
+	ENDIF
+	IF	NOT IBMEDIT
 	IF	WANG
 	DB	0C0h			; ^Z inserter
 	DB	0C1H			; Copy one char
@@ -293,8 +298,7 @@ ESCTAB	LABEL BYTE
 	DB	"R"                     ; GRAY Escape character
 	DB	"R"                     ; End of table
 	ENDIF
-	ENDIF
-	IF	IBM
+	ELSE
 	DB	64			; Ctrl-Z - F6
 	DB	77			; Copy one char - -->
 	DB	59			; Copy one char - F1
