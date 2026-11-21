@@ -1,0 +1,52 @@
+debug-script 1
+limit-frame 2200
+wait-frame 600
+input-line CONKEY K
+wait-frame 1120
+key-tap F1 3
+wait-frame 1155
+key-tap F2 3
+wait-frame 1190
+key-tap F3 3
+wait-frame 1225
+key-tap F4 3
+wait-frame 1260
+key-tap F5 3
+wait-frame 1295
+key-tap F6 3
+wait-frame 1330
+key-tap F7 3
+wait-frame 1365
+key-tap F8 3
+wait-frame 1400
+key-tap F9 3
+wait-frame 1435
+key-tap F10 3
+wait-frame 1500
+key-down SHIFT
+wait-frame 1520
+key-tap F1 3
+wait-frame 1555
+key-tap F2 3
+wait-frame 1590
+key-tap F3 3
+wait-frame 1625
+key-tap F4 3
+wait-frame 1660
+key-tap F5 3
+wait-frame 1695
+key-tap F6 3
+wait-frame 1730
+key-tap F7 3
+wait-frame 1765
+key-tap F8 3
+wait-frame 1800
+key-tap F9 3
+wait-frame 1835
+key-tap F10 3
+wait-frame 1870
+key-up SHIFT
+wait-frame 1910
+key-tap Q 3
+wait-frame 2050
+exit

@@ -1,0 +1,10 @@
+debug-script 1
+limit-frame 2200
+wait-frame 600
+input-line DIR
+wait-frame 1200
+key-tap F3 3
+wait-frame 1460
+key-tap RETURN 3
+wait-frame 2050
+exit

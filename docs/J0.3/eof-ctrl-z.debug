@@ -1,0 +1,21 @@
+debug-script 1
+limit-frame 3620
+wait-frame 600
+input-line COPY CON T.TXT
+wait-frame 1400
+input-line ABC
+wait-frame 1800
+input-line DEF
+wait-frame 2190
+key-down CTRL
+wait-frame 2200
+key-tap Z 3
+wait-frame 2210
+key-up CTRL
+wait-frame 2350
+key-tap RETURN 3
+wait-frame 2850
+input-line TYPE T.TXT
+wait-frame 3400
+wait-frame 3520
+exit
