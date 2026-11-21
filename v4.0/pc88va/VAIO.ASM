@@ -578,7 +578,7 @@ ROMKEY: PUSH    DS
 
 ; INT DC / CL=F0h, AX=4A46h. Reply AX=464Ah, BX=current mode.
 ; BX request: 0=query, 1=reserve for ROM, 2=commit ROM, 3=release,
-; 4=select project FEP (only from plain mode). Reply 3 means project.
+; 4=commit master-disabled project FEP from reservation. Reply 3=project.
 ; Only JFP.COM calls the transition operations. No DOS or JFP reset here.
 JFPINT: PUSH    CX
         PUSH    DX
@@ -599,13 +599,17 @@ JFPTEST3:CMP    BX,3
         JE      JFPREL
         CMP     BX,4
         JNE     JFPREPLY
-        CMP     [JFPMODE],0
+        CMP     [JFPMODE],2
         JNE     JFPREPLY
-        CALL    JFPROW
-        CMP     [LABELON],10
+        XOR     CX,CX           ;GetJFP: require the expected master-off mode.
+        INT     8DH
+        CMP     AX,8F80H
         JNE     JFPREPLY
         CALL    JFPCLEAR
-        MOV     [JFPMODE],3
+        MOV     CS:[JFPMODE],3
+        MOV     CS:[JFPSEEN],1
+        MOV     CS:[JFPDIRTY],1
+        CALL    JFPRIDLE
 JFPREPLY:JMP    JFPACK
 JFPREL: CMP     [JFPMODE],3
         JE      JFPENDP

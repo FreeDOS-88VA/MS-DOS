@@ -59,13 +59,8 @@ NOTFEP: CMP     WORD PTR [ARG],'FO'
 USAGE:  MOV     DX,OFFSET HELPMSG
         JMP     FAIL
 
-PROJECT:CALL    QUERY
-        MOV     BX,4
-        CALL    VAIO
-        CMP     BX,3
-        JNE     BUSY
-        MOV     DX,OFFSET FEPMSG
-        JMP     SUCCESS
+PROJECT:MOV     [HEADLESS],1
+        JMP     SHORT ENABLE
 BUSY:   MOV     DX,OFFSET BUSYMSG
         JMP     FAIL
 
@@ -83,11 +78,19 @@ DISABLED:
         JMP     SUCCESS
 
 ENABLE: CALL    QUERY
+        OR      BX,BX
+        JZ      RESERVE
+        CMP     [HEADLESS],0
+        JE      CHECKROM
         CMP     BX,3
-        JE      BUSY
-        CMP     BX,1
-        JNE     RESERVE
+        JE      FEPENABLED
+        JMP     BUSY
+CHECKROM:CMP    BX,1
+        JNE     BUSY
         JMP     ENABLED
+FEPENABLED:
+        MOV     DX,OFFSET FEPMSG
+        JMP     SUCCESS
 RESERVE:
         ; A DOS abort must not leave INT 21h pointing into freed COM RAM.
         ; DOS restores INT 23h/24h from our PSP at process exit.
@@ -127,9 +130,30 @@ INITROM:
         MOV     BX,DX
         MOV     AX,ES:[BX+01DEH]
         OR      AX,ES:[BX+01E0H]
-        JZ      INITERR
-        CMP     [OPENERR],0
+        JNZ     INITLINK
+        JMP     INITERR
+INITLINK:CMP    [OPENERR],0
         JNE     BADFILES
+        CMP     [HEADLESS],0
+        JE      CHECKFILES
+        ; FEP only qualifies conversion with the built-in dictionary.
+        ; Require the two documented default-file attempts to have failed
+        ; with missing-file errors; reject external dictionaries/gaiji.
+        CMP     [OPENED],0
+        JNE     FEPFILES
+        CMP     [MISSING],2
+        JNE     FEPFILES
+        CALL    ROMOFF         ;KbFlsh + SetJFP, master disabled.
+        XOR     CX,CX
+        CALL    INTJFP          ;GetJFP
+        CMP     AX,8F80H
+        JNE     ROMERR
+        MOV     BX,4
+        CALL    VAIO
+        CMP     BX,3
+        JNE     ROMERR
+        JMP     FEPENABLED
+CHECKFILES:
         CMP     [MISSING],0
         JE      INITSET
         CMP     [ROMOK],0
@@ -153,6 +177,10 @@ INITSET:CALL    FLUSHKB
         JMP     SUCCESS
 ENABLED:MOV     DX,OFFSET ONMSG
         JMP     SUCCESS
+FEPFILES:
+        CALL    ROMOFF
+        MOV     DX,OFFSET FEPFILEMSG
+        JMP     SHORT ROLLBACK
 BADFILES:
         CALL    ROMOFF
         MOV     DX,OFFSET FILEMSG
@@ -162,14 +190,14 @@ INITERR:MOV     DX,OFFSET INITMSG
 ROLLBACK:
         MOV     BX,3
         CALL    VAIO
-        JMP     SHORT FAIL
+        JMP     FAIL
 
 QUERY:  XOR     BX,BX
         CALL    VAIO
         CMP     AX,464AH
         JE      QUERYOK
         MOV     DX,OFFSET NODRV
-        JMP     SHORT FAIL
+        JMP     FAIL
 QUERYOK:RET
 VAIO:   MOV     AX,4A46H
         MOV     CL,0F0H
@@ -220,9 +248,10 @@ OPENFILE:
         MOV     CS:[OPENERR],1
         JMP     SHORT OPENRET
 OPENMISS:
-        MOV     CS:[MISSING],1
+        INC     CS:[MISSING]
         JMP     SHORT OPENRET
-OPENOK: AND     WORD PTR [BP+6],0FFFEH
+OPENOK: INC     CS:[OPENED]
+        AND     WORD PTR [BP+6],0FFFEH
 OPENRET:POP     BP
         IRET
 OPENHOOK ENDP
@@ -242,13 +271,16 @@ OLD21   DD      0
 MISSING DB      0
 OPENERR DB      0
 ROMOK   DB      0
+HEADLESS DB     0
+OPENED  DB      0
 HELPMSG DB      'Usage: JFP ON | ROM | FEP | OFF',13,10
-        DB      'ROM allows missing default files and uses the built-in dictionary.',13,10,'$'
+        DB      'ROM allows missing default files; FEP requires the built-in dictionary.',13,10,'$'
 OFFMSG  DB      'JFP off; plain CON input.',13,10,'$'
 FEPMSG  DB      'Project FEP on. ZENKAKU: kana; F7: katakana; HENKAN: candidates.',13,10,'$'
 BUSYMSG DB      'Cannot select input mode. Use JFP OFF before switching.',13,10,'$'
 ONMSG   DB      'JFP on. ZENKAKU: kana; HENKAN: convert; KETTEI: confirm.',13,10,'$'
 ROMMSG  DB      'JFP on (ROM fallback: default file missing).',13,10,'$'
+FEPFILEMSG DB   'FEP requires both default files absent; plain CON input.',13,10,'$'
 FILEMSG DB      'JFP default-file open failed; plain CON input.',13,10,'$'
 INITMSG DB      'Cannot initialize JFP; plain CON input.',13,10,'$'
 NODRV   DB      'VAIO JFP interface not installed.',13,10,'$'

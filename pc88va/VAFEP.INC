@@ -1,4 +1,4 @@
-; Project kana front end. Included in resident VAIO, not a ROM JFP client.
+; Project kana front end with a headless JFP conversion backend.
 ; Reading cells hold a Shift-JIS word (lead in AH) or zero-extended ASCII.
 FEPMax  EQU     30              ;Fits on one system row, including the prefix.
 FEPWIDE DB      0
@@ -8,10 +8,18 @@ FEPPC   DW      0               ;Unresolved suffix length (0..4).
 FEPPEND DB      4 DUP (0)
 FEPCELLS DW     FEPMax DUP (0)
 FEPREAD DW      0               ;Next uncached confirmed byte, or zero.
-FEPCHOICE DB    0               ;Stub session: 1 katakana, 2 hiragana, 0 none.
+FEPCHOICE DB    0               ;An open candidate session.
 FEPKATA DB      0               ;Explicit F7, independent of the backend.
+FEPFOCUS DW     0               ;BIOS focus start:length in full-width cells.
+FEPCOUNT DB     0               ;Validated candidate length in cells.
+FEPINPUT DB     2*FEPMax+1 DUP (0) ;Immutable ASCIIZ full-width reading.
+FEPWORKMAX EQU  128             ;60 full-width cells + NUL fit.
+FEPWORK DB      FEPWORKMAX DUP (0)
+FEPGUARD DB     0
+FEPVISIBLE EQU  72              ;Leave room for prefix, focus and cursor.
 FEPPFX  DB      '[H] '
-FEPBUF  DB      2*FEPMax+6 DUP (0) ;Display/commit, plus suffix, CR and NUL.
+FEPBUF  DB      FEPVISIBLE+1 DUP (0) ;Unmarked candidate or editable reading.
+FEPCVIEW DB     '[C] ',FEPVISIBLE+3 DUP (0) ;Candidate display with focus.
 
 ; Pump only after a primitive get. CF=0 returns the original AX for the
 ; ordinary VAIO decoder; CF=1 means project consumed the physical key.
@@ -39,8 +47,27 @@ FEPKEY2:OR      BX,BX
         JNE     FEPKEYBS
 FEPKEYDROP:JMP  FEPDROP
 FEPKEYBS:
+        CMP     [FEPCHOICE],0
+        JE      FEPKEYREAD
+        MOV     CL,7            ;Kpfrwd: Right.
+        CMP     AH,3CH
+        JE      FEPKEYPHRASE
+        INC     CL              ;Kpback: Left.
+        CMP     AH,3BH
+        JE      FEPKEYPHRASE
+        INC     CL              ;LongB: Shift+Right.
+        CMP     AH,0ACH
+        JE      FEPKEYPHRASE
+        INC     CL              ;ShortB: Shift+Left.
+        CMP     AH,0ABH
+        JNE     FEPKEYREAD
+FEPKEYPHRASE:
+        JMP     FEPPHRASE
+FEPKEYREAD:
         CMP     AL,8
-        JE      FEPBS
+        JNE     FEPKEYCR
+        JMP     FEPBS
+FEPKEYCR:
         CMP     AL,0DH
         JE      FEPKEYENTER
         CMP     AH,51H          ;KETTEI / NFER (unshifted)
@@ -129,6 +156,9 @@ FEPPREVKEY:
         JE      FEPFIRST
         CALL    FEPPREV
         JMP     SHORT FEPDRAW
+FEPPHRASE:
+        CALL    FEPSUG
+        JMP     SHORT FEPDRAW
 FEPFIRST:
         CALL    FEPFINAL
         MOV     [FEPKATA],0
@@ -139,7 +169,7 @@ FEPDRAW:CALL    FEPRENDER
         RET
 
 FEPENTER:
-        PUSH    AX              ;Preserve physical Return vs KETTEI.
+        ; Like NEC 3.3D NECAIK, Return during composition only confirms.
         CALL    FEPFINAL
         CMP     [FEPCHOICE],0
         JE      FEPENTER0
@@ -148,19 +178,13 @@ FEPENTER:
 FEPENTER0:
         CALL    FEPBUILD
 FEPENTER1:
-        POP     AX
-        CMP     AL,0DH
-        JNE     FEPENTER2
-        MOV     BYTE PTR [DI],0DH ;Submit a line on Return, not on KETTEI.
-        MOV     BYTE PTR [DI+1],0
-FEPENTER2:
         CALL    FEPRESET        ;Does not overwrite the materialized bytes.
         MOV     [FEPREAD],OFFSET FEPBUF
         STC
         RET
 
 ; The status path caches one byte. Only CINP removes CHAR; no new key is
-; examined until all confirmed bytes (including any CR) have been read.
+; examined until all confirmed bytes have been read.
 FEPBYTE:MOV     AL,CS:[BX]
         MOV     CS:[CHAR],AL
         INC     BX
@@ -192,39 +216,112 @@ FEPRESET:
 FEPEDIT:
         MOV     [FEPKATA],0
         CMP     [FEPCHOICE],0
-        JNE     FEPCANCEL
-        RET
+        JE      FEPEDITDONE
+        JMP     FEPCANCEL
+FEPEDITDONE:RET
 
-; Conversion backend contract. begin receives DS:SI = immutable reading
-; cells, CX = number of cells. Front end keeps them stable until cancel or
-; commit. next/previous move in the current session and wrap; cancel ends
-; it without output; commit returns the selected candidate and ends it.
-; begin/next/previous/commit materialize ASCIIZ Shift-JIS in FEPBUF, DI at
-; its terminator. FEPCHOICE is the status/tag for this two-candidate stub.
-; These hooks execute inside serialized DOS CON request processing (even
-; on a status call), never from a keyboard IRQ. Stub is bounded RAM-only
-; code, no DOS or BIOS. Do not substitute a backend that can call DOS, or
-; assume that the ROM conversion path is qualified for this context.
+; 618JFP section 6.18.3. Serialize at the CON request boundary; never
+; invoke reset, file services or learning here. Begin accepts only full-
+; width hiragana (plus the prolonged sound mark). All Sug calls see the
+; same input and output buffers throughout a session. Use BIOS ordering
+; and endpoint semantics, not an unbounded project candidate list.
 FEPBEGIN:
+        JCXZ    FEPBADREAD
+        MOV     DI,OFFSET FEPINPUT
+FEPIN1: LODSW
+        CMP     AX,815BH        ;Prolonged sound mark.
+        JE      FEPIN2
+        CMP     AX,829FH
+        JB      FEPBADREAD
+        CMP     AX,82F1H
+        JA      FEPBADREAD
+FEPIN2: MOV     [DI],AH
+        MOV     [DI+1],AL
+        ADD     DI,2
+        LOOP    FEPIN1
+        MOV     BYTE PTR [DI],0
+        ; Discard the prior session's entire output, including terminators.
+        MOV     DI,OFFSET FEPWORK
+        PUSH    DS
+        POP     ES
+        MOV     CX,FEPWORKMAX
+        MOV     AL,0FFH
+        REP     STOSB
+        MOV     [FEPGUARD],0A5H
+        MOV     CL,4            ;Sug1st.
+        JMP     SHORT FEPSUG
+FEPBADREAD:RET
+FEPNEXT:MOV     CL,5            ;SugNxt.
+        JMP     SHORT FEPSUG
+FEPPREV:MOV     CL,6            ;SugPrv.
+FEPSUG: MOV     SI,OFFSET FEPINPUT
+        MOV     DI,OFFSET FEPWORK
+        CALL    FEPJFP
+        MOV     [FEPFOCUS],AX
+        CMP     [FEPGUARD],0A5H
+        JNE     FEPCANCEL
+        ; Accept only a nonempty, terminated full-width Shift-JIS result
+        ; that fits the system row. Never display or queue partial output.
+        MOV     SI,OFFSET FEPWORK
+FEPOUT1:LODSB
+        OR      AL,AL
+        JZ      FEPOUT3
+        CMP     SI,OFFSET FEPWORK+FEPVISIBLE
+        JAE     FEPCANCEL
+        CMP     AL,81H
+        JB      FEPCANCEL
+        CMP     AL,9FH
+        JBE     FEPOUT2
+        CMP     AL,0E0H
+        JB      FEPCANCEL
+        CMP     AL,0EFH
+        JA      FEPCANCEL
+FEPOUT2:LODSB
+        CMP     AL,40H
+        JB      FEPCANCEL
+        CMP     AL,7FH
+        JE      FEPCANCEL
+        CMP     AL,0FCH
+        JBE     FEPOUT1
+        JMP     SHORT FEPCANCEL
+FEPOUT3:MOV     CX,SI
+        SUB     CX,OFFSET FEPWORK
+        CMP     CX,1
+        JE      FEPCANCEL
+        MOV     SI,OFFSET FEPWORK
+        MOV     DI,OFFSET FEPBUF
+        PUSH    DS
+        POP     ES
+        REP     MOVSB
+        SUB     DI,OFFSET FEPBUF
+        SHR     DI,1
+        MOV     AX,DI
+        MOV     [FEPCOUNT],AL
         MOV     [FEPCHOICE],1
-        MOV     AL,1
-        JMP     FEPFORMAT
-FEPPREV:                        ;With two candidates both directions wrap.
-FEPNEXT:XOR     [FEPCHOICE],3
-        JMP     SHORT FEPBUILD
+        RET
 FEPCANCEL:
+        PUSH    AX              ;FEPADD still needs the letter in AL.
+        MOV     CL,3            ;QuitJFP: reset pending front-end state.
+        CALL    FEPJFP
+        POP     AX
         MOV     [FEPCHOICE],0
         RET
 FEPCOMMIT:
-        CALL    FEPBUILD
-        JMP     SHORT FEPCANCEL
+        ; §6.18.3 Decide learns; there is no documented non-learning
+        ; Decide. Keep the validated snapshot and close like a cancel.
+        JMP     FEPCANCEL
+FEPJFP: PUSH    DS
+        PUSH    ES
+        XOR     CH,CH
+        INT     8DH
+        POP     ES
+        POP     DS
+        CLD
+        RET
 
 FEPBUILD:
         CALL    FEPREADING
         MOV     AL,[FEPKATA]
-        OR      AL,[FEPCHOICE]
-        AND     AL,1
-FEPFORMAT:
         MOV     BL,AL
         MOV     DI,OFFSET FEPBUF
         JCXZ    FEPFMT3
@@ -283,9 +380,9 @@ FEPPAINT:
         MOV     AL,[FEPCHOICE]
         OR      AL,AL
         JZ      FEPUIREADING
-        ADD     AL,'0'          ;Render the backend's materialized candidate.
-        MOV     [FEPPFX+1],AL
-        JMP     SHORT FEPUISTR
+        CALL    FEPMARK
+        MOV     SI,OFFSET FEPCVIEW
+        JMP     SHORT FEPUIOUT
 FEPUIREADING:
         CALL    FEPBUILD
         MOV     AL,'H'
@@ -304,6 +401,7 @@ FEPUI1: LODSB
         MOV     BYTE PTR [DI],0
 FEPUISTR:
         MOV     SI,OFFSET FEPPFX
+FEPUIOUT:
         MOV     AX,0200H        ;Putstr, explicit mode-1 attribute.
         MOV     DX,0070H
         INT     83H
@@ -327,6 +425,38 @@ FEPRESTORE:
         PUSH    CS
         POP     DS
 FEPRRET:RET
+
+; VA and VA2 return AH=start, AL=length, reversed relative to the local
+; 618JFP transcription. Use them only within the validated output span.
+; The DOS delivery buffer never includes focus brackets.
+FEPMARK:
+        PUSH    DS
+        POP     ES
+        MOV     SI,OFFSET FEPBUF
+        MOV     DI,OFFSET FEPCVIEW+4
+        MOV     AX,[FEPFOCUS]
+        OR      AL,AL
+        JZ      FEPMARKREST
+        MOV     BL,AH
+        ADD     BL,AL
+        JC      FEPMARKREST
+        CMP     BL,[FEPCOUNT]
+        JA      FEPMARKREST
+        XOR     CX,CX
+        MOV     CL,AH
+        REP     MOVSW
+        MOV     BYTE PTR [DI],'['
+        INC     DI
+        MOV     CL,AL
+        REP     MOVSW
+        MOV     BYTE PTR [DI],']'
+        INC     DI
+FEPMARKREST:
+        LODSB
+        STOSB
+        OR      AL,AL
+        JNZ     FEPMARKREST
+        RET
 
 ; Parse a bounded prefix on each physical letter. Table entries are
 ; 4 lowercase ASCII bytes (zero-padded), then 1 or 2 hiragana trails.
