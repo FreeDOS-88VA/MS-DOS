@@ -1,0 +1,28 @@
+Baseline: release/msdos-va 55cf974. J2c part 1: 339b9e1a51d2c02ba5cfa415345f4f39444ab80a.
+FreeDOS-88VA/freedos builder revision: 7f467a2187a9e15c0c1bb84f179f214fe925153f.
+Unmodified build.py SHA-256: b64aabacdd830f652f14ee10bea8a4d94710d33c7de13ad4c1f5ca69056ce028.
+emu2 revision: 9d8698d06e67359bc8b230c2d19d5b1503e60819.
+Both locked clean builds exited 0. MASM 5.10: 0 warnings, 0 severe errors for VAIO.ASM.
+
+                                Before                  After
+CISTAT                          06CDh                   06CFh
+RESEND                          1110h                   1229h
+RESEND rounded to paragraphs    1110h                   1230h
+IO.SYS bytes                    20698                   20970
+Boot sectors for IO.SYS         21 of 1024 B            21 of 1024 B
+CHKDSK conventional B free      529456                  529168    (VA and VA2)
+
+IO.SYS SHA-256 before: 0124c08f306094374c4f370a52f722339592fda2602b440375a8551bae36c779
+IO.SYS SHA-256 after:  28ba52181985c56bed8f8f4a7f62bab51279c5d9a5fbec5aeb2528b33ed759eb
+Distribution before:  25e0e75f1322040c5f2a7b35ec6203d59a3670c73d0e1f25791aec3d48719f15
+Distribution after:   9882695e020522e16ad24ff2c9e388be25f39da69ca4f0cb3b62bfb6a495e101
+Boot sector and all 35 other files unchanged between the clean builds.
+The emulator runs used the fast relink while the clean build ran. The entire
+unpacked FAT image from the relink was byte-identical to the clean build.
+Test disk (after):    17551aa93904c280ced83f8daa9348dd6c45481f745d29e39e4aad3655116b66
+WRAPTEST.COM:         13e60cb0fcb17b1fae08a47d86f2228732f2701da2e9bba38744bf8f3b18dd28
+
+66 after-gate scenarios (33 per model, including baseline boots) and 4 separate
+baseline ESCPROBE scenarios reached exit with all requested captures.
+Intermediate trials (ROM word wrap off, incomplete screen captures, and the
+initial untimed NEC install/menu attempts) are not counted.
