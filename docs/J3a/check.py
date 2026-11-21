@@ -48,13 +48,13 @@ def get(path, filename):
     return read_file(disk(path), filename)
 
 
-def memory(path):
+def memory(path, total=655360):
     text = '\n'.join(screen(path))
-    assert '655360 total bytes memory' in text, text
+    assert f'{total} total bytes memory' in text, text
     return int(re.search(r'(\d+) bytes free\b', text)[1])
 
 
-def regression(r):
+def regression(r, total=655360):
     def s(p):
         return screen(r / p)
 
@@ -116,8 +116,8 @@ def regression(r):
         'ASCII [abc 123] / ひらがな / カタカナ',
         '漢字 [表 ソ 能] / ＡＢＣ１２３ / ﾊﾝｶｸｶﾅ', 'mix:A表BｶCソD能E', PROMPT]
     print('1. J2a step 1: 1/1')
-    before, after = [memory(r / f'{name}-mem/chkdsk') for name in ('base', 'after')]
-    print(f'1. CHKDSK: 2/2 (655360 total; free {before} → {after}, {after-before:+d} bytes)')
+    before, after = [memory(r / f'{name}-mem/chkdsk', total) for name in ('base', 'after')]
+    print(f'1. CHKDSK: 2/2 ({total} total; free {before} → {after}, {after-before:+d} bytes)')
     return after
 
 

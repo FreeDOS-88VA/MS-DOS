@@ -1,0 +1,27 @@
+J3b.3 scratch build pins and product comparison
+
+Builder: FreeDOS-88VA/freedos 7f467a2187a9e15c0c1bb84f179f214fe925153f
+  R1 build.py hunks and J3a build-jfp.patch, as in J3b.2.
+Tool emulator: emu2 9d8698d06e67359bc8b230c2d19d5b1503e60819
+Distribution: 2HD, release date 20261121 (commit-JST)
+
+Base: efdb76185d123adf3c20a2f849efcfcb1a62b207 (J3b.2; same product source as 71ca78d)
+  D88:     a5b1831a9a8da91ec62389e7e9b5dd6e0dce0b4385ecf0ae48ca72fc0849ece6
+  IO.SYS:  fcefd18fe387904ecefcc792237c0100a6718a651149672266a9d08a0b7af201  24186 B
+  JFP.COM: 766773d26dfc5a0784fa6ffd83415aef3df3b51b297fb00e14ae1ff23f0460ee   1025 B
+  VAIO RESEND: 1EB9h
+
+Candidate: 2fb12a628713cbc73236ab12fb76f3cba38e764f (track j3b3)
+  D88:     7ff0f4f1ea9a90cc0ff5c8602bbb07c9e2d81374edf3ad1a6b4d67cfaf2e6c57
+  IO.SYS:  e9ad0933f9a37ccf85f4335c98eb0f1c0076653acad67026b5597a945082250e  24730 B
+  JFP.COM: c7ba99430be2ab017f1a6c0943b1ee20bf09a10ea6f8a3bd1c56dfe5642931b4   1162 B
+  VAIO RESEND: 20D3h
+
+vaeg: Rel.20261121 (m153, 6367e5d3); source 6367e5d32f18d4dde3f844f76f06b2ae4469032b
+  SHA-256: 59aeaac45e746395412db7addb27eff9eefdadc203ec26881b5a2513f2e232bb
+  Separate local build from the J3b.2 binary, same reported revision.
+  Explicit Main_RAM with auto-sync. No saved backup RAM. VA and VA2 local ROM sets.
+
+NEC comparison: NP2kai 5939e0c6d5985c4c08fc70f289a83290e5d3e6f7, SDL2 IA-32,
+  as built for J0.3b. NEC MS-DOS 3.30D with NECAIK1.DRV and NECAIK2.DRV,
+  system files from the supplied disk set. All NEC media work was in scratch.
