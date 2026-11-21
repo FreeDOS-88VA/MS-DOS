@@ -232,6 +232,27 @@ directly would not scroll at the bottom.
 - Open decision for the maintainer: keep the ROM JFP, or later share the
   project FEP planned in FreeDOS-88VA.
 
+### J3 plan — try both input methods (maintainer, 2026-11-21)
+
+Both paths are built and compared; neither replaces the other until the
+comparison is done.
+
+- J3.0 — probe the ROM JFP under DOS (init sequence, memory, screen
+  area, behavior during a pending conversion). Shared groundwork.
+- J3a — ROM JFP: VAIO initializes the JFP and reads CON through the KB
+  BIOS main functions with conversion; keep the J0.3 key table (ROM
+  expansion off); place the JFP area so the label line survives.
+- J3b — project FEP (as FreeDOS-88VA decided for its M21): a resident
+  front end in VAIO or a separate driver, reading the conversion
+  dictionary from the user's own machine ROM at run time; no dictionary
+  contents and no ROM-internal details in this repository. Staged:
+  J3b.1 dictionary-reader feasibility (private evidence only), J3b.2
+  romaji/kana input, J3b.3 single-phrase kanji conversion with
+  candidates, J3b.4 user dictionary.
+- J3c — compare J3a and J3b (conversion quality, memory, speed, key
+  feel, interaction with ESC/F-keys/labels) and choose the default; the
+  other may stay selectable.
+
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
 
