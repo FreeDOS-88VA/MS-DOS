@@ -18,6 +18,7 @@ if __name__ == '__main__':
     for arg in ('image', 'output', 'sjisout', 'j1dbcs'):
         parser.add_argument(arg, type=Path)
     parser.add_argument('--regressions', type=Path)
+    parser.add_argument('--escape-probe', type=Path, help='add ESCPROBE.COM for J2b')
     args = parser.parse_args()
     output = args.output.resolve()
     if output.is_relative_to(ROOT):
@@ -31,4 +32,6 @@ if __name__ == '__main__':
     if args.regressions:
         files.extend((name, (args.regressions / name).read_bytes()) for name in
                      ('LABELCHK.COM', 'LONG.TXT', 'CONKEY.COM'))
+    if args.escape_probe:
+        files.append(('ESCPROBE.COM', args.escape_probe.read_bytes()))
     (pack_va if args.model == 'va' else pack_nec)(args.image, output, files)
