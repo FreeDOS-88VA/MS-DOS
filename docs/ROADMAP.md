@@ -208,6 +208,18 @@ on/off, NEC control codes; label row protected. ESC[2J now also homes
 printing there (NEC pending wrap), underline/blink, ESC)3 graph mode,
 ESC[>3h/l 20-row mode. Malformed-sequence recovery differs on purpose.
 
+J2c accepted (parts 1-3) 2026-11-21 (`docs/J2c-console-followups.md`,
+J2b pages 22/25): NEC pending wrap at column 80, underline/blink (text
+attribute mode 1), ESC)3/ESC)0 graph mode with the `g` indicator. Cost
+416 bytes. Risk: the main screen now has ROM auto-scroll (VSCL) off;
+VAIO scrolls CON output itself, but a program writing through INT 83h
+directly would not scroll at the bottom.
+
+#### J2d — open console items
+- Keep ROM auto-scroll on except for the bottom-right edge write, or
+  show that no direct INT 83h writers matter; test a direct-ROM writer.
+- ESC[>3h/l 20-row mode in CON (ROM switching verified in J2c).
+
 ### J3 — Japanese input through the ROM JFP
 - Goal: ROM kana-kanji conversion works at the prompt and in EDLIN. If
   J0.3 already moved CON input to the KB BIOS main functions, this is
