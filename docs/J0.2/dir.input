@@ -1,0 +1,6 @@
+DIR
+@wait 240
+@key escape
+@text U
+@wait 240
+@enter

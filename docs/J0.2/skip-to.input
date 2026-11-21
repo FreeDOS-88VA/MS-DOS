@@ -1,0 +1,6 @@
+ABCDEF
+@wait 100
+@key escape
+@text WD
+@key escape
+@text U
