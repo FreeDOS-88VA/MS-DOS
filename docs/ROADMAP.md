@@ -200,6 +200,14 @@ difference: a lead followed by a control byte is dropped (NEC joins it
 with the next printable byte). Cost 80 bytes. J2b: NEC escape sequences
 and control codes.
 
+J2b accepted as partial 2026-11-21 (`docs/J2b-escape-sequences.md`,
+18/25 NEC pages): cursor addressing and movement, ESC=, save/restore,
+CSI 6n, erase, insert/delete line, index, colors/reverse/secret, cursor
+on/off, NEC control codes; label row protected. ESC[2J now also homes
+(NEC). Cost 896 bytes. Follow-up J2c: cursor stays on column 80 after
+printing there (NEC pending wrap), underline/blink, ESC)3 graph mode,
+ESC[>3h/l 20-row mode. Malformed-sequence recovery differs on purpose.
+
 ### J3 — Japanese input through the ROM JFP
 - Goal: ROM kana-kanji conversion works at the prompt and in EDLIN. If
   J0.3 already moved CON input to the KB BIOS main functions, this is
