@@ -1,0 +1,6 @@
+@text COPY CON T.TXT
+@enter
+@wait 420
+@key ctrl-z
+@enter
+@wait 300

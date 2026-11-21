@@ -1,0 +1,79 @@
+Baseline f8cd7e8, vaeg m150 5c2307ac VA2, 2HD image; no body input.
+GDB and vaeg debug harness, separate cold boots as noted below.
+
+1. snapshot.gdb + baseline-copy.debug (one run)
+frame  CS:IP       SS:SP       FLAGS IF  Stack words at SS:SP
+ 550   1000:0315   108b:0a80   0284   1  0003 5b90 108b 66c1 010d 108b 0000 108b
+1400   1ff0:fe63   108b:0981   0014   0  0039 0000 0000 0000 0000 0000 0000 0000
+1403   1ff0:ffd5   108b:0981   0080   0  0039 0000 0000 0000 0000 0000 0000 0000
+1410   1ff0:ffed   108b:0981   0004   0  0039 0000 0000 0000 0000 0000 0000 0000
+1800   1ff0:ff5d   108b:0981   0010   0  0039 0000 0000 0000 0000 0000 0000 0000
+The next 8 words were zero in all four stalled samples. CS:IP is in RAM
+(physical 2fd63h, 2fed5h, 2feedh, 2fe5dh), not a ROM entry. The first
+sample is VAIO ENTRY; SS in all samples is the DOS kernel segment.
+
+vaeg events (same run):
+event          frame  id      value
+initialized        0  -        2200
+frame            550  -         550
+wait-pc          550  -           1
+pc               550  -           1
+capture          550  prompt      1
+frame            600  -         600
+input            600  -           5
+frame           1400  -        1400
+wait-pc         1400  -           1
+frame-limit     2200  -        2200
+
+2. irq.gdb + baseline-copy.debug (two excerpts from separate runs)
+Prompt BCON=1000:0003
+hardware vector=13 CS:IP=1000:0322 SS:SP=1000:08f2 FLAGS=0284 saved_SS:SP=108b:08f2
+frame=1400 BCON=1000:0000 CS:IP=1000:118d SS:SP=1000:02d5 FLAGS=0282 IF=1
+frame=1403 BCON=1000:0000 CS:IP=1000:118d SS:SP=1000:02d5 FLAGS=0282 IF=1
+frame=1410 BCON=1000:0000 CS:IP=1000:118d SS:SP=1000:02d5 FLAGS=0282 IF=1
+frame=1800 BCON=1000:0000 CS:IP=1000:118d SS:SP=1000:02d5 FLAGS=0282 IF=1
+1000:118d aliases 108b:08dd, DOS disk-stack storage, not VAIO code.
+
+Prompt BCON=1000:0003
+hardware vector=0a CS:IP=1000:0322 SS:SP=1000:08ec FLAGS=f284 saved_SS:SP=108b:08ec
+frame=1400 BCON=1000:647c CS:IP=66c1:5dff SS:SP=108b:08fc FLAGS=0100 IF=0
+frame=1403 BCON=1000:647c CS:IP=66c1:2d5b SS:SP=108b:08fc FLAGS=0104 IF=0
+frame=1410 BCON=1000:647c CS:IP=66c1:1133 SS:SP=108b:08fc FLAGS=0180 IF=0
+frame=1800 BCON=1000:647c CS:IP=66c1:5e0b SS:SP=108b:08fc FLAGS=0104 IF=0
+Both excerpts hit CISTAT at frame 550 but reached the frame limit waiting
+for CISTAT after frame 1400.
+
+3. Hardware write watchpoint on the 4 bytes at mem+108e2h, after frame 550
+   (one run, stopped at first write; not one of the runs above).
+Old BCON dword=10000003h; new BCON dword=10220003h.
+Guest CS:IP=1000:0322, SS:SP=1000:08e4, FLAGS=0284.
+Last guest instruction 1000:0320. Host backtrace (names only):
+  upd9002_mainram_write_w <- upd9002_memorywrite_w
+  <- upd9002_core_interrupt <- pccore_exec <- run_guest_frame <- main
+The interrupt pushes saved IP=0322h to linear 108e4h (BCON's segment).
+
+4. Selected instructions from a scratch vaeg rolling pre-instruction trace
+   (input-line moved to frame 610, VA2, same DOS baseline; one run).
+CS:IP       SS:SP       FLAGS AX   DS    Meaning
+108b:66ba   108b:08fa   0244  8400 108b  DSKSTATCHK: LDS SI,[0032h] (BCON)
+108b:66be   108b:08fa   0244  8400 0322  CALL DEVIOCALL2
+108b:5b73   108b:08f8   0295  8400 0322  Load strategy offset [SI+6]
+108b:5b7f   108b:08f8   0295  cb00 0322  Far call strategy
+0322:cb00   108b:08f4   0295  cb00 0322  Zero-filled RAM, not a device strategy
+The trace eventually reached 1ff0:fe61 in RAM. The ring logged guest
+registers before each instruction and dumped the last 4096 records on
+first entry into the sampled 1ff0:fxxx region. ROM PCs are not included.
+
+Source mapping (MASM VAIO listing and MSDOS.MAP + MSDOS.SYS disassembly):
+1000:0003  VAIO CONDEV
+1000:0315  VAIO ENTRY, save SS
+1000:0320  VAIO ENTRY, MOV SS,AX
+1000:0322  VAIO ENTRY, MOV SP,OFFSET STKTOP (02e9h)
+1000:0394  VAIO EXIT1, restore SS
+1000:0399  VAIO EXIT1, restore SP
+1000:03fc  VAIO CISTAT
+108b:0032  MSDOS.SYS BCON (dword)
+108b:0920  MSDOS.SYS DskStack (top)
+108b:0aa0  MSDOS.SYS IOStack (top)
+108b:6695  MSDOS.SYS DSKSTATCHK (CTRLC.ASM)
+108b:5b1a  MSDOS.SYS DEVIOCALL2 (DEV.ASM)

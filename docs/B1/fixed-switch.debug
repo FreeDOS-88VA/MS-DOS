@@ -1,0 +1,19 @@
+debug-script 1
+limit-frame 2200
+wait-frame 550
+wait-pc 1000:0418 1
+capture prompt registers
+wait-frame 600
+input-line COPY CON T.TXT
+wait-frame 1400
+wait-pc 1000:032b 1
+capture entry-between registers
+wait-pc 1000:0334 1
+capture entry-after registers
+wait-pc 1000:03af 1
+capture exit-between registers
+wait-pc 1000:03ba 1
+capture exit-after registers
+wait-pc 1000:0418 1
+capture after-copy registers tvram screen
+exit
