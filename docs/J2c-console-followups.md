@@ -70,3 +70,17 @@ Page 10 evidence: [AH=40h](J2c/block-attributes.png), [AH=02h](J2c/split-attribu
 **VA and VA2: 1/1 page (10) through AH=40h and 1/1 through AH=02h on each model.** This brings the J2b parity count to **20/25 per method on each model**; pages 11–14 and 23 remain unmatched. Re-ran all 66 Part 1 scenarios; the remaining Part 1 gate counts stayed the same. Use the same commands above with the Part 2 revision in [build.txt](J2c/build.txt), change `--expected-memory` to `529456 529152`, and add `python3 -B tests/pc88va/attr-check.py "$S/runs"`. NP2kai: sample page 10 of both `ESCPROBE` runs until `05 TEST` appears both visible and blank. [Check output](J2c/va-checks-part2.txt).
 
 Additional cost (both models): **16 B resident** and **32 B in IO.SYS**. Relative to `55cf974`, CHKDSK is **529,456 → 529,152 B free (−304 B)** and IO.SYS is **20,698 → 21,002 B (+304 B)**, still 21 sectors.
+
+## 3. Graph mode
+
+On NEC, `ESC ) 3` renders `95 5C` as two ANK characters and shows `g` at system-line column 2. `ESC ) 0` clears the indicator and re-enables kanji. Hiding and restoring labels while in graph mode restores `g`; clearing graph mode while hidden leaves `g` off when labels return.
+
+**Use the VA font and the existing label split.** `GRAPHROM` compared NEC's graph-mode `80h–9Fh` / `E0h–FFh` table to direct VA `Litout` with an ANK argument (`604TEXT.TXT` §6.4.3 functions 1–2): the two VA models have the needed glyphs. The CON parser sends high bytes as ANK in graph mode, bypassing J2a's lead buffer. The mark uses `Chcsn`, `Locate`, and `Putstr` with a fixed attribute in the system split's reserved left margin; then the main cursor is restored. The ROM still manages function labels. No font data was added or changed.
+
+Side-by-side: J2b pages 13–14 [AH=40h](J2c/block-graph.png), [AH=02h](J2c/split-graph.png), and [the high-byte table and label transitions](J2c/graph-labels.png). For the VA tests the raw 64-code/delimiter grid and glyph pixels were compared to the same model's direct BIOS output. Shift press/release keeps the mark while updating labels. Active-graph `KEY` reassignment, interactions with raw callers that replace splits, and physical hardware: **NOT RUN**.
+
+**VA and VA2: 2/2 graph pages through each DOS write method, plus 64/64 literal codes per model.** The resulting parity count is **22/25 through AH=40h and 22/25 through AH=02h on each model**. Only pages 11–12 (20-row mode) and 23 (known malformed-sequence differences) remain unmatched. The prior gate counts stayed the same; the raw J2b grids changed only on pages 13–14. [Check output](J2c/va-checks-part3.txt).
+
+Reproduce as before with the Part 3 revision from [build.txt](J2c/build.txt). Assemble `GRAPHROM.NAS`, add `--graph-probe "$S/GRAPHROM.COM"` to `wrap-media.py` and use `graph-run.py` in place of `wrap-run.py` with `AFTER_CISTAT=1000:06D0`. Pass `--graph` to `esc-check.py`, use `--expected-memory 529456 529040` for `sjis-check.py`, and run `graph-check.py` in addition to the wrap/attr checkers. On NEC run `GRAPHROM N` with Space between pages and capture pages 13–14 of each ESCPROBE run.
+
+Additional cost: **112 B resident** per model and **96 B in IO.SYS**. Relative to `55cf974`, final CHKDSK is **529,456 → 529,040 B free (−416 B)** on both models and IO.SYS is **20,698 → 21,098 B (+400 B)**, still 21 sectors.

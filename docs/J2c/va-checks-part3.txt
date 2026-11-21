@@ -1,0 +1,42 @@
+va block: page 10 underline, reverse/colored combinations, and both blink phases
+va split: page 10 underline, reverse/colored combinations, and both blink phases
+va2 block: page 10 underline, reverse/colored combinations, and both blink phases
+va2 split: page 10 underline, reverse/colored combinations, and both blink phases
+va block: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va split: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va: TYPE exact 80-column break, DIR /W 5+5+1 without extra rows
+va2 block: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va2 split: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va2: TYPE exact 80-column break, DIR /W 5+5+1 without extra rows
+va esc-block: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va esc-split: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va: 25/26 block vs. split character grids identical; control page differs as on NEC
+va2 esc-block: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va2 esc-split: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va2: 25/26 block vs. split character grids identical; control page differs as on NEC
+VA
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 9/10 legacy; ESC[2J now homes (NEC parity)
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 529456 -> 529040 free (-416 bytes)
+VA2
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 9/10 legacy; ESC[2J now homes (NEC parity)
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 529456 -> 529040 free (-416 bytes)
+va block: raw character grids unchanged from J2b except graph pages 13–14
+va split: raw character grids unchanged from J2b except graph pages 13–14
+va2 block: raw character grids unchanged from J2b except graph pages 13–14
+va2 split: raw character grids unchanged from J2b except graph pages 13–14
+va block: J2b pages 13–14 restore kanji / display high-byte ANK
+va split: J2b pages 13–14 restore kanji / display high-byte ANK
+va: all 64 graph codes match direct ROM Litout; marker survives shift/hide/show and clears after )0
+va2 block: J2b pages 13–14 restore kanji / display high-byte ANK
+va2 split: J2b pages 13–14 restore kanji / display high-byte ANK
+va2: all 64 graph codes match direct ROM Litout; marker survives shift/hide/show and clears after )0
