@@ -267,6 +267,14 @@ comparison is done.
   J3b.1 dictionary-reader feasibility (private evidence only), J3b.2
   romaji/kana input, J3b.3 single-phrase kanji conversion with
   candidates, J3b.4 user dictionary.
+- J3b.1 accepted 2026-11-21 (`docs/J3b.1-dictionary-feasibility.md`):
+  the dictionary ROM window is readable from DOS (documented MemMode
+  selector, IRQs masked while mapped); a direct reader looks feasible but
+  is unproven (1-2 weeks). The documented JFP conversion functions
+  (Sug1st/SugNxt/SugPrv) work with the ROM front end master-disabled, no
+  INT 21h/83h during conversion. Next: J3b.2 project-owned romaji/kana
+  input and composition UI with a backend interface; J3b.3 BIOS backend
+  first, direct reader as fallback. Private evidence: `../pc88va/tmp/j3b/`.
 - J3c — compare J3a and J3b (conversion quality, memory, speed, key
   feel, interaction with ESC/F-keys/labels) and choose the default; the
   other may stay selectable.
