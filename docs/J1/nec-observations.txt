@@ -1,0 +1,49 @@
+NEC 3.3D — NP2kai SDL2 5939e0c6
+After J1MAKE and redirected Backspace:
+table: 81 9f e0 fc 00 00 country: 81
+955c errors: rendir=02 nested disk entries: ['955c422e545854'] temporary dirs gone: True
+835c errors: rendir=02 nested disk entries: ['835c422e545854'] temporary dirs gone: True
+945c errors: rendir=02 nested disk entries: ['945c422e545854'] temporary dirs gone: True
+905c errors: rendir=02 nested disk entries: ['905c422e545854'] temporary dirs gone: True
+975c errors: rendir=02 nested disk entries: ['975c422e545854'] temporary dirs gone: True
+817c errors: rendir=02 nested disk entries: ['817c422e545854'] temporary dirs gone: True
+8261 errors: rendir=02 nested disk entries: ['8261422e545854'] temporary dirs gone: True
+FindFirst/Next masks (*, ?, ??, ?X, ??X): 0f 02 0b 08 04
+955c shell dir: True entries: ['955c422e545854'] payload: b'MARK\r\n'
+835c shell dir: True entries: ['835c422e545854'] payload: b'MARK\r\n'
+945c shell dir: True entries: ['945c422e545854'] payload: b'MARK\r\n'
+905c shell dir: True entries: ['905c422e545854'] payload: b'MARK\r\n'
+975c shell dir: True entries: ['975c422e545854'] payload: b'MARK\r\n'
+817c shell dir: True entries: ['817c422e545854'] payload: b'MARK\r\n'
+8261 shell dir: True entries: ['8261422e545854'] payload: b'MARK\r\n'
+ALL.OUT 955c in listing: True AB in listing: True length: 237
+ONE.OUT 955c in listing: False AB in listing: False length: 87
+TWO.OUT 955c in listing: True AB in listing: True length: 237
+wildcard DEL survivors: []
+redirection operand: [('810054', b'MARK|.TXT\r\n')]
+J1BS.OUT 02 58 59 0d
+
+After J1CLEAN and pending writes flushed:
+table: 81 9f e0 fc 00 00 country: 81
+955c errors: rendir=02 nested disk entries: ['955c422e545854'] temporary dirs gone: True
+835c errors: rendir=02 nested disk entries: ['835c422e545854'] temporary dirs gone: True
+945c errors: rendir=02 nested disk entries: ['945c422e545854'] temporary dirs gone: True
+905c errors: rendir=02 nested disk entries: ['905c422e545854'] temporary dirs gone: True
+975c errors: rendir=02 nested disk entries: ['975c422e545854'] temporary dirs gone: True
+817c errors: rendir=02 nested disk entries: ['817c422e545854'] temporary dirs gone: True
+8261 errors: rendir=02 nested disk entries: ['8261422e545854'] temporary dirs gone: True
+FindFirst/Next masks (*, ?, ??, ?X, ??X): 0f 02 0b 08 04
+955c shell dir: False entries: [] payload: None
+835c shell dir: False entries: [] payload: None
+945c shell dir: False entries: [] payload: None
+905c shell dir: False entries: [] payload: None
+975c shell dir: False entries: [] payload: None
+817c shell dir: False entries: [] payload: None
+8261 shell dir: False entries: [] payload: None
+ALL.OUT 955c in listing: True AB in listing: True length: 237
+ONE.OUT 955c in listing: False AB in listing: False length: 87
+TWO.OUT 955c in listing: True AB in listing: True length: 237
+wildcard DEL survivors: []
+redirection operand: [('810054', b'MARK|.TXT\r\n')]
+J1BS.OUT 02 58 59 0d
+J1ESC.OUT 02 58 59 0d

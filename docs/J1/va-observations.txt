@@ -1,0 +1,22 @@
+VA
+6300h + country: 81 9f e0 fc 00 00 / 81; FindFirst/Next masks (* ? ?? ?X ??X): 0f 02 0b 08 04
+INT 21h path/file/dir, FCB and raw FAT12 bytes: 7/7 pair variants
+COMMAND: 7/7 create/open/rename and 7/7 cleanup; 817c redirection operand intact
+DIR * and ?? list both names; ? lists neither. DEL ? leaves both; DEL ?? removes both.
+AH=0Ah redirected Backspace and ESC D: both return 02 58 59 0d
+Supplemental: SHARE installs and the API run yields identical results with it resident
+J0.3: DIR/F3/Enter, F10 COPY CON on three cold boots, Ctrl-Z COPY CON, BS/VER, Ctrl-X and Ctrl-C
+J0.4: 24+1 labels, Shift/release, DIR/TYPE, CLS/redirected CLS/bytewise markers, hide/show and reflow
+KEY: all 31 entries identical to the default IO.SYS table
+CHKDSK: 531872 -> 530432 bytes free (-1440); 655360 bytes total
+VA2
+6300h + country: 81 9f e0 fc 00 00 / 81; FindFirst/Next masks (* ? ?? ?X ??X): 0f 02 0b 08 04
+INT 21h path/file/dir, FCB and raw FAT12 bytes: 7/7 pair variants
+COMMAND: 7/7 create/open/rename and 7/7 cleanup; 817c redirection operand intact
+DIR * and ?? list both names; ? lists neither. DEL ? leaves both; DEL ?? removes both.
+AH=0Ah redirected Backspace and ESC D: both return 02 58 59 0d
+Supplemental: SHARE installs and the API run yields identical results with it resident
+J0.3: DIR/F3/Enter, F10 COPY CON on three cold boots, Ctrl-Z COPY CON, BS/VER, Ctrl-X and Ctrl-C
+J0.4: 24+1 labels, Shift/release, DIR/TYPE, CLS/redirected CLS/bytewise markers, hide/show and reflow
+KEY: all 31 entries identical to the default IO.SYS table
+CHKDSK: 531872 -> 530432 bytes free (-1440); 655360 bytes total

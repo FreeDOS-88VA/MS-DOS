@@ -1,0 +1,44 @@
+PC88VA 62fc532820ac373bbd78489e1aa7485371ce4c88 -> c9d7a091e217ef080ea66f7a6e835e7cfd069e6a
+emu2: 9d8698d06e67359bc8b230c2d19d5b1503e60819
+images: 2f27d14eadff2dad478b6ade1db7c0e6d38c63c5fefc5af6417a34d37908c347 eb9d9e5af9d1116818e6c03a81167e2952380ce201df55981d050bfa5be023dc
+34/36 identical shipped files; boot sector identical: True
+MSDOS.SYS before: {'sha256': '367f9257688226da8416be7761851e4b1fc185c3e443974e4a1d75a7fd89e27a', 'size': 37392}
+MSDOS.SYS after:  {'sha256': '444961b2594d04d8e52caa30875c788733ad7385724fbd00b5684e6cef105cef', 'size': 38832}
+SHARE.EXE before: {'sha256': '6dfc0a99d08c6f7ff6337443c84ddd2b0c6d21c8772719eddc2cc47229f053f7', 'size': 13408}
+SHARE.EXE after:  {'sha256': '637de911521749dd4458463a5e67c4d27ef9efc30cfe68190182e61ed185bf66', 'size': 13408}
+IO.SYS {'sha256': 'b59cd08e5e2b9db1ac74b3b6861f8b639d037239545e7df1d65167fd8078e948', 'size': 19706}
+COMMAND.COM {'sha256': 'a0f53401e2faa8b4c94b3b644864faddfaaced85a45e1eda3ab206988d496a05', 'size': 37521}
+COUNTRY.SYS {'sha256': 'cd1abba25c110531d4ce0588eae9c1353214d4e322cd4c7989b8b51fea170bb3', 'size': 12806}
+KEY.COM {'sha256': '557d2c9b2de951e0984eed9b7a52024ea13b8a40405d3e36d99f9c33ca383440', 'size': 1803}
+395/415 .SYS/.COM/.EXE/.OBJ/.MAP/.LIB files matched (including untouched tool/library inputs).
+Differing files outside disk:
+  tree/v4.0/src/CMD/SHARE/share.exe
+  tree/v4.0/src/CMD/SHARE/share.map
+  tree/v4.0/src/CMD/SHARE/sharelnk.obj
+  tree/v4.0/src/DOS/cpmio.obj
+  tree/v4.0/src/DOS/cpmio2.obj
+  tree/v4.0/src/DOS/dev.obj
+  tree/v4.0/src/DOS/dir.obj
+  tree/v4.0/src/DOS/dir2.obj
+  tree/v4.0/src/DOS/fcb.obj
+  tree/v4.0/src/DOS/fcbio.obj
+  tree/v4.0/src/DOS/file.obj
+  tree/v4.0/src/DOS/getset.obj
+  tree/v4.0/src/DOS/macro2.obj
+  tree/v4.0/src/DOS/misc2.obj
+  tree/v4.0/src/DOS/msctrlc.obj
+  tree/v4.0/src/DOS/msdisp.obj
+  tree/v4.0/src/DOS/msdos.map
+  tree/v4.0/src/DOS/msdos.sys
+  tree/v4.0/src/DOS/search.obj
+  tree/v4.0/src/INC/msdosme.obj
+
+Without PC88VA 62fc532 -> c9d7a091e217ef080ea66f7a6e835e7cfd069e6a
+emu2: 9d8698d06e67359bc8b230c2d19d5b1503e60819
+images: 31af0d9f258116a32e8737a249543d71304a0f4134f71f2bf141a6b4bba5756d 31af0d9f258116a32e8737a249543d71304a0f4134f71f2bf141a6b4bba5756d
+36/36 identical shipped files; boot sector identical: True
+IO.SYS {'sha256': '439cc4f32738198adbbdf2ce2790d0a8b6704ec10f4fa2260223e653329a4fbb', 'size': 19706}
+COMMAND.COM {'sha256': '19ebe2e5a8e18ca5d447a3d1fc42c42e4942ff5f3ef50e39ab01374bb01d8ea9', 'size': 37556}
+COUNTRY.SYS {'sha256': 'cd1abba25c110531d4ce0588eae9c1353214d4e322cd4c7989b8b51fea170bb3', 'size': 12806}
+KEY.COM {'sha256': '557d2c9b2de951e0984eed9b7a52024ea13b8a40405d3e36d99f9c33ca383440', 'size': 1803}
+415/415 .SYS/.COM/.EXE/.OBJ/.MAP/.LIB files matched (including untouched tool/library inputs).
