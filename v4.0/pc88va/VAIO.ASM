@@ -349,6 +349,8 @@ KEYSTS_Func DB  1
 CHAR    DB      0               ;Cached ordinary character, or 0.
 KEYNEXT DW      0               ;Offset of next string byte, or 0.
 OUTBUF  DB      0,0             ;NUL-terminated output string.
+ESCSTATE DB     0              ;Pending CON escape prefix (see OUTCHR).
+LABELON DB      -1              ;-1 until initialized, 0 hidden, 10 shown.
 
 ; NEC CON key table: 20 x 16 bytes followed by 11 x 6 bytes. Each
 ; slot has a NUL terminator; the F-key prefix is display metadata.
@@ -531,9 +533,78 @@ CON_WRI1:
 CON_WRI9:
         JMP     EXIT
 
-; Write AL through the text BIOS.  Like the FreeDOS PC-88VA console,
-; pass CR, LF, BS and printable ASCII and drop other control codes.
-OUTCHR: CMP     AL,0DH
+; Only four CON sequences are special. Keep the pending prefix across
+; requests; on a mismatch replay its printable bytes, then retry AL
+; (which may itself be ESC). No other bytes go to the ROM's parser.
+OUTCHR: CMP     [ESCSTATE],0
+        JNE     OUTPEND
+        JMP     OUTNEW
+OUTPEND:CMP     [ESCSTATE],1   ;ESC
+        JE      OUTCSI
+        CMP     [ESCSTATE],2   ;ESC[
+        JE      OUTARGS
+        CMP     [ESCSTATE],3   ;ESC[>
+        JE      OUTONE
+        CMP     [ESCSTATE],4   ;ESC[>1
+        JE      OUTLABEL
+        CMP     AL,'J'         ;ESC[2
+        JNE     OUTREPLAY
+        MOV     AX,1702H       ;Erascn: clear current screen, not system row.
+        JMP     SHORT OUTESC
+OUTCSI: CMP     AL,'['
+        JE      OUTNEXT
+        JMP     SHORT OUTREPLAY
+OUTARGS:CMP     AL,'>'
+        JE      OUTNEXT
+        CMP     AL,'2'
+        JE      OUTTWO
+        CMP     AL,'H'
+        JNE     OUTREPLAY
+        MOV     AH,08H         ;Locate: home (DX=0 below).
+        JMP     SHORT OUTESC
+OUTONE: CMP     AL,'1'
+        JE      OUTNEXT
+        JMP     SHORT OUTREPLAY
+OUTLABEL:
+        CMP     AL,'h'
+        JE      OUTHIDE
+        CMP     AL,'l'
+        JNE     OUTREPLAY
+        MOV     AX,2F0AH
+        JMP     SHORT OUTESC
+OUTHIDE:MOV     AX,2F00H
+OUTESC: MOV     [ESCSTATE],0
+        JMP     SHORT OUTCALL
+OUTTWO: MOV     [ESCSTATE],5
+        RET
+OUTNEXT:INC     [ESCSTATE]
+        RET
+
+OUTREPLAY:
+        PUSH    AX
+        CMP     [ESCSTATE],1
+        JE      OUTRESET
+        MOV     AL,'['
+        CALL    OUTCH1
+        CMP     [ESCSTATE],2
+        JE      OUTRESET
+        MOV     AL,'2'
+        CMP     [ESCSTATE],5
+        JE      OUTLAST
+        MOV     AL,'>'
+        CALL    OUTCH1
+        CMP     [ESCSTATE],4
+        JNE     OUTRESET
+        MOV     AL,'1'
+OUTLAST:CALL    OUTCH1
+OUTRESET:
+        POP     AX
+        MOV     [ESCSTATE],0
+OUTNEW: CMP     AL,1BH
+        JE      OUTNEXT
+
+; Write CR, LF, BS and printable ASCII as before; drop other codes.
+        CMP     AL,0DH
         JE      OUTCH1
         CMP     AL,0AH
         JE      OUTCH1
@@ -543,7 +614,8 @@ OUTCHR: CMP     AL,0DH
         JB      OUTCH9
         CMP     AL,7EH
         JA      OUTCH9
-OUTCH1: PUSH    AX
+OUTCH1: MOV     AH,02H         ;Putstr, a single filtered byte.
+OUTCALL:PUSH    AX
         PUSH    BX
         PUSH    CX
         PUSH    DX
@@ -554,12 +626,18 @@ OUTCH1: PUSH    AX
         PUSH    ES
         PUSH    CS
         POP     DS
+        CMP     AH,2FH
+        JE      OUTMODE
+        XOR     DX,DX          ;Locate coordinates (0,0).
+        CMP     AH,02H
+        JNE     OUTINT
         MOV     [OUTBUF],AL
         MOV     SI,OFFSET OUTBUF
         MOV     DX,8000H
-        MOV     AH,02H
-        INT     83H
-        POP     ES
+OUTINT: INT     83H
+        JMP     SHORT OUTREGS
+OUTMODE:CALL    LABELMODE
+OUTREGS:POP     ES
         POP     DS
         POP     BP
         POP     DI
@@ -569,6 +647,73 @@ OUTCH1: PUSH    AX
         POP     BX
         POP     AX
 OUTCH9: RET
+
+; The two layouts share the main framebuffer. The system buffer starts
+; after all 25 main rows, so the split can change without copying text.
+MAIN25  DB      00H,0,0,0,25,05H,07H,0
+MAIN24  DB      00H,0,0,0,24,05H,07H,0  ;Wrap and vertical scroll.
+        DB      41H,0,0,0,1,10H,07H,0   ;System line, attribute mode 1.
+
+; AL = requested label count (0 or 10). Caller saves all registers.
+LABELMODE:
+        CMP     [LABELON],-1
+        JE      LABELRET
+        CMP     [LABELON],AL
+        JE      LABELRET
+        OR      AL,AL
+        JNZ     LABELPOS
+        INT     83H             ;SftCtl off while the system row exists.
+        JC      LABELRET
+LABELPOS:
+        MOV     AH,26H          ;Askloc: Spltscn resets the cursor.
+        INT     83H
+        CMP     CS:[LABELON],0
+        JNE     LABELEXP
+        CMP     DL,24
+        JNE     LABELSHR
+        DEC     DL              ;When showing with cursor on row 25,
+        PUSH    DX              ;scroll once to keep its text visible.
+        MOV     AH,0DH          ;Index scrolls at the bottom margin.
+        INT     83H
+        POP     DX
+LABELSHR:
+        PUSH    DX
+        CALL    SPLIT24
+        JC      LABELPOP
+        MOV     AX,2F0AH        ;SftCtl on, shift-aware.
+        INT     83H
+        MOV     BYTE PTR CS:[LABELON],10
+        JMP     SHORT LABELPOP
+LABELEXP:
+        PUSH    DX
+        MOV     BP,OFFSET MAIN25
+        MOV     CX,1
+        CALL    SETSPLIT
+        JC      LABELREC
+        MOV     DX,24           ;The old hidden row may contain stale
+        MOV     AH,08H          ;text. Clear it before restoring cursor.
+        INT     83H
+        MOV     AX,1802H        ;Eralin: whole current line.
+        INT     83H
+        MOV     BYTE PTR CS:[LABELON],0
+        JMP     SHORT LABELPOP
+LABELREC:
+        MOV     AX,2F0AH        ;Split rejected: keep labels on.
+        INT     83H
+LABELPOP:
+        POP     DX
+        MOV     AH,08H
+        INT     83H
+LABELRET: RET
+
+SPLIT24:MOV     BP,OFFSET MAIN24
+        MOV     CX,2
+SETSPLIT:
+        PUSH    CS
+        POP     ES
+        MOV     AX,1D00H        ;Spltscn: select main screen 0.
+        INT     83H
+        RET
 
         SUBTTL  AUX and clock.
         PAGE
@@ -786,9 +931,10 @@ HWINIT: CLD
         MOV     WORD PTR CS:[OLD33],AX
         MOV     AX,ES:[33H*4+2]
         MOV     WORD PTR CS:[OLD33+2],AX
-        PUSH    CS
-        POP     DS
-        MOV     BP,DX
+        PUSH    DX              ;Keep the loaded kernel segment.
+        CALL    INITTEXT
+        POP     BP
+        CLD
         CALL    MEMSIZE         ;AX = memory size in paragraphs.
         MOV     CX,AX
         MOV     AX,OFFSET RESEND
@@ -811,6 +957,50 @@ HWINIT: CLD
         MOV     [DEFAULT_DRIVE],0
         ASSUME  DS:CODE
         JMP     SYSINIT
+
+; J0.1 text-BIOS split. Define the ROM strings for display only; the
+; DOS input queue and expansion continue to use CONKEYS/CONEDIT.
+TEXTBUFS DW     0
+        DB      80,25
+        DW      0FA0H           ;80 columns * 25 rows * 2 bytes.
+        DB      80,1
+
+INITTEXT:
+        MOV     AX,2404H        ;CrtCtl: 80x25, text on, non-interlaced.
+        INT     83H
+        PUSH    CS
+        POP     ES
+        MOV     BP,OFFSET TEXTBUFS
+        MOV     CX,2
+        MOV     AX,1C00H        ;Allocfb: main and system buffers.
+        INT     83H
+        JC      INITTX9
+        CALL    SPLIT24
+        JC      INITTX9
+        MOV     AX,0201H        ;ExpCtrl: disable ROM key expansion.
+        INT     82H
+        MOV     CX,1
+        MOV     DX,OFFSET CONKEYS
+INITKEY:PUSH    CX
+        PUSH    DX
+        PUSH    CS
+        POP     ES
+        MOV     AH,03H          ;DefSft: CL=key number, ES:DX=string.
+        INT     82H
+        POP     DX
+        POP     CX
+        ADD     DX,16
+        CMP     CL,20
+        JBE     INITKN
+        SUB     DX,10           ;The 11 editing-key slots are 6 bytes.
+INITKN: INC     CL
+        CMP     CL,32
+        JB      INITKEY
+        MOV     AX,2F0AH
+        INT     83H
+        JC      INITTX9
+        MOV     BYTE PTR CS:[LABELON],10
+INITTX9:RET
 
 ; Measure writable conventional memory in 64 KB steps above IO.SYS.
 ; Each probed word is restored; backup memory settings are not used.

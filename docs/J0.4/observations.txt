@@ -1,0 +1,41 @@
+NP2kai NEC 3.3D inverse label spans (1-based columns): [(5, 10), (12, 17), (19, 24), (26, 31), (33, 38), (43, 48), (50, 55), (57, 62), (64, 69), (71, 76)]
+
+== va ==
+boot: 24 main rows, prompt ready, 10 inverse boxes at NEC column positions
+labels: C1 CU CA S1 SU VOID NWL INS REP ^Z | Shift: dir a: dir b: copy del ren chkdsk chkdsk type date<CR> time<CR> | release: default pixel-identical
+DIR 33 files (unmodified disk), F3 recalled DIR, Enter repeated listing; TYPE 40 lines
+CLS: only new prompt on row 2 with COMMAND's leading CR/LF; redirected bytes: 1b 5b 32 4a 1b 5b 48
+Bytewise erase/home: CLEARED at row 24 col 1, then HOME at row 1 col 1 with CLEARED intact
+30-line exit: #09–#30 then prompt; unsupported escapes: [2X|[>2h|Z|[>
+Bottom row pixel-identical to boot for all above shown checkpoints
+Toggles: 25 hidden and 24 shown (block + byte); no lost main text on hide; P scroll #07–#30 → #08–#30 on show
+F/Shift+F stream (20/20): 1b 53 1b 54 1b 55 1b 56 1b 57 1b 45 1b 4a 1b 50 1b 51 1b 5a 64 69 72 20 61 3a 0d 64 69 72 20 62 3a 0d 63 6f 70 79 20 64 65 6c 20 72 65 6e 20 63 68 6b 64 73 6b 20 61 3a 0d 63 68 6b 64 73 6b 20 62 3a 0d 74 79 70 65 20 64 61 74 65 0d 74 69 6d 65 0d
+eof-1: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+eof-2: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+eof-3: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+ctrl-z: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+VERX/BS/VER before and after matched main text; Ctrl-X then F3 recalled VER; Ctrl-C, fresh VER and prompt OK
+base frame 372 | 655360 total bytes memory; 532480 bytes free
+after frame 373 | 655360 total bytes memory; 532160 bytes free
+Direct Putstr: hide/show unhandled, 2J erased main, H marker at row 1 col 1
+Direct Chuput: hide/show unhandled, 2J erased main, H marker at row 1 col 1
+
+== va2 ==
+boot: 24 main rows, prompt ready, 10 inverse boxes at NEC column positions
+labels: C1 CU CA S1 SU VOID NWL INS REP ^Z | Shift: dir a: dir b: copy del ren chkdsk chkdsk type date<CR> time<CR> | release: default pixel-identical
+DIR 33 files (unmodified disk), F3 recalled DIR, Enter repeated listing; TYPE 40 lines
+CLS: only new prompt on row 2 with COMMAND's leading CR/LF; redirected bytes: 1b 5b 32 4a 1b 5b 48
+Bytewise erase/home: CLEARED at row 24 col 1, then HOME at row 1 col 1 with CLEARED intact
+30-line exit: #09–#30 then prompt; unsupported escapes: [2X|[>2h|Z|[>
+Bottom row pixel-identical to boot for all above shown checkpoints
+Toggles: 25 hidden and 24 shown (block + byte); no lost main text on hide; P scroll #07–#30 → #08–#30 on show
+F/Shift+F stream (20/20): 1b 53 1b 54 1b 55 1b 56 1b 57 1b 45 1b 4a 1b 50 1b 51 1b 5a 64 69 72 20 61 3a 0d 64 69 72 20 62 3a 0d 63 6f 70 79 20 64 65 6c 20 72 65 6e 20 63 68 6b 64 73 6b 20 61 3a 0d 63 68 6b 64 73 6b 20 62 3a 0d 74 79 70 65 20 64 61 74 65 0d 74 69 6d 65 0d
+eof-1: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+eof-2: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+eof-3: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+ctrl-z: 41 42 43 0d 0a 44 45 46 0d 0a TYPE and prompt OK
+VERX/BS/VER before and after matched main text; Ctrl-X then F3 recalled VER; Ctrl-C, fresh VER and prompt OK
+base frame 364 | 655360 total bytes memory; 532480 bytes free
+after frame 365 | 655360 total bytes memory; 532160 bytes free
+Direct Putstr: hide/show unhandled, 2J erased main, H marker at row 1 col 1
+Direct Chuput: hide/show unhandled, 2J erased main, H marker at row 1 col 1

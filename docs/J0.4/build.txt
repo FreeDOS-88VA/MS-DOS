@@ -1,0 +1,31 @@
+Baseline VAIO assembly
+Microsoft (R) Macro Assembler Version 5.10
+Copyright (C) Microsoft Corp 1981, 1988.  All rights reserved.
+
+
+  47590 + 437809 Bytes symbol space free
+
+      0 Warning Errors
+      0 Severe  Errors
+
+J0.4 VAIO assembly/link
+Microsoft (R) Macro Assembler Version 5.10
+Copyright (C) Microsoft Corp 1981, 1988.  All rights reserved.
+
+
+  47570 + 435411 Bytes symbol space free
+
+      0 Warning Errors
+      0 Severe  Errors
+
+Microsoft (R) Overlay Linker  Version 3.65
+Copyright (C) Microsoft Corp 1983-1988.  All rights reserved.
+
+Object Modules [.OBJ]: VAIO+SYSINIT1+SYSCONF+SYSINIT2+SYSIMES,IO.EXE,IO.MAP;
+LINK : warning L4021: no stack segment
+
+Listing symbols (DOS IO.SYS offsets)
+ 059C  2E: A0 0415 R		CISTAT: MOV     AL,CS:[CHAR]
+ 0AD4				RESEND  LABEL   BYTE            ;End of the res
+ 059E  2E: A0 0415 R		CISTAT: MOV     AL,CS:[CHAR]
+ 0C1E				RESEND  LABEL   BYTE            ;End of the res
