@@ -180,6 +180,7 @@ PTRSAV  DD      0               ;Request packet pointer.
 SAVESP  DW      0               ;DOS stack during a request.
 SAVESS  DW      0
 SAVEAX  DW      0
+SAVEFL  DW      0               ;Flags across an SS:SP switch.
         DW      256 DUP (0)     ;Private request stack.
 STKTOP  LABEL   WORD
 
@@ -215,13 +216,19 @@ DSK_INT:
         MOV     SI,OFFSET DSKTBL
 
 ; The DOS stack is shallow and the ROM services need more, so requests
-; run on a private stack.  MOV SS inhibits interrupts for one instruction.
+; run on a private stack.  Mask IRQs explicitly: vaeg can deliver one
+; between MOV SS and MOV SP despite the expected interrupt shadow.
 ENTRY:  MOV     CS:[SAVESP],SP
         MOV     CS:[SAVESS],SS
         MOV     CS:[SAVEAX],AX
         MOV     AX,CS
+        PUSHF
+        CLI
+        POP     CS:[SAVEFL]
         MOV     SS,AX
         MOV     SP,OFFSET STKTOP
+        PUSH    CS:[SAVEFL]
+        POPF
         MOV     AX,CS:[SAVEAX]
         CLD
         PUSH    AX
@@ -292,8 +299,13 @@ EXIT1:  CLD
         POP     DX
         POP     CX
         POP     AX
+        PUSHF
+        CLI
+        POP     CS:[SAVEFL]
         MOV     SS,CS:[SAVESS]
         MOV     SP,CS:[SAVESP]
+        PUSH    CS:[SAVEFL]
+        POPF
         POP     SI
         RET
 EXITP   ENDP
