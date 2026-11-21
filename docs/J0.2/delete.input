@@ -1,0 +1,4 @@
+@text ABC
+@wait 100
+@key escape
+@text D

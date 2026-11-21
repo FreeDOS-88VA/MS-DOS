@@ -1,0 +1,9 @@
+COPY CON T.TXT
+@wait 100
+FIRST LINE
+SECOND LINE
+@key ctrl-z
+@wait 150
+@enter
+@wait 150
+TYPE T.TXT

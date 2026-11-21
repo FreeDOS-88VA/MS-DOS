@@ -1,0 +1,196 @@
+VA2 COPY CON recheck
+
+Headless scheduler and capture events (these do not report guest key consumption):
+
+[base-fast]
+headless-input-script loaded commands=9
+headless-input-script waiting 600 frames before first input
+headless-input-script injected command=1 frame=600
+headless-input-script injected command=3 frame=883
+headless-input-script injected command=4 frame=1047
+headless-input-script key command=5 frame=1250
+screenshot frame=1400 path=before.png
+headless-input-script injected command=7 frame=1529
+headless-input-script injected command=9 frame=1799
+headless-input-script complete
+screenshot frame=2300 path=after.png
+emulator exit=0
+
+[nec-slow]
+headless-input-script loaded commands=51
+headless-input-script waiting 600 frames before first input
+headless-input-script injected command=1 frame=600
+screenshot frame=700 path=f700.png
+screenshot frame=800 path=f800.png
+screenshot frame=900 path=f900.png
+screenshot frame=1000 path=f1000.png
+screenshot frame=1100 path=f1100.png
+headless-input-script injected command=3 frame=1111
+screenshot frame=1200 path=f1200.png
+headless-input-script injected command=5 frame=1241
+screenshot frame=1300 path=f1300.png
+headless-input-script injected command=7 frame=1371
+screenshot frame=1400 path=f1400.png
+screenshot frame=1500 path=f1500.png
+headless-input-script injected command=9 frame=1501
+screenshot frame=1600 path=f1600.png
+headless-input-script injected command=11 frame=1631
+screenshot frame=1700 path=f1700.png
+headless-input-script injected command=13 frame=1761
+screenshot frame=1800 path=f1800.png
+headless-input-script injected command=15 frame=1891
+screenshot frame=1900 path=f1900.png
+screenshot frame=2000 path=f2000.png
+headless-input-script injected command=17 frame=2021
+screenshot frame=2100 path=f2100.png
+headless-input-script injected command=19 frame=2151
+screenshot frame=2200 path=f2200.png
+headless-input-script injected command=21 frame=2281
+screenshot frame=2300 path=f2300.png
+screenshot frame=2400 path=f2400.png
+headless-input-script injected command=23 frame=2411
+screenshot frame=2500 path=f2500.png
+headless-input-script injected command=25 frame=2541
+screenshot frame=2600 path=f2600.png
+headless-input-script injected command=27 frame=2671
+screenshot frame=2700 path=f2700.png
+screenshot frame=2800 path=f2800.png
+headless-input-script injected command=29 frame=2801
+screenshot frame=2900 path=f2900.png
+headless-input-script injected command=31 frame=2931
+screenshot frame=3000 path=f3000.png
+headless-input-script injected command=33 frame=3061
+screenshot frame=3100 path=f3100.png
+headless-input-script injected command=35 frame=3191
+screenshot frame=3200 path=f3200.png
+screenshot frame=3300 path=f3300.png
+headless-input-script injected command=37 frame=3321
+screenshot frame=3400 path=f3400.png
+headless-input-script injected command=39 frame=3451
+screenshot frame=3500 path=f3500.png
+headless-input-script injected command=41 frame=3581
+screenshot frame=3600 path=f3600.png
+screenshot frame=3700 path=f3700.png
+headless-input-script injected command=43 frame=3711
+screenshot frame=3800 path=f3800.png
+headless-input-script key command=45 frame=3841
+screenshot frame=3900 path=f3900.png
+headless-input-script injected command=47 frame=3974
+screenshot frame=4000 path=f4000.png
+screenshot frame=4100 path=f4100.png
+screenshot frame=4200 path=f4200.png
+headless-input-script injected command=49 frame=4244
+screenshot frame=4300 path=f4300.png
+screenshot frame=4400 path=f4400.png
+screenshot frame=4500 path=f4500.png
+screenshot frame=4600 path=f4600.png
+headless-input-script injected command=51 frame=4664
+screenshot frame=4700 path=f4700.png
+screenshot frame=4800 path=f4800.png
+emulator exit=0
+
+Fresh writable disks after exit (cmp with input; readfile.py DISK T.TXT):
+base-fast: disk unchanged; readfile.py exit 1: not found: T.TXT
+nec-slow: disk unchanged; readfile.py exit 1: not found: T.TXT
+nec-retry1: disk unchanged; readfile.py exit 1: not found: T.TXT
+nec-retry2: disk unchanged; readfile.py exit 1: not found: T.TXT
+nec-retry3: disk unchanged; readfile.py exit 1: not found: T.TXT
+gui-copy: disk unchanged; readfile.py exit 1: not found: T.TXT
+nec-alternate: disk unchanged; readfile.py exit 1: not found: T.TXT
+
+Debug-script VAIO CISTAT wait (the frame-limit event means no hit):
+
+[poll4-ibm: copy-poll.debug]
+event	frame	id	value
+initialized	0	-	2200
+frame	550	-	550
+wait-pc	550	-	1
+pc	550	-	1
+capture	550	prompt	1
+frame	600	-	600
+input	600	-	5
+frame	1400	-	1400
+wait-pc	1400	-	1
+frame-limit	2200	-	2200
+
+[poll4-nec: copy-poll.debug]
+event	frame	id	value
+initialized	0	-	2200
+frame	550	-	550
+wait-pc	550	-	1
+pc	550	-	1
+capture	550	prompt	1
+frame	600	-	600
+input	600	-	5
+frame	1400	-	1400
+wait-pc	1400	-	1
+pc	1400	-	1
+capture	1400	after-copy	7
+exit	1400	-	0
+
+[poll5-ibm: copy-poll.debug]
+event	frame	id	value
+initialized	0	-	2200
+frame	550	-	550
+wait-pc	550	-	1
+pc	550	-	1
+capture	550	prompt	1
+frame	600	-	600
+input	600	-	5
+frame	1400	-	1400
+wait-pc	1400	-	1
+frame-limit	2200	-	2200
+
+[poll5-nec: copy-poll.debug]
+event	frame	id	value
+initialized	0	-	2200
+frame	550	-	550
+wait-pc	550	-	1
+pc	550	-	1
+capture	550	prompt	1
+frame	600	-	600
+input	600	-	5
+frame	1400	-	1400
+wait-pc	1400	-	1
+pc	1400	-	1
+capture	1400	after-copy	7
+exit	1400	-	0
+
+[poll-first-ibm: copy-poll-first.debug]
+event	frame	id	value
+initialized	0	-	2200
+frame	550	-	550
+wait-pc	550	-	1
+pc	550	-	1
+capture	550	prompt	1
+frame	600	-	600
+input	600	-	5
+frame	1050	-	1050
+input	1050	-	7
+frame	1400	-	1400
+wait-pc	1400	-	1
+pc	1400	-	1
+capture	1400	after-copy	7
+exit	1400	-	0
+
+[poll-first-nec: copy-poll-first.debug]
+event	frame	id	value
+initialized	0	-	2200
+frame	550	-	550
+wait-pc	550	-	1
+pc	550	-	1
+capture	550	prompt	1
+frame	600	-	600
+input	600	-	5
+frame	1050	-	1050
+input	1050	-	7
+frame	1400	-	1400
+wait-pc	1400	-	1
+frame-limit	2200	-	2200
+
+Regression: cmp of original IBM and NEC files succeeded (all 4 PNGs and TVRAM).
+Original PNG SHA-256 (before lossless repacking for the repository):
+3a083530498986c4cff256920ddd2be7c499d8ea08e01a8b9f262e5c2442c34a  boot.png
+b5c476759e1fbf0b9d39724968fd1fa4fc6e6e78e64f7d7e932337b0fa769d9a  typed.png
+567b23bf4fc2d9991865c7b127e2cd4de180e4c3dde27161eb0ee85a4d5a22c3  backspace.png
+05f0470f17e30af22d0191a606634ef108e1453a20184afbd2c30f40fd4c1860  entered.png

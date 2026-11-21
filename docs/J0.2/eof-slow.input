@@ -1,0 +1,52 @@
+# Space is bundled with the next letter: vaeg trims trailing spaces.
+COPY CON T.TXT
+@wait 300
+@text F
+@wait 10
+@text I
+@wait 10
+@text R
+@wait 10
+@text S
+@wait 10
+@text T
+@wait 10
+@text  L
+@wait 10
+@text I
+@wait 10
+@text N
+@wait 10
+@text E
+@wait 10
+@enter
+@wait 10
+@text S
+@wait 10
+@text E
+@wait 10
+@text C
+@wait 10
+@text O
+@wait 10
+@text N
+@wait 10
+@text D
+@wait 10
+@text  L
+@wait 10
+@text I
+@wait 10
+@text N
+@wait 10
+@text E
+@wait 10
+@enter
+@wait 10
+@key escape
+@wait 10
+@text Z
+@wait 150
+@enter
+@wait 300
+TYPE T.TXT
