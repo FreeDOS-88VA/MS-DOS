@@ -1122,12 +1122,25 @@ envsetok:
 	MOV	AH, SETBLOCK
 	INT	int_command
 
+	IFDEF PC88VA
+	; The boot shell signs on after CON setup, before AUTOEXEC.BAT.
+	; Use one DOS write through CON so the Shift-JIS pairs stay together.
+	CMP	[PERMCOM],0
+	JE	NOPHEAD
+	MOV	BX,1
+	MOV	CX,VABANNER_END-VABANNER
+	MOV	DX,OFFSET RESGROUP:VABANNER
+	MOV	AH,WRITE
+	INT	int_command
+NOPHEAD:
+	ELSE
 	IF MSVER
 	CMP	[SINGLECOM],0
 	JNZ	NOPHEAD 			; Don't print header if SINGLECOM
 	MOV	DX,HEADER_ptr			;AC000; get message number
 	call	print_message
 NOPHEAD:
+	ENDIF
 	ENDIF
 
 	CMP	[BATCH],0			;eg did we set up a batch segment?
@@ -1255,11 +1268,13 @@ DODTTM:
 
 NODTTM:
 
+	IFNDEF PC88VA
 	IF IBMVER
 	CMP	[SINGLECOM],0
 	JNZ	DRV0				; Don't print header if SINGLECOM
 	MOV	DX,HEADER_ptr			;AC000; get message number
 	call	print_message
+	ENDIF
 	ENDIF
 
 DRV0:						; Reset APPEND state
@@ -1716,6 +1731,15 @@ MSG_UTILNAME <COMMAND>				;AN000; define utility name
 MSG_SERVICES <COMR,NEARmsg,LOADmsg,NOCHECKSTDIN,NOCHECKSTDOUT>	;AC026; include message services macro
 
 include msgdcl.inc
+
+IFDEF PC88VA
+VABANNER DB	93H,0FAH,96H,7BH,8CH,0EAH	; Shift-JIS title prefix
+	DB	'MS-DOS version 4.00 '
+	INCLUDE VAREL.INC
+	DB	13,10,'for NEC PC-88VA Series Personal Computer'
+	DB	13,10,'Ported by Nakata Maho',13,10
+VABANNER_END LABEL BYTE
+ENDIF
 
 INIT	ENDS
 

@@ -1,0 +1,40 @@
+R1 clean-build evidence
+
+MS-DOS baseline: 2f986c16aa64731edfc0e50fc09c1c7c7a7eb442
+R1 source built: ef7074d0b7fa34f307a0bded4fc47015bf23c2e0
+R1 committer date: 2026-11-21T19:46:35+09:00
+FreeDOS-88VA/freedos builder export: 7f467a2187a9e15c0c1bb84f179f214fe925153f
+Stock build.py SHA-256: b64aabacdd830f652f14ee10bea8a4d94710d33c7de13ad4c1f5ca69056ce028
+Patched build.py SHA-256: a108616ba37c0575e4dba4e82c342dcc79f888d086b7827c1d94418a4fefae92
+emu2 source: 9d8698d06e67359bc8b230c2d19d5b1503e60819
+
+Clean build                      Exit Image SHA-256 (msdos4-pc88va-2hd.d88)
+Baseline                            0 acccb80bd71a88cff646c53db5b2fa4c5361af3e0c222cdd92a6a030ae829388
+Main (JST commit date)              0 85f1c7416f2136c60c94edba83fd47dd50d45549275a228fcd642358a8770783
+r1 (lock release_date=20261122)     0 905c4b7e90a60c1b61114f9928b7cb3f87ad68cb27476ac99360ffa9b9ff75cb
+Unknown (no include substitution)   0 cbbbfd186b9939d1e99cd04eb187d98d6fbd1728a7f65495216f3e9f4b9187a5
+Non-PC88VA defines, before          0 03fe7dd6ff478d043eed2e760d25d4dc779c3e27241ac7a422f6add795c6e9f7
+Non-PC88VA defines, after           0 03fe7dd6ff478d043eed2e760d25d4dc779c3e27241ac7a422f6add795c6e9f7
+Main rebuild (TZ=America/Los_Angeles) 0 85f1c7416f2136c60c94edba83fd47dd50d45549275a228fcd642358a8770783
+
+Each disk contains 36 files. Main, r1 and unknown differ from baseline only in
+COMMAND.COM (37,521 -> 37,649 B) and AUTOEXEC.BAT (39 -> 34 B). IO.SYS remains
+21,098 B (21 x 1024-byte boot sectors); the boot sector is unchanged.
+Main rebuild from an independently patched scratch builder with the same lock:
+cmp passed for the image and the complete build-record.json.
+
+Non-PC88VA comparison: stock disk template, no -DPC88VA in bootstrap MASM,
+and DEFINES=() for NMAKE. D88 cmp passed; all 36 packaged file hash/size pairs
+matched. Recursively compared tree/, bootstrap-command/, va/: 1,131 + 186 + 28
+common files. The only unequal common files were the two edited inputs
+INIT.ASM and MAKEFILE (each in both tree/ and bootstrap-command/); the only
+added input was VAREL.INC (also in both). All generated guest outputs, including
+intermediate objects, matched. This compared compiled outputs, not boot of a
+separate IBM-compatible distribution. Host emu2 binaries, logs, and build
+records (which identify the different pins) are outside this comparison.
+
+Additional builder checks (synthetic Git repo, committer 2026-11-20 18:00 UTC,
+host TZ=America/Los_Angeles): JST rollover to 20261121, 8-digit hash, default
+main, explicit j0.3b and date override all passed. Rejected uppercase, leading
+zero, quote, overlong and undeclared milestone tracks, an abbreviated SHA, an
+invalid leap date and a numeric release_date.

@@ -43,7 +43,7 @@ cparse.obj:  cparse.asm comsw.asm $(inc)\dossym.inc \
 
 init.obj:  init.asm $(inc)\dossym.inc $(inc)\devsym.inc \
     comsw.asm comseg.asm comequ.asm resmsg.equ $(inc)\sysmsg.inc \
-    $(inc)\msgserv.asm command.ctl
+    $(inc)\msgserv.asm command.ctl varel.inc
 
 iparse.obj:  iparse.asm comseg.asm $(inc)\parse.asm $(inc)\psdata.inc
 
