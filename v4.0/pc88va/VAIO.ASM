@@ -1371,10 +1371,10 @@ ESCBPLAIN:
         MOV     AX,BP
         JMP     ESCROM
 
-; Each NEC SGR starts at normal. In VA's per-cell color mode reverse
-; swaps the nibbles, and secret uses equal foreground/background colors.
-; VA's blink/underline modes cannot preserve these per-cell colors.
-ESCATTR:XOR     BX,BX           ;BL = reverse, BH = secret.
+; Each NEC SGR starts at normal. All supported colors are one color
+; against black, optionally reversed. Mode 1 stores each cell's color
+; in the high nibble, plus HL/RV/BL/SE in the low nibble.
+ESCATTR:XOR     BX,BX           ;BL = mode 1 effect bits.
         MOV     DL,7            ;White on black; graphics mode unchanged.
         XOR     CX,CX
         MOV     CL,[ESCN]
@@ -1382,6 +1382,10 @@ ESCATTR:XOR     BX,BX           ;BL = reverse, BH = secret.
         MOV     SI,OFFSET ESCARGS
         CLD
 ESCAT1: LODSB
+        CMP     AL,4
+        JE      ESCATLINE
+        CMP     AL,5
+        JE      ESCATBLINK
         CMP     AL,7
         JE      ESCATREV
         CMP     AL,8
@@ -1398,7 +1402,7 @@ ESCAT1: LODSB
         JB      ESCATNEXT
         CMP     AL,47
         JA      ESCATNEXT
-        MOV     BL,1            ;NEC 4x = reverse in that color.
+        OR      BL,04H          ;NEC 4x = reverse in that color.
         SUB     AL,10
 ESCATFG:SUB     AL,30
         JMP     SHORT ESCATCOL
@@ -1411,28 +1415,33 @@ ESCATCOL:
         POP     BX
         MOV     DL,AL
         JMP     SHORT ESCATNEXT
-ESCATREV:MOV    BL,1
+ESCATLINE:
+        OR      BL,08H          ;HL at the final raster line.
         JMP     SHORT ESCATNEXT
-ESCATSEC:MOV    BH,1
+ESCATBLINK:
+        OR      BL,02H
+        JMP     SHORT ESCATNEXT
+ESCATREV:OR     BL,04H
+        JMP     SHORT ESCATNEXT
+ESCATSEC:OR     BL,01H
 ESCATNEXT:
         LOOP    ESCAT1
-        OR      BH,BH
-        JZ      ESCAT2
-        XOR     DL,DL
-ESCAT2: OR      BL,BL
+        TEST    BL,01H          ;Secret also keeps the cell black if reversed.
         JZ      ESCATSET
+        XOR     DL,DL
+ESCATSET:
         MOV     CL,4
         SHL     DL,CL
-ESCATSET:
+        OR      DL,BL
         XOR     DH,DH
-        MOV     AH,05H          ;Setatr, current attribute in mode 0.
+        MOV     AH,05H          ;Setatr, current attribute in mode 1.
         JMP     ESCROM
 ESCCOLORS DB    0,2,4,6,1,3,5,7 ;NEC ANSI RGB order -> VA GRB bits.
 
 ; The two layouts share the main framebuffer. The system buffer starts
 ; after all 25 main rows, so the split can change without copying text.
-MAIN25  DB      00H,0,0,0,25,01H,07H,0
-MAIN24  DB      00H,0,0,0,24,01H,07H,0  ;ROM word wrap, no auto-scroll.
+MAIN25  DB      00H,0,0,0,25,11H,07H,0
+MAIN24  DB      00H,0,0,0,24,11H,07H,0  ;Mode 1, word wrap, no auto-scroll.
         DB      41H,0,0,0,1,10H,07H,0   ;System line, attribute mode 1.
 
 ; AL = requested label count (0 or 10). Caller saves all registers.
