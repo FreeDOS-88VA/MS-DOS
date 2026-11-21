@@ -26,3 +26,13 @@ WRAPTEST.COM:         13e60cb0fcb17b1fae08a47d86f2228732f2701da2e9bba38744bf8f3b
 baseline ESCPROBE scenarios reached exit with all requested captures.
 Intermediate trials (ROM word wrap off, incomplete screen captures, and the
 initial untimed NEC install/menu attempts) are not counted.
+
+Part 2: 99ef5e57de5fc76299d2c142048429b132d544b3. Clean build exited 0; MASM
+reported 0 warnings and 0 severe errors. The relink FAT image again matched
+byte for byte. Only IO.SYS changed vs. Part 1.
+CISTAT: 06CFh (unchanged). RESEND: 123Dh (paragraph-rounded 1240h).
+IO.SYS: 21002 B (21 sectors), SHA-256 746a6d69368b1007260eb668e225cbf6e97e78afc9f6e28d2e81c2b119a73152.
+Distribution D88: 165bb842a556760992f7849266e7baca5f8403729d9a07c222e81d508c08b6b8.
+Test D88: 68ea572002f6f7d839861a6831f00a4803cf5d3a3ea55e5b03f50ff2ae55491d.
+CHKDSK: 529152 B free out of 655360 B on each model.
+All 66 scenarios (33 per model) reached exit with all requested captures.
