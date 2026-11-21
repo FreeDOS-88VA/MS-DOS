@@ -1,5 +1,7 @@
 # J2c — CON follow-ups
 
+Parts 1–3 implemented. Final NEC parity is **22/25 J2b reference pages per DOS write method on both models**. The optional 20-row CON mode was not implemented.
+
 Baseline: `release/msdos-va` at `55cf974`, including [J2b](J2b-escape-sequences.md).
 Reference: NEC MS-DOS 3.3D system disk 1 (SHA-256 `0879cb724de42da021f6adeab447597fcd2553efe421440fb63ae02bfd69907f`) in NP2kai SDL2 `5939e0c6d5985c4c08fc70f289a83290e5d3e6f7`. VA and VA2: vaeg PR #82, `Rel.20261121 (m153, 6367e5d3)`, SHA-256 `a3ab65a03eac9fd2abccca3d51b8e464266a4b6141b9d5132b5b667495655906`.
 
@@ -84,3 +86,9 @@ Side-by-side: J2b pages 13–14 [AH=40h](J2c/block-graph.png), [AH=02h](J2c/spli
 Reproduce as before with the Part 3 revision from [build.txt](J2c/build.txt). Assemble `GRAPHROM.NAS`, add `--graph-probe "$S/GRAPHROM.COM"` to `wrap-media.py` and use `graph-run.py` in place of `wrap-run.py` with `AFTER_CISTAT=1000:06D0`. Pass `--graph` to `esc-check.py`, use `--expected-memory 529456 529040` for `sjis-check.py`, and run `graph-check.py` in addition to the wrap/attr checkers. On NEC run `GRAPHROM N` with Space between pages and capture pages 13–14 of each ESCPROBE run.
 
 Additional cost: **112 B resident** per model and **96 B in IO.SYS**. Relative to `55cf974`, final CHKDSK is **529,456 → 529,040 B free (−416 B)** on both models and IO.SYS is **20,698 → 21,098 B (+400 B)**, still 21 sectors.
+
+## 4. 20-row mode — optional, deferred
+
+The [J2b NEC reference](J2b-escape-sequences.md) shows that `CSI >3h/l` clear and home while switching 20/25 rows. `604TEXT.TXT` §6.4.3 function 34 documents 20 and 25 rows via `Crtctl`. [ROMROWS](../tests/pc88va/ROMROWS.NAS) verified the underlying BIOS support on both VA and VA2. `Crtctl` alone switched to 20 rasters per row but left the main split height at 384 rasters: the labels were visible, but the saved 24-row geometry was not a valid 19-row split. With `Spltscn` (function 27) and `Sfkctl` (function 43) the probe got 19 main rows plus labels, addressed `(19,60)`, and returned to 24 main rows plus labels and addressed `(24,60)`. [VA / VA2 BIOS probe](J2c/rom-rows.png). This establishes feasibility, not DOS parity.
+
+The CON driver would need to track the active height across both CRT and label changes and use it consistently for cursor clamping, erase, line edits, and explicit scroll/wrap. The BIOS transition itself does not clear/home like NEC. This optional integration was left for a separate change rather than shipping a partial geometry switch. **NOT RUN:** `>3h/l` as implemented CON commands on either model, a fresh NEC page 11/12 comparison, or the 20-row interaction matrix with labels hidden, wrap, and graph/attributes. The optional probe changes no resident bytes.
