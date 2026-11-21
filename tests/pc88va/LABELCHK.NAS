@@ -2,7 +2,8 @@
 ; N: 30 lines and exit. H/L: hide/show via DOS write, B/C: same bytewise.
 ; P: pause before hiding, after hiding, after scrolling, after showing.
 ; U/V: direct VA Putstr / Chuput (bypass CON), pause after each escape.
-; F: unsupported/incomplete escape sequences must print as before.
+; E: clear/home via DOS byte writes; F: unsupported escape prefixes.
+        cpu 8086
         bits 16
         org 100h
         cld
@@ -14,7 +15,10 @@
         je probe
         cmp al,'F'
         je fallback
-        mov si,hide
+        cmp al,'E'
+        jne .toggle
+        jmp erase
+.toggle:mov si,hide
         cmp al,'U'
         je native
         cmp al,'V'
@@ -32,12 +36,15 @@ string: mov dx,si
 quit:   mov ax,4c00h
         int 21h
 bytes:  mov cx,5
-.next:  lodsb
+        call writebytes
+        jmp quit
+writebytes:
+        lodsb
         mov dl,al
         mov ah,02h
         int 21h
-        loop .next
-        jmp quit
+        loop writebytes
+        ret
 lines:  call scroll
         jmp quit
 probe:  call pause
@@ -65,6 +72,24 @@ native: mov [method],al
         call rom
         mov si,home
         call rom
+        jmp mark_home
+; Print markers in situ to distinguish a clear that leaves the cursor
+; in place from the subsequent home. Screen captures happen in pause.
+erase:  mov si,clear
+        mov cx,4
+        call writebytes
+        mov dx,cleared
+        mov cx,7
+        call write
+        call pause
+        mov si,home
+        mov cx,3
+        call writebytes
+mark_home:
+        mov dx,homed
+        mov cx,4
+        call write
+        call pause
         jmp quit
 rom:    push cs
         pop ds
@@ -114,4 +139,6 @@ line    db 'LINE #01',13,10
 line_end:
 unknown db 27,'[2X|',27,'[>2h|',27,'Z|',27,'[>',13,10
 unknown_end:
+cleared db 'CLEARED'
+homed   db 'HOME'
 method  db 0
