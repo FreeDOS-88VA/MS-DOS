@@ -1,0 +1,36 @@
+
+PRE-DOS va (scratch sector)
+ax	0003
+cs	3000
+ip	0100
+
+PRE-DOS va2 (scratch sector)
+ax	0003
+cs	3000
+ip	0100
+
+Default compact table SHA-256: 763008d968edd6c84c829a954607af9cb8c358f84e366e3351261f9e4d072cb9
+
+VA
+Baseline vector: immediate IRET, shared with DBh and DDh
+DCh: 19/19 compatible records (including guards, AX, low FLAGS); 0100h data-buffer case intentionally differs
+Overlength: 15 bytes + NUL; rest of table and guard unchanged
+Physical F1/Shift+F1: f-one and s-one with NEW/SHIFT labels; raw CR present in rendered label cells
+Hidden write: kept 25 main rows; show restored the changed labels at row 25
+Unknown CL preserves AX, low FLAGS and buffer; a write discards pending expansion
+KEY: 31 default lines, one changed slot (exact save bytes), B: marker before and after reboot/load, invalid file rejected without mutation
+J0.3: F3 recalled DIR; all 3 F10 EOF boots and Ctrl-Z saved ABC/DEF CRLF; BS/VER, Ctrl-X and Ctrl-C matched; 20/20 default F-key payloads
+J0.4: 24+1 boot/Shift/release, DIR/TYPE, CLS + redirected bytes + bytewise markers, both hide/show paths and row-25 reflow
+CHKDSK: 532160 -> 531872 free, delta -288 B (655360 total)
+
+VA2
+Baseline vector: immediate IRET, shared with DBh and DDh
+DCh: 19/19 compatible records (including guards, AX, low FLAGS); 0100h data-buffer case intentionally differs
+Overlength: 15 bytes + NUL; rest of table and guard unchanged
+Physical F1/Shift+F1: f-one and s-one with NEW/SHIFT labels; raw CR present in rendered label cells
+Hidden write: kept 25 main rows; show restored the changed labels at row 25
+Unknown CL preserves AX, low FLAGS and buffer; a write discards pending expansion
+KEY: 31 default lines, one changed slot (exact save bytes), B: marker before and after reboot/load, invalid file rejected without mutation
+J0.3: F3 recalled DIR; all 3 F10 EOF boots and Ctrl-Z saved ABC/DEF CRLF; BS/VER, Ctrl-X and Ctrl-C matched; 20/20 default F-key payloads
+J0.4: 24+1 boot/Shift/release, DIR/TYPE, CLS + redirected bytes + bytewise markers, both hide/show paths and row-25 reflow
+CHKDSK: 532160 -> 531872 free, delta -288 B (655360 total)

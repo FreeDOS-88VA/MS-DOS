@@ -1,0 +1,31 @@
+--- a/experiments/msdos4-va/build.py
++++ b/experiments/msdos4-va/build.py
+@@ -8,7 +8,7 @@
+ EXE2BIN) running under emu2 built from its pinned source.  NMAKE builds
+ MSDOS.SYS, the SYSINIT objects, the utilities and COUNTRY.SYS from their
+ original makefiles; the PC-88VA BIOS part of IO.SYS, the boot sector and
+-FORMAT/SYS come from pc88va/ and v4.0/pc88va/.
++FORMAT/SYS/KEY come from pc88va/ and v4.0/pc88va/.
+
+ This experiment is self-contained: it uses no milestone tools.
+ """
+@@ -294,16 +294,18 @@
+     dos.run(va, va / 'LINK.EXE', 'VABOOT,VABOOT.EXE;')
+     boot = mz_image(expect(va / 'VABOOT.EXE'))
+     (va / 'VABOOT.INC').write_bytes(boot_include(boot))
+-    for module in ('VAIO', 'VAFORMAT', 'VASYS'):
++    for module in ('VAIO', 'VAFORMAT', 'VASYS', 'VAKEY'):
+         dos.run(va, va / 'MASM.EXE', module + ';')
+     (va / 'IO.LNK').write_bytes(('VAIO+' + '+'.join(SYSINIT_OBJECTS) + ',IO.EXE,IO.MAP;\r\n')
+                                 .encode('ascii'))
+     dos.run(va, va / 'LINK.EXE', '@IO.LNK')
+     dos.run(va, va / 'LINK.EXE', 'VAFORMAT,VAFORMAT.EXE;')
+     dos.run(va, va / 'LINK.EXE', 'VASYS,VASYS.EXE;')
++    dos.run(va, va / 'LINK.EXE', 'VAKEY,VAKEY.EXE;')
+     iosys = mz_image(expect(va / 'IO.EXE'), base=BIOSSEG)
+     built['FORMAT.COM'] = mz_image(expect(va / 'VAFORMAT.EXE'), origin=0x100)
+     built['SYS.COM'] = mz_image(expect(va / 'VASYS.EXE'), origin=0x100)
++    built['KEY.COM'] = mz_image(expect(va / 'VAKEY.EXE'), origin=0x100)
+
+     disk = lock['disk']
+     fat_date = ((disk['date'][0] - 1980) << 9) | (disk['date'][1] << 5) | disk['date'][2]

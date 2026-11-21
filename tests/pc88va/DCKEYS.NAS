@@ -10,8 +10,12 @@
 cpu 8086
 org 100h
     cld
+    xor al,al
+    cmp byte [80h],2
+    jb .dispatch
     mov al,[82h]
     and al,0dfh
+.dispatch:
     cmp al,'V'
     je vector
     cmp al,'L'
