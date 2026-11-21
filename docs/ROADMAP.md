@@ -235,6 +235,15 @@ directly would not scroll at the bottom.
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
 
+## Release identity
+
+R1 accepted 2026-11-21 (`docs/R1-boot-banner.md`): the boot COMMAND
+prints `日本語MS-DOS version 4.00 Release <YYYYMMDD> (<track>, <8-hex>)`,
+`for NEC PC-88VA Series Personal Computer`, `Ported by Nakata Maho`.
+The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
+`release/msdos-va`, date from the lock or the commit date in JST);
+`docs/R1/build-release.patch`. No resident memory cost.
+
 ## Disks
 
 ### D1 — DISKCOPY for 2D, 2DD and 2HD
