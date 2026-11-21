@@ -1,0 +1,96 @@
+
+VA 640 KiB
+1. J0.3 steps 1/5/9: 8/8 (three F10 cold boots, exact T.TXT bytes)
+1. J0.4 steps 1–5: 10/10 (current clear+home behavior)
+1. KEY: 1/1 (31/31 entries matching IO.SYS)
+1. J2a step 1: 1/1
+1. CHKDSK: 2/2 (655360 total; free 525952 → 525408, -544 bytes)
+1. Additional F10 cold boots: 2/2
+2. ROM JFP prompt and editing: 7/7 (J3a steps 2 and 6)
+2. 1/1: nihongo → 日本語 on first HENKAN, next/previous, KETTEI, Return
+3. 4/4: kanji, henkan, toukyou on first HENKAN; nonsense reading unchanged
+4. 1/1: 30 forward + 30 backward, no premature bytes, stable session
+5. 2/2: positive-control hooks, master-off at endpoints, and zero nested interrupts
+   calls 03h–0Ah: 1 1 31 30 1 1 1 1 | nested INT 21h / INT 83h: 0 0
+   calls 03h–0Ah: 4 4 0 0 0 0 0 0 | nested INT 21h / INT 83h: 0 0
+6. copy: 1/1; J.TXT = 93 fa 96 7b 8c ea 0d 0a
+6. edlin: 1/1; E.TXT = 93 fa 96 7b 8c ea 0d 0a 1a
+7. Labels: 2/2 (held Shift, restored; hidden layout reservation/deferred hide/OFF)
+7. CON API: 3/3 (byte order/repeated peek, pending candidate flush, cached trail flush)
+8. Return: 2/2 (reading and candidate both confirm before second Return submits)
+Gate: 48/48
+Supplemental: phrase movement/resize, 30 cells, mode exclusion/memory, candidate edit: 4/4
+Clock bracket: guest frame boundaries / vaeg clocks (BIOS only)
+   nihongo: 4 / 664516
+   kanji: 11 / 1649840
+   henkan: 8 / 1230337
+   toukyou: 12 / 1819417
+   pepepupu: 5 / 750390
+   full: 49 / 6983185
+   next: 0 / 10208
+   prev: 0 / 10180
+   commit: 0 / 1285
+
+VA2 256 KiB
+1. J0.3 steps 1/5/9: 8/8 (three F10 cold boots, exact T.TXT bytes)
+1. J0.4 steps 1–5: 10/10 (current clear+home behavior)
+1. KEY: 1/1 (31/31 entries matching IO.SYS)
+1. J2a step 1: 1/1
+1. CHKDSK: 2/2 (262144 total; free 132736 → 132192, -544 bytes)
+1. Additional F10 cold boots: 2/2
+2. ROM JFP prompt and editing: 7/7 (J3a steps 2 and 6)
+2. 1/1: nihongo → 日本語 on first HENKAN, next/previous, KETTEI, Return
+3. 4/4: kanji, henkan, toukyou on first HENKAN; nonsense reading unchanged
+4. 1/1: 30 forward + 30 backward, no premature bytes, stable session
+5. 2/2: positive-control hooks, master-off at endpoints, and zero nested interrupts
+   calls 03h–0Ah: 1 1 31 30 1 1 1 1 | nested INT 21h / INT 83h: 0 0
+   calls 03h–0Ah: 4 4 0 0 0 0 0 0 | nested INT 21h / INT 83h: 0 0
+6. copy: 1/1; J.TXT = 93 fa 96 7b 8c ea 0d 0a
+6. edlin: 1/1; E.TXT = 93 fa 96 7b 8c ea 0d 0a 1a
+7. Labels: 2/2 (held Shift, restored; hidden layout reservation/deferred hide/OFF)
+7. CON API: 3/3 (byte order/repeated peek, pending candidate flush, cached trail flush)
+8. Return: 2/2 (reading and candidate both confirm before second Return submits)
+Gate: 48/48
+Supplemental: phrase movement/resize, 30 cells, mode exclusion/memory, candidate edit: 4/4
+Clock bracket: guest frame boundaries / vaeg clocks (BIOS only)
+   nihongo: 4 / 599869
+   kanji: 4 / 578808
+   henkan: 3 / 473308
+   toukyou: 3 / 538688
+   pepepupu: 8 / 1245341
+   full: 102 / 14533747
+   next: 2 / 373712
+   prev: 2 / 370750
+   commit: 0 / 1432
+
+VA2 640 KiB
+1. J0.3 steps 1/5/9: 8/8 (three F10 cold boots, exact T.TXT bytes)
+1. J0.4 steps 1–5: 10/10 (current clear+home behavior)
+1. KEY: 1/1 (31/31 entries matching IO.SYS)
+1. J2a step 1: 1/1
+1. CHKDSK: 2/2 (655360 total; free 525952 → 525408, -544 bytes)
+1. Additional F10 cold boots: 2/2
+2. ROM JFP prompt and editing: 7/7 (J3a steps 2 and 6)
+2. 1/1: nihongo → 日本語 on first HENKAN, next/previous, KETTEI, Return
+3. 4/4: kanji, henkan, toukyou on first HENKAN; nonsense reading unchanged
+4. 1/1: 30 forward + 30 backward, no premature bytes, stable session
+5. 2/2: positive-control hooks, master-off at endpoints, and zero nested interrupts
+   calls 03h–0Ah: 1 1 31 30 1 1 1 1 | nested INT 21h / INT 83h: 0 0
+   calls 03h–0Ah: 4 4 0 0 0 0 0 0 | nested INT 21h / INT 83h: 0 0
+6. copy: 1/1; J.TXT = 93 fa 96 7b 8c ea 0d 0a
+6. edlin: 1/1; E.TXT = 93 fa 96 7b 8c ea 0d 0a 1a
+7. Labels: 2/2 (held Shift, restored; hidden layout reservation/deferred hide/OFF)
+7. CON API: 3/3 (byte order/repeated peek, pending candidate flush, cached trail flush)
+8. Return: 2/2 (reading and candidate both confirm before second Return submits)
+Gate: 48/48
+Supplemental: phrase movement/resize, 30 cells, mode exclusion/memory, candidate edit: 4/4
+Clock bracket: guest frame boundaries / vaeg clocks (BIOS only)
+   nihongo: 4 / 600973
+   kanji: 4 / 578899
+   henkan: 3 / 474352
+   toukyou: 3 / 537418
+   pepepupu: 8 / 1248603
+   full: 102 / 14533786
+   next: 2 / 373723
+   prev: 2 / 370758
+   commit: 0 / 3574
