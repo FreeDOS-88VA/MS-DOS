@@ -1,0 +1,18 @@
+FKPROBE.ASM — output from the final build (line ends normalized)
+
+Microsoft (R) Macro Assembler Version 5.10
+Copyright (C) Microsoft Corp 1981, 1988.  All rights reserved.
+
+  47848 + 445268 Bytes symbol space free
+
+      0 Warning Errors
+      0 Severe  Errors
+
+Microsoft (R) Overlay Linker  Version 3.65
+Copyright (C) Microsoft Corp 1983-1988.  All rights reserved.
+
+LINK : warning L4021: no stack segment
+
+EXE2BIN exit status 0; FKPROBE.COM size: 1624 bytes
+SHA-256 FKPROBE.COM: db4a2a3f353ddb07197afca387068bb80d7182097afad3617ac8cef95042f7d7
+SHA-256 probe.d88: 23c9ed30643af6901d2e9b2729a89ffbe13fe7dad79c2fff9d6b5ae19083048c

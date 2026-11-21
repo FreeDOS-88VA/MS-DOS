@@ -1,0 +1,67 @@
+VAEG Rel.20261118 (m150, 5c2307ac), --model va2
+
+Guest-frame injections/captures (filtered headless scheduler output):
+
+[B]
+headless-input-script injected command=1 frame=600
+screenshot frame=840 path=final/b-early.png
+headless-input-script injected command=3 frame=880
+screenshot frame=1040 path=final/b-late.png
+
+[K]
+headless-input-script injected command=1 frame=600
+screenshot frame=840 path=final/k-early.png
+headless-input-script key command=3 frame=880
+headless-input-script key command=5 frame=1038
+headless-input-script key command=7 frame=1202
+headless-input-script key command=9 frame=1360
+headless-input-script key command=11 frame=1518
+headless-input-script key command=13 frame=1676
+headless-input-script injected command=15 frame=1834
+screenshot frame=2200 path=final/k-late.png
+
+[F]
+headless-input-script injected command=1 frame=600
+headless-input-script key command=3 frame=880
+headless-input-script injected command=5 frame=1073
+screenshot frame=2200 path=final/f.png
+
+[R]
+headless-input-script injected command=1 frame=600
+headless-input-script key command=3 frame=880
+headless-input-script key command=5 frame=1038
+headless-input-script key command=7 frame=1202
+headless-input-script key command=9 frame=1360
+headless-input-script key command=11 frame=1518
+headless-input-script key command=13 frame=1676
+headless-input-script injected command=15 frame=1834
+screenshot frame=2200 path=final/r.png
+
+[X]
+screenshot frame=550 path=final/boot.png
+headless-input-script injected command=1 frame=600
+screenshot frame=895 path=final/x-before.png
+headless-input-script injected command=3 frame=983
+screenshot frame=1500 path=final/x-after.png
+
+[X repeat, early capture]
+screenshot frame=757 (split-early.png; from the frame sweep at 741..760)
+
+Selected character bytes (skip high bytes; offsets from vaeg TVRAM dump):
+P F1 @0FA8: 1b 53 20 20 20 20; F2 @0FB6: 58 59 5a 31 32 33
+N F1 @0FA8: fe 20 43 31 20 20; F2 @0FB6: 58 59 5a 31 32 33
+X F1 @0FA8: 1b 53 20 20 20 20; F2 @0FB6: 58 59 5a 31 32 33
+
+Split system row at y=406..421, 640 pixels wide (decoded RGB SHA-256):
+split-early.png  8318d5b1d4c86344ab5245a93a05a4e46be6b2f0e0a619ca35118efc599f7147
+split-scrolled.png  8318d5b1d4c86344ab5245a93a05a4e46be6b2f0e0a619ca35118efc599f7147
+split-cls.png  8318d5b1d4c86344ab5245a93a05a4e46be6b2f0e0a619ca35118efc599f7147
+
+Debugger pre-instruction PCs (filtered from events.tsv and register captures):
+run           frame  dispatch  next monitored target  DS    SI
+DOS4 mode K     630  f000:77f7 0000:0000              0040  ffff
+v2 4de71f3      247  f000:77f7 0000:0000              0040  ffff
+v2 714a26e: F000:77F7 breakpoint not hit by the 1,000-frame debugger limit.
+
+MASM listing (VAIO from f8cd7e8; only the RESEND address):
+08A4  RESEND
