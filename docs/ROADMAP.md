@@ -275,6 +275,13 @@ comparison is done.
   INT 21h/83h during conversion. Next: J3b.2 project-owned romaji/kana
   input and composition UI with a backend interface; J3b.3 BIOS backend
   first, direct reader as fallback. Private evidence: `../pc88va/tmp/j3b/`.
+- J3b.2 accepted 2026-11-21 (`docs/J3b.2-project-kana-input.md`, VA/VA2
+  52/52): `JFP FEP` selects the project front end (`JFP ROM` the ROM
+  JFP, `JFP OFF` plain); romaji and KANA-key composition on the system
+  row, F7 katakana, BS/ESC/Ctrl-C, KETTEI confirms; backend interface
+  begin/next/previous/cancel/commit with a katakana/hiragana stub.
+  Cost 2,304 bytes. Open: Return during composition confirms **and**
+  queues CR; check NEC FEP behavior in J3b.3 and follow it.
 - J3c — compare J3a and J3b (conversion quality, memory, speed, key
   feel, interaction with ESC/F-keys/labels) and choose the default; the
   other may stay selectable.
