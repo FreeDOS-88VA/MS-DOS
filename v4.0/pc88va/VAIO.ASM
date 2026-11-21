@@ -356,6 +356,7 @@ CHAR    DB      0               ;Cached ordinary character, or 0.
 KEYNEXT DW      0               ;Offset of next string byte, or 0.
 OUTBUF  DB      0,0             ;NUL-terminated output string.
 ESCSTATE DB     0              ;Pending CON escape prefix (see OUTCHR).
+OUTLEAD DB      0              ;Pending Shift-JIS lead, across CON writes.
 LABELON DB      -1              ;-1 until initialized, 0 hidden, 10 shown.
 
 ; NEC CON key table: 20 x 16 bytes followed by 11 x 6 bytes. Each
@@ -730,7 +731,7 @@ OUTLABEL:
         JMP     SHORT OUTESC
 OUTHIDE:MOV     AX,2F00H
 OUTESC: MOV     [ESCSTATE],0
-        JMP     SHORT OUTCALL
+        JMP     OUTCALL
 OUTTWO: MOV     [ESCSTATE],5
         RET
 OUTNEXT:INC     [ESCSTATE]
@@ -756,10 +757,42 @@ OUTLAST:CALL    OUTCH1
 OUTRESET:
         POP     AX
         MOV     [ESCSTATE],0
-OUTNEW: CMP     AL,1BH
+OUTNEW: CMP     [OUTLEAD],0
+        JE      OUTSINGLE
+        CMP     AL,40H
+        JB      OUTBAD
+        CMP     AL,7FH
+        JE      OUTBAD
+        CMP     AL,0FCH
+        JBE     OUTPAIR
+OUTBAD: MOV     [OUTLEAD],0     ;Do not join bytes across controls or ESC.
+OUTSINGLE:
+        CMP     AL,1BH
         JE      OUTNEXT
+        CMP     AL,81H
+        JB      OUTANK
+        CMP     AL,9FH
+        JBE     OUTSAVE
+        CMP     AL,0E0H
+        JB      OUTCH1          ;A0h-DFh (includes half-width kana).
+        CMP     AL,0FCH
+        JA      OUTCH1          ;FDh-FFh are single-byte codes here.
+OUTSAVE:MOV     [OUTLEAD],AL
+        RET
+OUTPAIR:PUSH    DX
+        MOV     DH,[OUTLEAD]
+        MOV     DL,AL
+        MOV     [OUTLEAD],0
+        CMP     DH,0EFH         ;Chuput's documented lead range ends at EFh.
+        JBE     OUTDBCS         ;Keep the two-column width for unsupported pairs.
+        MOV     DX,8140H        ;Full-width space.
+OUTDBCS:XOR     AH,AH           ;Chuput: DX = complete Shift-JIS character.
+        CALL    OUTCALL
+        POP     DX
+        RET
 
-; Write CR, LF, BS and printable ASCII as before; drop other codes.
+; Keep the J0.4 control filter; allow the ROM's 80h ANK glyph too.
+OUTANK:
         CMP     AL,0DH
         JE      OUTCH1
         CMP     AL,0AH
@@ -768,8 +801,8 @@ OUTNEW: CMP     AL,1BH
         JE      OUTCH1
         CMP     AL,20H
         JB      OUTCH9
-        CMP     AL,7EH
-        JA      OUTCH9
+        CMP     AL,7FH
+        JE      OUTCH9
 OUTCH1: MOV     AH,02H         ;Putstr, a single filtered byte.
 OUTCALL:PUSH    AX
         PUSH    BX
@@ -784,6 +817,8 @@ OUTCALL:PUSH    AX
         POP     DS
         CMP     AH,2FH
         JE      OUTMODE
+        OR      AH,AH
+        JZ      OUTINT          ;Chuput already has its character in DX.
         XOR     DX,DX          ;Locate coordinates (0,0).
         CMP     AH,02H
         JNE     OUTINT
