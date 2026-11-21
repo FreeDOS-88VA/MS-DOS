@@ -1,0 +1,36 @@
+
+VA
+1. J0.3 steps 1/5/9: 8/8 (three F10 cold boots, exact T.TXT bytes)
+1. J0.4 steps 1–5: 10/10 (current clear+home behavior)
+1. KEY: 1/1 (31/31 entries matching IO.SYS)
+1. J2a step 1: 1/1
+1. CHKDSK: 2/2 (655360 total; free 528256 → 525952, -2304 bytes)
+1. Two more F10 cold boots: 2/2 (five total, exact T.TXT bytes)
+2. ROM JFP prompt and editing: 7/7 (J3a steps 2 and 6)
+3. Project prompt: 13/13 (hira/F7, seven spelling fixtures, direct kana, BS/ESC/Ctrl-C)
+4. Stub HENKAN/Shift+HENKAN/confirm: 1/1
+5. COPY CON / F10 / TYPE: 1/1; J.TXT = 82 c9 82 d9 82 f1 82 b2 0d 0a
+6. EDLIN / TYPE: 1/1; E.TXT = 83 6a 83 7a 83 93 83 53 0d 0a 1a
+7. System row: 2/2 (labels before/during/after; deferred hide restored on OFF)
+8. DOS byte API: 3/3 (status/order, pending flush, cached trail flush; width kept)
+Supplemental: mode exclusion in both directions; project mode free 525952 bytes
+Supplemental: 30-cell limit, including atomic rejection of KYO with one cell left
+Gate: 52/52
+
+VA2
+1. J0.3 steps 1/5/9: 8/8 (three F10 cold boots, exact T.TXT bytes)
+1. J0.4 steps 1–5: 10/10 (current clear+home behavior)
+1. KEY: 1/1 (31/31 entries matching IO.SYS)
+1. J2a step 1: 1/1
+1. CHKDSK: 2/2 (655360 total; free 528256 → 525952, -2304 bytes)
+1. Two more F10 cold boots: 2/2 (five total, exact T.TXT bytes)
+2. ROM JFP prompt and editing: 7/7 (J3a steps 2 and 6)
+3. Project prompt: 13/13 (hira/F7, seven spelling fixtures, direct kana, BS/ESC/Ctrl-C)
+4. Stub HENKAN/Shift+HENKAN/confirm: 1/1
+5. COPY CON / F10 / TYPE: 1/1; J.TXT = 82 c9 82 d9 82 f1 82 b2 0d 0a
+6. EDLIN / TYPE: 1/1; E.TXT = 83 6a 83 7a 83 93 83 53 0d 0a 1a
+7. System row: 2/2 (labels before/during/after; deferred hide restored on OFF)
+8. DOS byte API: 3/3 (status/order, pending flush, cached trail flush; width kept)
+Supplemental: mode exclusion in both directions; project mode free 525952 bytes
+Supplemental: 30-cell limit, including atomic rejection of KYO with one cell left
+Gate: 52/52
