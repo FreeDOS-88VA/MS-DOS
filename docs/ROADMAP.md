@@ -159,6 +159,14 @@ CR of `date`/`time` as a glyph; compare with NEC in J0.5.
   CR runs DIR when pressed and updates the label; values survive until
   reboot.
 
+J0.5 accepted 2026-11-21 (`docs/J0.5-key-command.md`): INT DCh
+CL=0Ch/0Dh match NEC 3.3D (compact 386-byte and extended 786-byte
+tables, 15+NUL truncation); labels follow writes. `pc88va/VAKEY.ASM`
+(KEY.COM): list, set, save/load (VA file format); no full-screen menu,
+no NEC KEY.TBL format. Adding KEY.COM to the disk needs the builder
+change in `docs/J0.5/build-key.patch` (FreeDOS-88VA/freedos). Cost 288
+bytes.
+
 ### J1 — DBCS kernel
 - Goal: MSDOS.SYS built with `DBCS = TRUE` and `DBCS_TAB` = 81-9F,
   E0-FC; country 081 as default.
