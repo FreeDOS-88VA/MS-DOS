@@ -367,6 +367,8 @@ ESCREPNEXT DW   0              ;One pending CSI 6n response, 0 when empty.
 ESCREP  DB      1BH,'[00;00R'
 ESCREPEND LABEL BYTE
 OUTLEAD DB      0              ;Pending Shift-JIS lead, across CON writes.
+OUTWRAP DB      0              ;Logical column 81; BIOS cursor is at 80.
+ESCSWRAP DB     0              ;Saved logical column, if beyond the edge.
 LABELON DB      -1              ;-1 until initialized, 0 hidden, 10 shown.
 
 ; NEC CON key table: 20 x 16 bytes followed by 11 x 6 bytes. Each
@@ -808,17 +810,86 @@ OUTENTER:
         PUSH    ES
         PUSH    CS
         POP     DS
-        JC      OUTPARSE
-        CMP     AH,02H
-        JNE     OUTINT
-        MOV     [OUTBUF],AL
-        MOV     SI,OFFSET OUTBUF
-        MOV     DX,8000H
-OUTINT: INT     83H
-        CLC
-        JMP     SHORT OUTREGS
-OUTPARSE:
+        JNC     OUTRAW
         CALL    ESCPARSE
+        JMP     OUTREGS
+OUTRAW: CMP     AH,02H
+        JNE     OUTGLYPH        ;Chuput pair or literal one-cell glyph.
+        XOR     DX,DX           ;Putstr is one byte, no Shift-JIS argument.
+        CMP     AL,0DH
+        JE      OUTCRNOW
+        CMP     AL,07H
+        JB      OUTGLYPH
+        CMP     AL,0AH
+        JA      OUTGLYPH
+        JE      OUTLF
+        CMP     AL,08H
+        JNE     OUTNORMAL      ;BEL, HT.
+        CMP     [OUTWRAP],0
+        JE      OUTNORMAL
+        MOV     [OUTWRAP],0    ;BS from logical 81 stays on physical 80.
+        JMP     OUTOK
+OUTCRNOW:
+        MOV     [OUTWRAP],0
+OUTNORMAL:
+        CALL    OUTWRITE
+        JMP     OUTOK
+OUTLF:  MOV     AH,0DH         ;Index scrolls even with ROM auto-scroll off.
+        INT     83H
+        JMP     OUTOK
+OUTGLYPH:
+        PUSH    AX
+        PUSH    DX
+        MOV     AH,26H         ;Askloc; actual position, including ROM callers.
+        INT     83H
+        POP     AX             ;Original DX (glyph/pair argument).
+        CMP     DH,79
+        JNE     OUTSPACE
+        CMP     [OUTWRAP],0
+        JNE     OUTGLINE
+        OR      AH,AH
+        JNZ     OUTEDGEPAIR
+        JMP     SHORT OUTEDGE  ;A one-cell glyph fills the last column.
+OUTEDGEPAIR:
+        ; Reproduce the ROM's special space before a pre-wrapped pair.
+        PUSH    AX
+        PUSH    DX
+        MOV     AX,0100H
+        MOV     DX,00FEH
+        INT     83H
+        POP     DX
+        MOV     AH,08H         ;Undo the filler write's ROM cursor advance.
+        INT     83H
+        POP     AX
+OUTGLINE:
+        PUSH    AX
+        CALL    OUTNEXT
+        POP     AX
+        MOV     [OUTWRAP],0
+        JMP     SHORT OUTGEND
+OUTSPACE:
+        MOV     [OUTWRAP],0
+        CMP     DH,78
+        JNE     OUTGEND
+        OR      AH,AH
+        JZ      OUTGEND
+        ; A two-cell glyph starts at column 79. ROM wrap must be enabled
+        ; for Chuput to draw both halves, but auto-scroll is disabled.
+OUTEDGE:MOV     [OUTWRAP],1
+        MOV     DH,79
+        MOV     BX,DX
+        MOV     DX,AX
+        POP     AX
+        PUSH    BX
+        CALL    OUTWRITE
+        POP     DX
+        MOV     AH,08H         ;Return the cursor to the cell just filled.
+        INT     83H
+        JMP     SHORT OUTOK
+OUTGEND:MOV     DX,AX
+        POP     AX
+        CALL    OUTWRITE
+OUTOK:  CLC
 OUTREGS:POP     ES
         POP     DS
         POP     BP
@@ -829,6 +900,24 @@ OUTREGS:POP     ES
         POP     BX
         POP     AX
 OUTCH9: RET
+
+OUTWRITE:
+        CMP     AH,02H
+        JNE     OUTINT
+        MOV     [OUTBUF],AL
+        MOV     SI,OFFSET OUTBUF
+        MOV     DX,8000H
+OUTINT: INT     83H
+        RET
+
+; Wrap (or ESC E): return to column 1 and move down. Index explicitly
+; scrolls within the current split even with automatic scrolling off.
+OUTNEXT:MOV     AX,0000H
+        MOV     DX,000DH
+        INT     83H
+        MOV     AH,0DH
+        INT     83H
+        RET
 
 ; AL = pending output byte; caller saved the write-loop registers.
 ; Carry = retry AL as ordinary output. All paths to ESCROM finish here.
@@ -882,9 +971,9 @@ ESCSHORT:
         JE      ESCRIND
         CMP     AL,'E'
         JNE     ESCDONE
-        MOV     AX,0000H        ;CR, then Index (including at bottom).
-        MOV     DX,000DH
-        INT     83H
+        MOV     [OUTWRAP],0
+        CALL    OUTNEXT
+        JMP     ESCDONE
 ESCINDEX:
         MOV     AH,0DH
         JMP     ESCROM
@@ -1015,9 +1104,11 @@ ESCCUR0:MOV     AH,25H
 
 ESCSTANDARD:
         CMP     AL,'H'
-        JE      ESCPOS
+        JE      ESCPOSJ
         CMP     AL,'f'
-        JE      ESCPOS
+        JNE     ESCNOTPOS
+ESCPOSJ:JMP     ESCPOS
+ESCNOTPOS:
         CMP     AL,'m'
         JNE     ESCONE
         JMP     ESCATTR
@@ -1048,7 +1139,14 @@ ESCMOVE:SUB     AL,'A'
         OR      CL,CL
         JNZ     ESCMOV1
         INC     CL
-ESCMOV1:CMP     CL,80           ;No movement needs more than 80 cells.
+ESCMOV1:CMP     AH,0CH          ;Left from logical 81 takes one extra step.
+        JNE     ESCMOV2
+        CMP     [OUTWRAP],0
+        JE      ESCMOV2
+        MOV     [OUTWRAP],0
+        DEC     CL
+        JZ      ESCNOOP
+ESCMOV2:CMP     CL,80           ;No movement needs more than 80 cells.
         JBE     ESCROM
         MOV     CL,80
         JMP     SHORT ESCROM
@@ -1057,9 +1155,15 @@ ESCJERASE:
 ESCSAVE:MOV     AH,26H
         INT     83H
         MOV     [ESCSAVED],DX
-        JMP     SHORT ESCNOOP
+        MOV     AL,[OUTWRAP]
+        MOV     [ESCSWRAP],AL
+        CLC
+        RET
 ESCREST:MOV     DX,[ESCSAVED]
-        JMP     SHORT ESCLOCATE
+        CALL    ESCLOCATE
+        MOV     AL,[ESCSWRAP]
+        MOV     [OUTWRAP],AL
+        RET
 ESCPOS: CMP     [ESCN],1
         JE      ESCXY
         CMP     [ESCBUDGET],ESCOCTETS ;A single numeric parameter is ignored.
@@ -1077,6 +1181,7 @@ ESCX:   OR      DH,DH
         JZ      ESCLOCATE
         DEC     DH
 ESCLOCATE:
+        MOV     [OUTWRAP],0
         ; Clamp explicitly before calling Locate, which uses signed inputs
         ; on some ROM paths. The last visible row depends on LABELMODE.
         CMP     DH,79
@@ -1109,7 +1214,37 @@ ESCERASE1:
         JE      ESCJCLEAR
         CMP     AL,2
         JE      ESCROM
+        OR      AL,AL
+        JNZ     ESCBOUNDARYJ
+        CMP     [OUTWRAP],0
+        JNE     ESCEDGESUFFIX
+ESCBOUNDARYJ:
         JMP     ESCBOUNDARY
+ESCEDGESUFFIX:
+        ; At logical column 81 there are no cells left in this row.
+        CMP     AH,18H          ;K0: nothing to erase.
+        JE      ESCEDGEDONE
+        MOV     AH,26H
+        INT     83H
+        MOV     AL,23
+        CMP     [LABELON],0
+        JNE     ESCEDGELIMIT
+        INC     AL
+ESCEDGELIMIT:
+        CMP     DL,AL
+        JAE     ESCEDGEDONE
+        PUSH    DX              ;J0: erase from the next row's first cell.
+        INC     DL
+        XOR     DH,DH
+        MOV     AH,08H
+        INT     83H
+        MOV     AX,1700H
+        INT     83H
+        POP     DX
+        JMP     ESCLOC
+ESCEDGEDONE:
+        CLC
+        RET
 ESCJCLEAR:
         JMP     ESCCLEAR
 ESCLINES:
@@ -1139,7 +1274,7 @@ ESCLINE3:
         INT     83H
         POP     DX
         XOR     DH,DH           ;NEC returns to column 1.
-        JMP     SHORT ESCLOC
+        JMP     ESCLOCATE
 
 ESCREPORT:
         CMP     CL,6
@@ -1156,6 +1291,10 @@ ESCREPORT:
         MOV     WORD PTR [ESCREP+2],AX
         MOV     AL,DH
         INC     AL
+        CMP     DH,79
+        JNE     ESCREPCOL
+        ADD     AL,[OUTWRAP]    ;NEC reports logical column 81 when pending.
+ESCREPCOL:
         AAM
         ADD     AX,3030H
         XCHG    AH,AL
@@ -1292,8 +1431,8 @@ ESCCOLORS DB    0,2,4,6,1,3,5,7 ;NEC ANSI RGB order -> VA GRB bits.
 
 ; The two layouts share the main framebuffer. The system buffer starts
 ; after all 25 main rows, so the split can change without copying text.
-MAIN25  DB      00H,0,0,0,25,05H,07H,0
-MAIN24  DB      00H,0,0,0,24,05H,07H,0  ;Wrap and vertical scroll.
+MAIN25  DB      00H,0,0,0,25,01H,07H,0
+MAIN24  DB      00H,0,0,0,24,01H,07H,0  ;ROM word wrap, no auto-scroll.
         DB      41H,0,0,0,1,10H,07H,0   ;System line, attribute mode 1.
 
 ; AL = requested label count (0 or 10). Caller saves all registers.
