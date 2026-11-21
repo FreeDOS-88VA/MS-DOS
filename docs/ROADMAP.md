@@ -282,6 +282,13 @@ comparison is done.
   begin/next/previous/cancel/commit with a katakana/hiragana stub.
   Cost 2,304 bytes. Open: Return during composition confirms **and**
   queues CR; check NEC FEP behavior in J3b.3 and follow it.
+- J3b.3 accepted 2026-11-21 (`docs/J3b.3-bios-backend.md`, VA 640 KiB,
+  VA2 256/640 KiB 48/48 each): kanji conversion through the documented
+  JFP functions with the ROM front end master-disabled (日本語, 漢字,
+  変換, 東京 as first candidates; phrase move/resize); confirmation
+  without learning; 0 nested INT 21h/83h in 225 monitored BIOS calls.
+  Return now confirms first and submits on the second press, as NEC's
+  NECAIK does (NP2kai). Cost 544 bytes (project FEP total ~2.8 KiB).
 - J3c — compare J3a and J3b (conversion quality, memory, speed, key
   feel, interaction with ESC/F-keys/labels) and choose the default; the
   other may stay selectable.
