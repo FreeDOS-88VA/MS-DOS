@@ -32,6 +32,19 @@ commit prefix `MNN:`. Record each
 milestone's gate before starting. Do not stack a milestone on one whose
 gate has not passed.
 
+## Files that never enter the repository directory
+
+NEC disk images (D88, FDI, HDI), NEC manuals (PDF), product photos, ROM
+files and anything extracted from them must stay outside this
+repository's directory tree — not committed, and not left untracked in
+the working tree either. Extract and run them only in a scratch
+directory outside the repository (for example under `/tmp` or
+`../pc88va/tmp/`) and delete the scratch copy when done. The only
+exception is the maintainer's own `NEC 日本語MS-DOS 3.3D 基本機能セット.zip`
+in the repository root, which is excluded from Git and must not be
+unpacked in place. Screenshots of NEC screens may be committed as
+evidence; ROM contents, dumps and ROM-internal addresses may not.
+
 ## References
 
 - `NEC 日本語MS-DOS 3.3D 基本機能セット.zip` (untracked): PC-98 MS-DOS 3.3D
