@@ -193,6 +193,13 @@ paths, split pairs at FCB field ends) are noted, not exercised.
   ESC[row;colH and attribute ESC[..m work. List which NEC MS-DOS escape
   sequences the ROM does not support (do not emulate them yet).
 
+J2a accepted 2026-11-21 (`docs/J2a-sjis-output.md`): CON draws
+Shift-JIS pairs with Chuput and half-width kana with Putstr; a lead byte
+waits across writes; output matches NEC 3.3D for valid text. Deliberate
+difference: a lead followed by a control byte is dropped (NEC joins it
+with the next printable byte). Cost 80 bytes. J2b: NEC escape sequences
+and control codes.
+
 ### J3 — Japanese input through the ROM JFP
 - Goal: ROM kana-kanji conversion works at the prompt and in EDLIN. If
   J0.3 already moved CON input to the KB BIOS main functions, this is
