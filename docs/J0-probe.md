@@ -16,7 +16,7 @@ PROBE=$(mktemp -d)
 cp "$REPO"/v4.0/src/TOOLS/{MASM,LINK,EXE2BIN}.EXE "$PROBE/"
 python3 -c 'from pathlib import Path; import sys
 Path(sys.argv[2]).write_bytes(Path(sys.argv[1]).read_bytes().replace(b"\n", b"\r\n"))' \
-  "$REPO/pc88va/tests/FKPROBE.ASM" "$PROBE/FKPROBE.ASM"
+  "$REPO/tests/pc88va/FKPROBE.ASM" "$PROBE/FKPROBE.ASM"
 (
   cd "$PROBE"
   export EMU2_DRIVE_D="$PWD" EMU2_DEFAULT_DRIVE=D: 'EMU2_CWD=D:\' EMU2_DOSVER=4.00
