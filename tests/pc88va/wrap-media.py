@@ -13,6 +13,7 @@ ap.add_argument('model', choices=('nec', 'va'))
 for arg in ('image', 'output', 'wraptest'):
     ap.add_argument(arg, type=Path)
 ap.add_argument('--escape-probe', type=Path, help='add ESCPROBE.COM if not already present')
+ap.add_argument('--graph-probe', type=Path, help='add GRAPHROM.COM for the graph-mode check')
 args = ap.parse_args()
 output = args.output.resolve()
 if output.is_relative_to(ROOT):
@@ -22,4 +23,6 @@ files = [('WRAPTEST.COM', args.wraptest.read_bytes()),
 files += [(f'Q{i:07}.BIN', b'') for i in range(1, 12)]
 if args.escape_probe:
     files.append(('ESCPROBE.COM', args.escape_probe.read_bytes()))
+if args.graph_probe:
+    files.append(('GRAPHROM.COM', args.graph_probe.read_bytes()))
 (pack_va if args.model == 'va' else pack_nec)(args.image, output, files)

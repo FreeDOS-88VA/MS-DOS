@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check VA TVRAM/pixels from esc-run.py; NEC parity is judged from screenshots."""
+import argparse
 import importlib.util
 import struct
-import sys
 from pathlib import Path
 
 from PIL import Image
@@ -26,7 +26,7 @@ def blink_enabled(run, n, alt=''):
     return struct.unpack_from('<I', data, 16 + struct.unpack_from('<I', data, 12)[0] + 20)[0]
 
 
-def check(run):
+def check(run, graph=False):
     pages = {n: sjis.rows(tvram(run, n)) for n in range(1, 27)}
 
     def at(n, y, x, text):
@@ -120,19 +120,27 @@ def check(run):
     row(25, 25, 'RO|')
     row(26, 1, 'ESCPROBE DONE')
     row(26, 3, 'A:\\>')
-    labels = screen(run, 26).crop((0, 384, 640, 400)).tobytes()
+    labels = screen(run, 26).crop((0, 384, 640, 400))
     for n in (*range(1, 24), 26):
         assert len(pages[n]) == 24
-        assert screen(run, n).crop((0, 384, 640, 400)).tobytes() == labels, (run, n)
+        row_image = screen(run, n).crop((0, 384, 640, 400))
+        if graph and n in (13, 14):
+            # The 'g' sits in column 2; all other label pixels stay identical.
+            assert row_image.crop((8, 0, 16, 16)).getbbox(), (run, n)
+            row_image.paste(labels.crop((8, 0, 16, 16)), (8, 0))
+        assert row_image.tobytes() == labels.tobytes(), (run, n)
     print(f'{run.parent.name} {run.name}: positions, reports, erase, color, cursor enable, scroll, '
           'C0, kanji boundaries, recovery, all label rows, and DONE checked')
     return pages
 
 
 if __name__ == '__main__':
-    runs = Path(sys.argv[1])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('runs', type=Path)
+    parser.add_argument('--graph', action='store_true', help='expect the J2c graph indicator')
+    args = parser.parse_args()
     for model in ('va', 'va2'):
-        block = check(runs/model/'esc-block')
-        split = check(runs/model/'esc-split')
+        block = check(args.runs/model/'esc-block', args.graph)
+        split = check(args.runs/model/'esc-split', args.graph)
         assert all(block[n] == split[n] for n in range(1, 27) if n != 19)
         print(f'{model}: 25/26 block vs. split character grids identical; control page differs as on NEC')

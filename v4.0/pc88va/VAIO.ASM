@@ -368,6 +368,7 @@ ESCREP  DB      1BH,'[00;00R'
 ESCREPEND LABEL BYTE
 OUTLEAD DB      0              ;Pending Shift-JIS lead, across CON writes.
 OUTWRAP DB      0              ;Logical column 81; BIOS cursor is at 80.
+OUTGRAPH DB     0              ;ESC )3: display high bytes as ANK.
 ESCSWRAP DB     0              ;Saved logical column, if beyond the edge.
 LABELON DB      -1              ;-1 until initialized, 0 hidden, 10 shown.
 
@@ -743,6 +744,8 @@ OUTSINGLE:
 OUTBYTE:
         CMP     AL,81H
         JB      OUTANK
+        CMP     [OUTGRAPH],0
+        JNE     OUTLIT         ;Litout keeps each high byte in one cell.
         CMP     AL,9FH
         JBE     OUTSAVE
         CMP     AL,0E0H
@@ -936,8 +939,7 @@ ESCNOTCSI:
         JE      ESCDIRROW
         CMP     BL,4
         JE      ESCDIRCOL
-        CLC                     ;ESC ) digit (mode switch deferred).
-        RET
+        JMP     ESCGMODE        ;ESC ) followed by a mode digit.
 ESCDIRCOL:
         SUB     AL,20H
         MOV     DH,AL
@@ -1090,6 +1092,7 @@ ESCPRIVL:CMP    CL,1
         JNE     ESCCURSOR
         MOV     AH,2FH
         CALL    LABELMODE
+        CALL    GRAPHMARK      ;Refresh also if graph was cleared while hidden.
 ESCNOOP:CLC
         RET
 ESCCURSOR:
@@ -1495,6 +1498,54 @@ LABELPOP:
         MOV     AH,08H
         INT     83H
 LABELRET: RET
+
+ESCGMODE:
+        XOR     AH,AH
+        CMP     AL,'0'
+        JE      ESCGSET
+        CMP     AL,'3'
+        JNE     ESCGDONE
+        INC     AH
+ESCGSET:CMP     AH,[OUTGRAPH]
+        JE      ESCGDONE
+        MOV     [OUTGRAPH],AH
+        CALL    GRAPHMARK
+ESCGDONE:CLC
+        RET
+
+; The ROM owns the key labels starting at column 5. NEC puts 'g' at
+; column 2, outside the key fields. Keep the main cursor and SGR intact.
+GRAPHMARK:
+        CMP     [LABELON],10
+        JNE     GRAPHRET
+        MOV     AH,26H          ;Save the main cursor.
+        INT     83H
+        PUSH    DX
+        MOV     AX,1B01H        ;Chcsn: select the system split.
+        INT     83H
+        JC      GRAPHFAIL
+        MOV     AH,08H
+        MOV     DX,0100H        ;Locate at system column 2.
+        INT     83H
+        MOV     AL,' '
+        CMP     [OUTGRAPH],0
+        JE      GRAPHCHAR
+        MOV     AL,'g'
+GRAPHCHAR:
+        MOV     [OUTBUF],AL
+        MOV     AX,0200H        ;Putstr with white on black (mode 1).
+        MOV     DX,0070H
+        MOV     SI,OFFSET OUTBUF
+        INT     83H
+        MOV     AX,1B00H        ;Restore main split and cursor.
+        INT     83H
+        POP     DX
+        MOV     AH,08H
+        INT     83H
+GRAPHRET: RET
+GRAPHFAIL:
+        POP     DX
+        RET
 
 SPLIT24:MOV     BP,OFFSET MAIN24
         MOV     CX,2
