@@ -177,6 +177,12 @@ bytes.
   can be created, listed, renamed and deleted; ASCII behavior and
   existing boot unchanged.
 
+J1 accepted 2026-11-21 (`docs/J1-dbcs-kernel.md`): DBCS kernel paths
+on for PC88VA, DBCS table 81-9F/E0-FC, Japan/932 country defaults (dates
+YY-MM-DD). Wildcards match NEC (`??` per double-byte character). SHARE
+needed a symbol alias. Cost 1,440 bytes. Legacy edge cases (malformed
+paths, split pairs at FCB field ends) are noted, not exercised.
+
 ### J2 — Japanese console output
 - Goal: CON write passes Shift-JIS pairs and escape sequences to Chuput
   instead of dropping bytes outside 20h-7Eh. Buffer a lead byte across
