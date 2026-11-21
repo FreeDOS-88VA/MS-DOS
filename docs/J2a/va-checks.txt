@@ -1,0 +1,72 @@
+VA
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 10/10
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 530432 -> 530352 free (-80 bytes)
+VA2
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 10/10
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 530432 -> 530352 free (-80 bytes)
+
+vaeg scenario completions (runner checks capture names and final exit event):
+va after-boot
+va after-mem
+va after-regression
+va base-boot
+va base-mem
+va base-regression
+va bs
+va cancel-break
+va ctrl-z
+va dir
+va dir-kanji
+va display
+va eof-1
+va eof-2
+va eof-3
+va erase
+va escape-replay
+va gaiji
+va invalid
+va j1-key
+va native
+va noerase
+va pending-cls
+va split
+va toggle
+va type
+va wrap
+va2 after-boot
+va2 after-mem
+va2 after-regression
+va2 base-boot
+va2 base-mem
+va2 base-regression
+va2 bs
+va2 cancel-break
+va2 ctrl-z
+va2 dir
+va2 dir-kanji
+va2 display
+va2 eof-1
+va2 eof-2
+va2 eof-3
+va2 erase
+va2 escape-replay
+va2 gaiji
+va2 invalid
+va2 j1-key
+va2 native
+va2 noerase
+va2 pending-cls
+va2 split
+va2 toggle
+va2 type
+va2 wrap

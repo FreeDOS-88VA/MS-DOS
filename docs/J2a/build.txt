@@ -1,0 +1,17 @@
+FreeDOS-88VA/freedos builder main: 7f467a2187a9e15c0c1bb84f179f214fe925153f
+emu2: 9d8698d06e67359bc8b230c2d19d5b1503e60819
+
+Baseline: 64819292df93730998baf80683eb9ad613ae39b5
+ D88 SHA-256: eb9d9e5af9d1116818e6c03a81167e2952380ce201df55981d050bfa5be023dc
+ IO.SYS: 19706 bytes, SHA-256: b59cd08e5e2b9db1ac74b3b6861f8b639d037239545e7df1d65167fd8078e948
+
+J2a: b55e6b3adbde65352158450744c3e33adfdcb44e
+ D88 SHA-256: 23fccd0e893187c56930cc5d54ec1b4958c7154861e831f1c51e49cd019d26f2
+ IO.SYS: 19786 bytes, SHA-256: b58e37daf984cd22f23a04b72cf72d933d7a72af56400f8f9973f0a9a343f00a
+
+Boot sector unchanged, SHA-256: b153e2192d397705ec8ca475f3f3dd921dde42378aa7c6c1e34b9306902b8525
+35 of 36 shipped files unchanged by size and SHA-256 (including MSDOS.SYS, COMMAND.COM, KEY.COM).
+IO.SYS still spans 20 boot sectors of 1024 bytes. CISTAT: 06B4h -> 06B5h. RESEND: 0D34h -> 0D81h (+77 bytes).
+Final VAIO.ASM (MASM 5.10):
+0 Warning Errors
+0 Severe  Errors
