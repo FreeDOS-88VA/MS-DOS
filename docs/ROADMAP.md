@@ -127,6 +127,13 @@ lines, ESC Z: T.TXT = "ABC\r\nDEF\r\n").
   → and ← behave as on NEC MS-DOS; `COPY CON` ends with F6; ASCII, Ctrl
   keys and STOP (Ctrl-C) unchanged.
 
+J0.3 accepted 2026-11-21 (`docs/J0.3-fkeys-input.md`,
+`docs/J0.3b-editing-keys.md`): VAIO key table in NEC layout on the
+primitive queue; F1-F10, SHIFT+F, INS, DEL, arrows, HOME/CLR, ROLL and
+HELP match NEC MS-DOS 3.3D observed in NP2kai (12/12 keys), including
+the caret echo of UP/RIGHT/HOME and Backspace removing a caret pair.
+Cost: 544 bytes of conventional memory.
+
 #### J0.4 — Label line
 - Goal: the bottom line shows the ten labels at boot (C1 CU CA S1 SU VOID
   NWL INS REP ^Z, SHIFT shows the shifted set); DOS output scrolls above

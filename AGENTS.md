@@ -37,3 +37,7 @@ gate has not passed.
 - `NEC 日本語MS-DOS 3.3D 基本機能セット.zip` (untracked): PC-98 MS-DOS 3.3D
   disks as D88 images plus manuals. Use it as the reference for which
   commands and drivers a Japanese NEC DOS ships. Do not commit it.
+- To observe NEC MS-DOS behavior on a PC-98, use NP2kai
+  (https://domisan.sakura.ne.jp/article/np2kai/np2kai.html), not MAME.
+  Build it outside the repository; PC-98 ROMs and NEC disk images stay
+  out of Git.
