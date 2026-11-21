@@ -57,11 +57,12 @@ split-early.png  8318d5b1d4c86344ab5245a93a05a4e46be6b2f0e0a619ca35118efc599f714
 split-scrolled.png  8318d5b1d4c86344ab5245a93a05a4e46be6b2f0e0a619ca35118efc599f7147
 split-cls.png  8318d5b1d4c86344ab5245a93a05a4e46be6b2f0e0a619ca35118efc599f7147
 
-Debugger pre-instruction PCs (filtered from events.tsv and register captures):
-run           frame  dispatch  next monitored target  DS    SI
-DOS4 mode K     630  f000:77f7 0000:0000              0040  ffff
-v2 4de71f3      247  f000:77f7 0000:0000              0040  ffff
-v2 714a26e: F000:77F7 breakpoint not hit by the 1,000-frame debugger limit.
+Debugger pre-instruction observations (filtered from events.tsv and register captures):
+Dispatch breakpoint: far call in the ROM SnsChar path (address kept in private evidence).
+run           frame  next monitored target  DS    SI
+DOS4 mode K     630  0000:0000              0040  ffff
+v2 4de71f3      247  0000:0000              0040  ffff
+v2 714a26e: dispatch breakpoint not hit by the 1,000-frame debugger limit.
 
 MASM listing (VAIO from f8cd7e8; only the RESEND address):
 08A4  RESEND
