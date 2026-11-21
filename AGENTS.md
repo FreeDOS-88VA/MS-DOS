@@ -23,7 +23,10 @@ changes to the Microsoft sources stay under `v4.0/src`.
    milestone, send it back to pi with specific fixes, or split it again.
    The next milestone starts only after this decision.
 
-The maintainer decides whether to push or publish.
+Standing approval from the maintainer (2026-11-21): once Opus 5.5 has
+accepted a milestone, merge it into `release/msdos-va` and push without
+asking again. Releases, publishing disks, and pushes to other
+repositories (PRs are fine) still need the maintainer.
 
 ## Milestones
 
