@@ -1,0 +1,1 @@
+J3.0 gate: build the locked 3280526 distribution in scratch; cold-boot a ROM handoff probe and the DOS COM probe on vaeg VA and VA2. Require baseline and init outcomes with evidence, mark blocked tests NOT RUN, and make a recommendation without product changes.

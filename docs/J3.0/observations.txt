@@ -1,0 +1,131 @@
+J3.0 — selected observations (sanitized, hexadecimal except frame numbers)
+==========================================================================
+Tested MS-DOS 3280526578dd4ac405c30c7f90decd9a11a7e333 (release/msdos-va)
+FreeDOS builder 7f467a2187a9e15c0c1bb84f179f214fe925153f + docs/R1/build-release.patch
+emu2 9d8698d06e67359bc8b230c2d19d5b1503e60819; main, commit-jst 20261121
+Distribution build completed with 1,331,888-byte 2HD D88.
+NASM 3.01, cpu 8086 for both test binaries.
+
+SHA-256:
+  31ea8eef3a2cead924e903b0ebceb7481a7d2e07982de30c07466c0e0dc086c6  distribution D88
+  65fa17984032b27b826ec15a8d6ef7a9b70497768a56066ee1cd8e702089a785  JFPBOOT binary (1024 B)
+  759d999f6f952cd0571f626ec429a148a49594783179c105cad12832256b67da  JFPPROBE.COM (1151 B)
+  ba9b114c6eb4c1a511110a74cf8f69735fde45793d84d113d10d806d8ef9ff72  handoff D88
+  9b6077b436db2b1e840fdbc40546ae8170d82b140092eb22d366d3cac5425741  COM probe D88
+  94c47029d33013873c6d25ad2397ba9295d3f6bb11608761e80badfae2486c9c  counted vaeg worker
+
+Worker banner: 88VA Eternal Grafx Rel.20261121 (m152, 20c8cba0). The
+existing binary was rebuilt in the M157 worktree over its earlier configure;
+the banner is the configured ID, not a claim of a clean 20c8cba0 build.
+The counted matrix (26 cases x 2), extra breakpoint tests, state rendering
+and RZ repeat used the later binary identified by SHA, not an exploratory run
+on the earlier build. A frozen copy of that worker repeated `boot`, `dos`
+and `rfj` on both models; all decoded fields matched the matrix.
+Both models: no saved configuration/backup RAM; physical guest key
+make/break events except COMMAND paste used to start tests.
+All matrix scripts exited normally at the host level; some guest cases below
+intentionally did not return. The COM does not return to COMMAND even on success.
+
+Baseline checkpoints (VA / VA2)
+------------------------------
+  Replacement boot sector after KyBook:   frame 229 / 222; AX=0005 DI=4B42
+  IO.SYS start (1000:0000):               frame 302 / 296
+  SYSINIT start (1139:07F2):              frame 303 / 297
+  relocated DOS entry (112B:0000):        frame 305 / 298
+  COMMAND polling CON (1000:06D0):        frame 550 / 550
+  All: KbAddr set, JFPAddr null, INT 8Dh vector set; 4 JFP data pointers null.
+  KbAddr and INT 8Dh vector equality from the handoff to each DOS checkpoint: yes.
+
+Supplemental breakpoints (addresses below are in the test COM, not in ROM)
+-------------------------------------------------------------------------
+For each row use a fresh copy of the COM probe disk. Start with debug-script 1,
+limit-frame 2500, wait-frame 600, input-line JFPPROBE <option>. Arm
+wait-pc 1ED7:<IP> 1, then wait-pc 0000:0000 1 (B/G/K), or wait-pc
+1ED7:<return IP> 1 (S/T). Capture registers or save-state at the endpoint.
+The INT instruction and its following instruction were identified with a NASM
+listing and the COM load segment identified on the measured 640 KiB build.
+
+  Option   COM INT IP   Endpoint                 Result, VA / VA2
+  B        0530         0000:0000                same frame as call on both
+  G        0507         0000:0000                same frame as call on both
+  K        0456         0000:0000                same frame as call on both
+  S        046F         COM return IP 0471       no hit by 2500 / hit
+  T        047C         COM return IP 047E       no hit by 2500 / hit
+
+  R file-call check: same prelude; twice use wait-pc 1ED7:0561 1,
+  capture openN registers, save-state openN. At this COM hook, phase=R for
+  both calls, AH=3D; the logged count before chaining was 0 then 1.
+  Inspect only the extension class at DS:DX in conventional RAM:
+  VA .DIC then .DAT; VA2 .DAT then .DIC. No names or pointer values recorded.
+
+Keyboard and conversion (same returns on VA and VA2)
+----------------------------------------------------
+In the following, AX/BX is the value in BOTH Sense (CF clear) and Get,
+unless listed as the primitive control. No ROM soft-key expansion.
+
+  Test input              Primitive (P) AX/BX     Main (R) AX/BX
+  a                       1D61/A55A               0061/1D61
+  F1                      6200/A55A               0000/6200
+  HENKAN                  3520/A55A               0020/3520
+  KANA held + a           1DC1/A55A               00C1/1DC1
+  KETTEI                  5120/A55A               0020/5120
+  A55A = unchanged BX canary; primitive entries are not JFP results.
+
+  Setup case     Callback    GetJFP AX/DX     Sense/Get samples before taps
+  I              null        0000/0000       not polled
+  R              set         0080/3C1E       one unsolicited pair
+  RK, RF         set         0080/3C1E       0
+  RS             set         0F00/3C1E       one unsolicited pair
+  RFJ            set         0F03/3C1E       0
+
+  RFJ 1800 setup:     output queue sampled empty, DOS call log 3D 3D.
+      2105 candidate: NIHON + HENKAN; no returned characters; state byte 03.
+      2150 commit:    KETTEI yielded 93FA/FFFF and 967B/FFFF; state byte 00.
+      2195 kana:      A pending, no new return; state byte 01.
+      2240 confirm:   KETTEI yielded 82A0/FFFF; state byte 00.
+      DOS call log still 3D 3D at the end. RJ/IRJ/HRJ delivered the same
+      keyed returns after an extra pre-input pair. HRJ also logged its own
+      40h write used to hide the labels before reset.
+  RT: Sug1st candidate for the supplied reading = 93 FA 96 7B NUL.
+
+  RZ repeat: 80 initial; HENKAN returned 0020/3520 without changing mode;
+  ZENKAKU set 83; 'a' pending; ZENKAKU while pending left 83 and did not
+  deliver a character; KETTEI delivered 82A0/FFFF; ZENKAKU set 80; 'a'
+  delivered 0061/1D61. JFP control byte remained 00 (enabled) throughout.
+  The first 76 system-row character cells after return to half-width
+  compared equal to the stock labels; the right-hand mode indicator differs.
+
+  RJX checkpoint       State byte    Newly delivered AX/BX (after setup)
+  ai                   01            none
+  bs                   01            none
+  bs-confirm           00            82A0/FFFF
+  pre-esc              01            none
+  esc                  00            none
+  pre-ctrl-c           01            none
+  ctrl-c               00            0003/FFFF
+  pre-f1 / f1          01 / 01       none
+  f6                   09            none
+  fkeys-confirm        00            889F/FFFF
+  idle-esc             00            001B/001B
+  idle-ctrl-c          00            0003/2B03
+  idle-f1              00            0000/6200
+  DOS call log 3D 3D unchanged throughout this case.
+
+RAM and visible rows
+--------------------
+ResJFP workspace pointers (in/out/status/user-dictionary environment):
+  VA  044A0 / 0451C / 0446B / 04471
+  VA2 044A2 / 0451E / 0446D / 04473
+Raw TVRAM character cells at candidate checkpoint:
+  RJ and IRJ: synthetic 日本 at 0FA0, not at 1040. Main rows visible: 24.
+  HRJ: synthetic 日本 at 0000, not at 0FA0; row 1 renders blank. Main rows
+  visible: 25. The title/banner was already erased before the candidate.
+  HRJ after confirmation: title/banner did not return. RJ after confirmation:
+  mode area still present in place of the labels, with no candidate text.
+  Equal results for the respective VA/VA2 screenshots.
+
+MEMINFO cross-check: assembled existing pc88va/MEMINFO.ASM with MASM/LINK/
+EXE2BIN per the J0.1 COM recipe, appended to a clean distribution via pack_va
+and ran MEMINFO > M.TXT at frame 600, with capture bounded at 2800. Both
+extractions reported first MCB 1A66 M 0008 02F6; arena endpoint A0000.
+MEMINFO.COM SHA-256 9cff590fecede5dc910a105afe9e987180e2f302a96cc1e90367c80a94f6dc2f.
