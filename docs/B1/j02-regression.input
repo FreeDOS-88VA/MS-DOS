@@ -1,0 +1,5 @@
+@text VERX
+@wait 100
+@key backspace
+@wait 100
+@enter

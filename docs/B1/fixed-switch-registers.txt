@@ -1,0 +1,36 @@
+after-copy.registers.tsv
+sp	02d9
+cs	1000
+ss	1000
+ip	0418
+flags	f214
+entry-after.registers.tsv
+sp	02eb
+cs	1000
+ss	1000
+ip	0334
+flags	f286
+entry-between.registers.tsv
+sp	08ea
+cs	1000
+ss	1000
+ip	032b
+flags	0084
+exit-after.registers.tsv
+sp	08ea
+cs	1000
+ss	108c
+ip	03ba
+flags	f246
+exit-between.registers.tsv
+sp	02eb
+cs	1000
+ss	108c
+ip	03af
+flags	0044
+prompt.registers.tsv
+sp	02d9
+cs	1000
+ss	1000
+ip	0418
+flags	f214

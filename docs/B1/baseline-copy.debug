@@ -1,0 +1,11 @@
+debug-script 1
+limit-frame 2200
+wait-frame 550
+wait-pc 1000:03fc 1
+capture prompt registers
+wait-frame 600
+input-line COPY CON T.TXT
+wait-frame 1400
+wait-pc 1000:03fc 1
+capture after-copy registers tvram screen
+exit

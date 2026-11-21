@@ -1,0 +1,24 @@
+run	emulator_exit	return_prompt	result	readfile_exit	bytes	sha256
+two-lines-01	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-02	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-03	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-04	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-05	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-06	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-07	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-08	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-09	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+two-lines-10	0	yes	PASS: 1 copied; TYPE shows both lines	0	25	2ea4c17de39eeae1822ea5af6a68e24f44b8b0374dcae03460a9d87537c05ff8
+no-body-01	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-02	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-03	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-04	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-05	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-06	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-07	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-08	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-09	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+no-body-10	0	yes	PASS: 0 copied; T.TXT absent	1	-	-
+disk-copy-dir-01	0	yes	PASS: U.TXT in DIR and matches README.TXT	0	1525	f353c899f72b8207c1a75513c519b23e8ccb76f066a660c9911725521ed71d8b
+disk-copy-dir-02	0	yes	PASS: U.TXT in DIR and matches README.TXT	0	1525	f353c899f72b8207c1a75513c519b23e8ccb76f066a660c9911725521ed71d8b
+j02-regression-01	0	yes	PASS: 4 PNGs and final TVRAM identical to fresh baseline	-	-	-

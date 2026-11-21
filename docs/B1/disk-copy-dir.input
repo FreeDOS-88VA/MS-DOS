@@ -1,0 +1,6 @@
+@text COPY A:README.TXT A:U.TXT
+@enter
+@wait 300
+@text DIR
+@enter
+@wait 300
