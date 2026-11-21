@@ -251,6 +251,15 @@ comparison is done.
 - J3a — ROM JFP: VAIO initializes the JFP and reads CON through the KB
   BIOS main functions with conversion; keep the J0.3 key table (ROM
   expansion off); place the JFP area so the label line survives.
+- J3a accepted 2026-11-21 (`docs/J3a-rom-jfp-input.md`, VA/VA2 35/35):
+  `JFP.COM` (`pc88va/VAJFP.ASM`) initializes the ROM JFP from the
+  foreground and switches VAIO through private INT DCh CL=F0h; `JFP ROM`
+  uses the ROM dictionary when the default `.DIC`/`.DAT` files are
+  missing (the only tested case), `JFP OFF` returns to plain input.
+  Labels come back after composition; ESC[>1h is deferred while the JFP
+  is on. Cost 784 bytes. Risk: with real dictionary files, learning on
+  KETTEI may write files through INT 21h inside a CON read — not tested.
+  The builder needs `JFP.COM` added (patch in `docs/J3a/`).
 - J3b — project FEP (as FreeDOS-88VA decided for its M21): a resident
   front end in VAIO or a separate driver, reading the conversion
   dictionary from the user's own machine ROM at run time; no dictionary
