@@ -48,11 +48,25 @@ NOTON:  CMP     WORD PTR [ARG],'OR'
         JNE     USAGE
         MOV     [ROMOK],1
         JMP     SHORT ENABLE
-NOTROM: CMP     WORD PTR [ARG],'FO'
+NOTROM: CMP     WORD PTR [ARG],'EF'
+        JNE     NOTFEP
+        CMP     [ARG+2],'P'
+        JE      PROJECT
+NOTFEP: CMP     WORD PTR [ARG],'FO'
         JNE     USAGE
         CMP     [ARG+2],'F'
         JE      DISABLE
 USAGE:  MOV     DX,OFFSET HELPMSG
+        JMP     FAIL
+
+PROJECT:CALL    QUERY
+        MOV     BX,4
+        CALL    VAIO
+        CMP     BX,3
+        JNE     BUSY
+        MOV     DX,OFFSET FEPMSG
+        JMP     SUCCESS
+BUSY:   MOV     DX,OFFSET BUSYMSG
         JMP     FAIL
 
 DISABLE:
@@ -69,6 +83,8 @@ DISABLED:
         JMP     SUCCESS
 
 ENABLE: CALL    QUERY
+        CMP     BX,3
+        JE      BUSY
         CMP     BX,1
         JNE     RESERVE
         JMP     ENABLED
@@ -226,9 +242,11 @@ OLD21   DD      0
 MISSING DB      0
 OPENERR DB      0
 ROMOK   DB      0
-HELPMSG DB      'Usage: JFP ON | ROM | OFF',13,10
+HELPMSG DB      'Usage: JFP ON | ROM | FEP | OFF',13,10
         DB      'ROM allows missing default files and uses the built-in dictionary.',13,10,'$'
 OFFMSG  DB      'JFP off; plain CON input.',13,10,'$'
+FEPMSG  DB      'Project FEP on. ZENKAKU: kana; F7: katakana; HENKAN: candidates.',13,10,'$'
+BUSYMSG DB      'Cannot select input mode. Use JFP OFF before switching.',13,10,'$'
 ONMSG   DB      'JFP on. ZENKAKU: kana; HENKAN: convert; KETTEI: confirm.',13,10,'$'
 ROMMSG  DB      'JFP on (ROM fallback: default file missing).',13,10,'$'
 FILEMSG DB      'JFP default-file open failed; plain CON input.',13,10,'$'

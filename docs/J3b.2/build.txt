@@ -1,0 +1,31 @@
+J3b.2 scratch build comparison (2HD, 1024-byte sectors)
+Baseline:  ec9347091e7554355dcb8842309ecbf11b66d220  (main)
+Candidate: efdb76185d123adf3c20a2f849efcfcb1a62b207  (j3b2)
+Builder: FreeDOS-88VA/freedos 7f467a2187a9e15c0c1bb84f179f214fe925153f
+         with R1 build.py hunks and the existing J3a build-jfp.patch
+emu2:    9d8698d06e67359bc8b230c2d19d5b1503e60819
+MASM 5.10: VAIO and VAJFP both 0 warnings, 0 errors, in both builds.
+
+                            Baseline        Candidate        Difference
+VAIO RESEND                 15BFh           1EB9h            +2298 B
+VAIO CISTAT (offset)        0954h           099Bh
+IO.SYS                      21898 B         24186 B          +2288 B
+IO.SYS boot sectors         22              24               +2
+JFP.COM                       848 B          1025 B           +177 B (nonresident)
+CHKDSK free, VA             528256 B        525952 B          -2304 B
+CHKDSK free, VA2            528256 B        525952 B          -2304 B
+
+VAIO romaji records: 145 * 6 bytes = 870 B. Keyboard kana mapping: 126 B.
+Boot sector and 34/37 shipped files byte-identical, including MSDOS.SYS.
+The other three are IO.SYS, JFP.COM and COMMAND.COM. A direct byte comparison
+of COMMAND.COM found differences only in the generated release identifier
+(11 bytes changed, no size change).
+
+SHA-256
+Build program   a6292fe71df0c40e29b284553acffbcbf6ba32c61ac9d4659266c4097faefff0
+Baseline D88    e842aa97bc6c570f6dffb40317c26b0baf0341ec9e16986b5a060abff2b79f3a
+Candidate D88   a5b1831a9a8da91ec62389e7e9b5dd6e0dce0b4385ecf0ae48ca72fc0849ece6
+Regression D88  b0c14d5f0a97e7b1fd632abc66d5a41f94a4758de90330dac08744d1192f8cd9
+Project D88     d281e8c6c43674bceda53368f6d3ffaeaa16eee2f2955cc96a2cd71d0692036a
+FEPBYTE.COM     d947e501d90b343df439a9a0ada2195afda9529f0bcbd722f2ed85c65284dffd
+VAIO CISTAT and RESEND are addresses in DOS IO.SYS, not in firmware.

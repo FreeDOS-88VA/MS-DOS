@@ -371,7 +371,7 @@ OUTWRAP DB      0              ;Logical column 81; BIOS cursor is at 80.
 OUTGRAPH DB     0              ;ESC )3: display high bytes as ANK.
 ESCSWRAP DB     0              ;Saved logical column, if beyond the edge.
 LABELON DB      -1              ;-1 until initialized, 0 hidden, 10 shown.
-JFPMODE DB      0               ;0 primitive, 1 ROM main, 2 reserved/primitive.
+JFPMODE DB      0               ;0 plain, 1 ROM, 2 ROM reservation, 3 project.
 JFPLABEL DB     10              ;Requested label layout while row is reserved.
 JFPDIRTY DB     0               ;The ROM may have drawn on the label row.
 JFPTRAIL DB     0               ;Second byte of a cached Shift-JIS word.
@@ -577,7 +577,8 @@ ROMKEY: PUSH    DS
         RET
 
 ; INT DC / CL=F0h, AX=4A46h. Reply AX=464Ah, BX=current mode.
-; BX request: 0=query, 1=reserve system row, 2=commit, 3=release.
+; BX request: 0=query, 1=reserve for ROM, 2=commit ROM, 3=release,
+; 4=select project FEP (only from plain mode). Reply 3 means project.
 ; Only JFP.COM calls the transition operations. No DOS or JFP reset here.
 JFPINT: PUSH    CX
         PUSH    DX
@@ -589,14 +590,34 @@ JFPINT: PUSH    CX
         PUSH    CS
         POP     DS
         CMP     BX,1
-        JE      JFPRESV
-        CMP     BX,2
-        JE      JFPCOMMIT
-        CMP     BX,3
+        JNE     JFPTEST2
+        JMP     JFPRESV
+JFPTEST2:CMP    BX,2
+        JNE     JFPTEST3
+        JMP     JFPCOMMIT
+JFPTEST3:CMP    BX,3
         JE      JFPREL
-        JMP     JFPACK
-JFPREL: CMP     [JFPMODE],0
+        CMP     BX,4
+        JNE     JFPREPLY
+        CMP     [JFPMODE],0
+        JNE     JFPREPLY
+        CALL    JFPROW
+        CMP     [LABELON],10
+        JNE     JFPREPLY
+        CALL    JFPCLEAR
+        MOV     [JFPMODE],3
+JFPREPLY:JMP    JFPACK
+JFPREL: CMP     [JFPMODE],3
+        JE      JFPENDP
+        CMP     [JFPMODE],0
         JNE     JFPOFF
+        JMP     JFPACK
+JFPENDP:CALL    FEPFLUSH
+        MOV     [FEPWIDE],0
+        MOV     [JFPMODE],0
+        MOV     AL,[JFPLABEL]
+        MOV     AH,2FH
+        CALL    LABELMODE
         JMP     JFPACK
 JFPOFF: MOV     [JFPMODE],0
         MOV     [JFPSEEN],1
@@ -615,10 +636,7 @@ JFPOFF: MOV     [JFPMODE],0
         JMP     SHORT JFPACK
 JFPRESV:CMP     [JFPMODE],0
         JNE     JFPACK
-        MOV     AL,[LABELON]
-        MOV     [JFPLABEL],AL
-        MOV     AX,2F0AH
-        CALL    LABELMODE
+        CALL    JFPROW
         CMP     [LABELON],10
         JNE     JFPACK
         MOV     [JFPMODE],2
@@ -655,6 +673,11 @@ JFPACK: XOR     BX,BX
         POP     DX
         POP     CX
         IRET
+
+JFPROW: MOV     AL,[LABELON]
+        MOV     [JFPLABEL],AL
+        MOV     AX,2F0AH
+        JMP     LABELMODE
 
 JFPCLEAR:
         MOV     CS:[CHAR],0
@@ -860,7 +883,14 @@ CISTAP: PUSH    BX
         POP     BX
         RET
 CISTAZ: MOV     CS:[KEYNEXT],0
-CISTARP:MOV     BX,CS:[ESCREPNEXT]
+CISTARP:MOV     BX,CS:[FEPREAD]
+        OR      BX,BX
+        JZ      CISTAREP
+        CALL    FEPBYTE
+        POP     BX
+        OR      AL,AL
+        RET
+CISTAREP:MOV    BX,CS:[ESCREPNEXT]
         OR      BX,BX
         JZ      CISTA0
         MOV     AL,CS:[BX]      ;After an active key string, before a new key.
@@ -877,6 +907,8 @@ CISTA0: PUSH    CX
 ; so a known special scan always uses the CON definition.
 CISTA1: CMP     CS:[JFPMODE],1
         JE      CISTAJ
+        CMP     CS:[FEPDRAWN],0
+        JNE     CISTAPRIM
         CMP     CS:[JFPSEEN],0
         JE      CISTAPRIM
         CMP     CS:[LABELON],10
@@ -901,7 +933,15 @@ CISTAEMPTY:
         JMP     CISTAR
 CISTAG: MOV     AH,09H
         INT     82H
-        JMP     SHORT CISTASCAN
+        CMP     CS:[JFPMODE],3
+        JNE     CISTASCAN
+        CALL    FEPKEY
+        JNC     CISTASCAN       ;Unclaimed primitive AX: use the VAIO table.
+        MOV     BX,CS:[FEPREAD]
+        OR      BX,BX
+        JZ      CISTA1
+        CALL    FEPBYTE
+        JMP     CISTAR
 CISTAJ: CALL    JFPSENSE
         JC      CISTAEMPTY
         OR      AH,AH
@@ -1020,6 +1060,11 @@ CON_REA9:
         JMP     EXIT
 
 CON_FLSH:
+        CMP     [JFPMODE],3
+        JNE     CON_FLROM
+        CALL    FEPFLUSH
+        JMP     EXIT
+CON_FLROM:
         CALL    JFPCLEAR
         CMP     [JFPMODE],1
         JNE     CON_FLPR
@@ -1429,7 +1474,7 @@ ESCPRIVL:CMP    CL,1
         JNE     ESCCURSOR
         CMP     [JFPMODE],0
         JE      ESCLAYOUT
-        MOV     [JFPLABEL],AL   ;Defer hide/show until JFP releases the row.
+        MOV     [JFPLABEL],AL   ;Defer hide/show until the input mode is off.
         JMP     SHORT ESCNOOP
 ESCLAYOUT:
         MOV     AH,2FH
@@ -1852,6 +1897,8 @@ ESCGMODE:
 ESCGSET:CMP     AH,[OUTGRAPH]
         JE      ESCGDONE
         MOV     [OUTGRAPH],AH
+        CMP     [FEPDRAWN],0    ;Project composition owns the system row.
+        JNE     ESCGDONE
         CMP     [JFPMODE],1
         JNE     ESCGROM
         MOV     [JFPDIRTY],1
@@ -1915,6 +1962,7 @@ AUX_REA9:
         JMP     EXIT
 
 ; CLOCK$ reads and sets the PC-88VA calendar.
+        INCLUDE VAFEP.INC
         INCLUDE VACLOCK.INC
 
 TIM_RED:
