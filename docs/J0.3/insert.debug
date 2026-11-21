@@ -1,0 +1,24 @@
+debug-script 1
+limit-frame 1820
+wait-frame 600
+input-line ABCDEF
+wait-frame 1200
+key-tap F8 3
+wait-frame 1300
+key-down SHIFT
+wait-frame 1305
+key-tap X 3
+wait-frame 1310
+key-up SHIFT
+wait-frame 1400
+key-tap F9 3
+wait-frame 1500
+key-down SHIFT
+wait-frame 1505
+key-tap Y 3
+wait-frame 1510
+key-up SHIFT
+wait-frame 1600
+key-tap F3 3
+wait-frame 1720
+exit

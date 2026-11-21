@@ -1,0 +1,28 @@
+case	before COMMAND	after erase COMMAND	DOS 0Ah count and bytes (incl. CR)	Enter status	follow-up VER
+up	'A:\\>^K^K'	'-'	02 0B 0B 0D	bad-command + prompt	VER + prompt
+up-backspace	'A:\\>^K^K'	'A:\\>^K  '	01 0B 0D	bad-command + prompt	VER + prompt
+up-left	'A:\\>^K^K'	'A:\\>^K  '	01 0B 0D	bad-command + prompt	VER + prompt
+up-delete	'A:\\>^K^K'	'A:\\>^K  '	01 0B 0D	bad-command + prompt	VER + prompt
+right	'A:\\>^L^L'	'-'	02 0C 0C 0D	bad-command + prompt	VER + prompt
+right-backspace	'A:\\>^L^L'	'A:\\>^L  '	01 0C 0D	bad-command + prompt	VER + prompt
+right-left	'A:\\>^L^L'	'A:\\>^L  '	01 0C 0D	bad-command + prompt	VER + prompt
+right-delete	'A:\\>^L^L'	'A:\\>^L  '	01 0C 0D	bad-command + prompt	VER + prompt
+home	'A:\\>^Z^Z'	'-'	02 1A 1A 0D	bad-command + prompt	VER + prompt
+home-backspace	'A:\\>^Z^Z'	'A:\\>^Z  '	01 1A 0D	bad-command + prompt	VER + prompt
+home-left	'A:\\>^Z^Z'	'A:\\>^Z  '	01 1A 0D	bad-command + prompt	VER + prompt
+home-delete	'A:\\>^Z^Z'	'A:\\>^Z  '	01 1A 0D	bad-command + prompt	VER + prompt
+shift-home	'A:\\>^^^^'	'-'	02 1E 1E 0D	bad-command + prompt	VER + prompt
+shift-home-backspace	'A:\\>^^^^'	'A:\\>^^  '	01 1E 0D	bad-command + prompt	VER + prompt
+shift-home-left	'A:\\>^^^^'	'A:\\>^^  '	01 1E 0D	bad-command + prompt	VER + prompt
+shift-home-delete	'A:\\>^^^^'	'A:\\>^^  '	01 1E 0D	bad-command + prompt	VER + prompt
+mixed	'A:\\>A^KB^L'	'-'	04 41 0B 42 0C 0D	bad-command + prompt	VER + prompt
+mixed-backspace	'A:\\>A^KB^L'	'A:\\>A^KB  '	03 41 0B 42 0D	bad-command + prompt	VER + prompt
+mixed-left	'A:\\>A^KB^L'	'A:\\>A^KB  '	03 41 0B 42 0D	bad-command + prompt	VER + prompt
+mixed-delete	'A:\\>A^KB^L'	'A:\\>A^KB  '	03 41 0B 42 0D	bad-command + prompt	VER + prompt
+down	'A:\\>AB'	'A:\\>AB'	01 41 0D	bad-command + prompt	VER + prompt
+left	'A:\\>A '	'A:\\>  '	00 0D	prompt	VER + prompt
+del	'A:\\>A '	'A:\\>  '	00 0D	prompt	VER + prompt
+roll-up	'A:\\>AB'	'A:\\>A '	01 41 0D	bad-command + prompt	VER + prompt
+roll-down	'A:\\>AB'	'A:\\>A '	01 41 0D	bad-command + prompt	VER + prompt
+help	'A:\\>AB'	'A:\\>A '	01 41 0D	bad-command + prompt	VER + prompt
+ins	'A:\\>XY'	'A:\\>X '	-	bad-command + prompt	VER + prompt

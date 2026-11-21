@@ -1,0 +1,96 @@
+J0.3 / vaeg VA2 m153 (6367e5d3); fresh writable D88 per run.
+Text: decoded final TVRAM except for frame-specific screenshot checks.
+
+copy-one:
+A:\>ABCDEF
+Bad command or file name
+A:\>AB
+
+copy-to:
+A:\>ABCDEF
+Bad command or file name
+A:\>ABC
+
+skip-one:
+A:\>ABCDEF
+Bad command or file name
+A:\>BCDEF
+
+skip-to:
+A:\>ABCDEF
+Bad command or file name
+A:\>DEF
+
+insert:
+A:\>ABCDEF
+Bad command or file name
+A:\>XYBCDEF
+
+ins-key:
+A:\>ABCDEF
+Bad command or file name
+A:\>XYBCDEF
+
+dir:
+       33 File(s)     802816 bytes free
+A:\>
+
+shifted:
+       33 File(s)     802816 bytes free
+A:\>copy
+
+dir-recalled PNG, frame 1370: A:\>DIR (not yet submitted).
+
+reedit:
+A:\>XYZ@
+    X\
+    XYZ
+
+cancel-break:
+A:\>VER
+MS-DOS Version 4.00
+A:\>XY\
+    VER^C
+A:\>VER
+MS-DOS Version 4.00
+A:\>
+
+api:
+A:\>CONKEY
+F1 F2 F3 Shift+F3 a
+PASS: 07 08 06 0B 0C
+A:\>
+
+edit-bytes (CONKEY K):
+base:            1B 50 1B 44 0B 08 0C 0A 1A
+shift arrows/CLR:0B 08 0C 0A 1E
+ctrl arrows:     0B 08 0C 0A
+None from ROLL UP/DOWN, HELP or Ctrl+HOME/CLR. q returned to prompt.
+
+fkey-bytes (CONKEY K; 82 bytes):
+F1–F10:       1B 53 1B 54 1B 55 1B 56 1B 57 1B 45 1B 4A 1B 50 1B 51 1B 5A
+Shift+F1–F10: 64 69 72 20 61 3A 0D 64 69 72 20 62 3A 0D 63 6F 70 79 20 64 65 6C 20 72 65 6E 20 63 68 6B 64 73 6B 20 61 3A 0D 63 68 6B 64 73 6B 20 62 3A 0D 74 79 70 65 20 64 61 74 65 0D 74 69 6D 65 0D
+Both banks match all expected payload bytes; no FEh or label bytes.
+
+COPY CON: run / exit / extracted T.TXT hex / screen check
+eof.1        0   4142430d0a4445460d0a  TYPE two lines; returned to A: prompt
+eof.2        0   4142430d0a4445460d0a  TYPE two lines; returned to A: prompt
+eof.3        0   4142430d0a4445460d0a  TYPE two lines; returned to A: prompt
+eof.4        0   4142430d0a4445460d0a  TYPE two lines; returned to A: prompt
+eof.5        0   4142430d0a4445460d0a  TYPE two lines; returned to A: prompt
+eof-ctrl-z   0   4142430d0a4445460d0a  TYPE two lines; returned to A: prompt
+
+Regression: original J0.2 script, baseline vs J0.3:
+boot.png       byte-identical
+typed.png      byte-identical
+backspace.png  byte-identical
+end.png        byte-identical
+end.tvram      byte-identical
+
+memory.base:
+    655360 total bytes memory
+    533024 bytes free
+
+memory.after:
+    655360 total bytes memory
+    532480 bytes free

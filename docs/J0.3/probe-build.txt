@@ -1,0 +1,13 @@
+Microsoft (R) Macro Assembler Version 5.10
+Copyright (C) Microsoft Corp 1981, 1988.  All rights reserved.
+
+
+  47902 + 459549 Bytes symbol space free
+
+      0 Warning Errors
+      0 Severe  Errors
+
+Microsoft (R) Overlay Linker  Version 3.65
+Copyright (C) Microsoft Corp 1983-1988.  All rights reserved.
+
+LINK : warning L4021: no stack segment
