@@ -63,7 +63,11 @@ COUNTRY_CDPG  label  byte
 	 db   0,0,0,0,0,0,0,0	      ; reserved words
 	 db   '\COUNTRY.SYS',0        ; path name of country.sys
 	 db   51 dup (?)
-	 dw   437		      ; system code page id
+IFDEF PC88VA
+	 dw   932		      ; system code page id
+ELSE
+	 dw   437
+ENDIF
 	 dw   6 		      ; number of entries
 	 db   SetUcase		      ; Ucase type
 	 dw   OFFSET DOSGROUP:UCASE_TAB    ;pointer to upper case table
@@ -82,6 +86,12 @@ COUNTRY_CDPG  label  byte
 	 dw   0 		       ;AN000; segment of poiter	 2/12/KK
 	 db   SetCountryInfo	      ; country info type
 	 dw   NEW_COUNTRY_SIZE	      ; extended country info size
+IFDEF PC88VA
+	 dw   81,932,2		      ; Japan, Shift-JIS, year-month-day
+	 db   '\',0,0,0,0	      ; yen in the Japanese character set
+	 db   ',',0,'.',0,'-',0,':',0
+	 db   0,0,1		      ; currency prefix, no decimals, 24-hour time
+ELSE
 	 dw   1 		      ; USA country id
 	 dw   437		      ; USA system code page id
 	 dw   0 		      ; date format
@@ -93,6 +103,7 @@ COUNTRY_CDPG  label  byte
 	 db   0 		      ; currency format flag
 	 db   2 		      ; # of disgit in currency
 	 db   0 		      ; time format
+ENDIF
 	 dw   OFFSET DOSGROUP:MAP_CASE	;mono case routine entry point
 	 dw   0 			; segment of entry point
 	 db   ',',0                    ; data list separator
@@ -107,7 +118,22 @@ COUNTRY_CDPG  label  byte
 ;
 ; upper case table
 ;
+IFDEF PC88VA
+; As in COUNTRY.SYS for 932, high bytes pass through unchanged.
+SJIS_UCASE MACRO
+    local ch
+    dw 128
+    ch = 128
+    rept 128
+        db ch
+        ch = ch + 1
+    endm
+ENDM
+ENDIF
 UCASE_TAB    label   byte
+IFDEF PC88VA
+		    SJIS_UCASE
+ELSE
 		    dw	128
 		    db	128,154,069,065,142,065,143,128
 		    db	069,069,069,073,073,073,142,143
@@ -126,10 +152,14 @@ UCASE_TAB    label   byte
 		    db	240,241,242,243,244,245,246,247
 		    db	248,249,250,251,252,253,254,255
 
+ENDIF
 ;
 ; file upper case table
 ;
 FILE_UCASE_TAB	label  byte
+IFDEF PC88VA
+		    SJIS_UCASE
+ELSE
 		    dw	128
 		    db	128,154,069,065,142,065,143,128
 		    db	069,069,069,073,073,073,142,143
@@ -148,6 +178,7 @@ FILE_UCASE_TAB	label  byte
 		    db	240,241,242,243,244,245,246,247
 		    db	248,249,250,251,252,253,254,255
 
+ENDIF
 ;
 ; file char list
 ;
@@ -178,6 +209,22 @@ COLLATE_TAB    label   byte
 	db	"H","I","J","K","L","M","N","O"
 	db	"P","Q","R","S","T","U","V","W"
 	db	"X","Y","Z","{","|","}","~",127
+IFDEF PC88VA
+;	High-byte collation weights from COUNTRY.SYS's Japan/932 table.
+	db	128,193,194,195,196,197,198,199
+	db	200,201,202,203,204,205,206,207
+	db	208,209,210,211,212,213,214,215
+	db	216,217,218,219,220,221,222,223
+	db	129,130,131,132,133,189,134,135
+	db	136,137,138,139,140,141,142,143
+	db	144,145,146,147,148,149,150,151
+	db	152,153,154,155,156,157,158,159
+	db	160,161,162,163,164,165,166,167
+	db	168,169,170,171,172,173,174,175
+	db	176,177,178,179,180,181,182,183
+	db	184,185,186,187,188,190,191,192
+	db	224,225
+ELSE
 	db	"C","U","E","A","A","A","A","C"
 	db	"E","E","E","I","I","I","A","A"
 	db	"E","A","A","O","O","O","U","U"
@@ -191,6 +238,7 @@ COLLATE_TAB    label   byte
 	db	208,209,210,211,212,213,214,215
 	db	216,217,218,219,220,221,222,223
 	db	224,"S"
+ENDIF
 	db	226,227,228,229,230,231
 	db	232,233,234,235,236,237,238,239
 	db	240,241,242,243,244,245,246,247

@@ -44,6 +44,12 @@ procedure   $STD_CON_STRING_INPUT_NO_ECHO,FAR
         NOP
 endproc $STD_CON_STRING_INPUT_NO_ECHO,FAR
 
+IFDEF PC88VA
+; MSDOSME.OBJ also references the DBCS editor's input wrapper. SHARE
+; never runs the editor; resolve it at the existing input stub.
+PUBLIC IntCNE0
+IntCNE0 LABEL NEAR
+ENDIF
 procedure   $STD_CON_INPUT_NO_ECHO,FAR
         NOP
 endproc $STD_CON_INPUT_NO_ECHO,FAR
