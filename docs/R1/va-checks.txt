@@ -1,0 +1,12 @@
+va base: frame 378 (+0);  | MS-DOS Version 4.00 | A:\>
+va main: frame 384 (+6); 日本語MS-DOS version 4.00 Release 20261121 (main, ef7074d0) | for NEC PC-88VA Series Personal Computer | Ported by Nakata Maho | A:\>
+va milestone: frame 383 (+5); 日本語MS-DOS version 4.00 Release 20261122 (r1, ef7074d0) | for NEC PC-88VA Series Personal Computer | Ported by Nakata Maho | A:\>
+va unknown: frame 384 (+6); 日本語MS-DOS version 4.00 Release unknown (unknown, unknown) | for NEC PC-88VA Series Personal Computer | Ported by Nakata Maho | A:\>
+va: exact CON bytes to first prompt; VER, CLS and Shift labels OK on all builds
+va: CHKDSK free bytes {'base': 529040, 'main': 529040, 'milestone': 529040, 'unknown': 529040} (main change +0 B)
+va2 base: frame 370 (+0);  | MS-DOS Version 4.00 | A:\>
+va2 main: frame 375 (+5); 日本語MS-DOS version 4.00 Release 20261121 (main, ef7074d0) | for NEC PC-88VA Series Personal Computer | Ported by Nakata Maho | A:\>
+va2 milestone: frame 375 (+5); 日本語MS-DOS version 4.00 Release 20261122 (r1, ef7074d0) | for NEC PC-88VA Series Personal Computer | Ported by Nakata Maho | A:\>
+va2 unknown: frame 375 (+5); 日本語MS-DOS version 4.00 Release unknown (unknown, unknown) | for NEC PC-88VA Series Personal Computer | Ported by Nakata Maho | A:\>
+va2: exact CON bytes to first prompt; VER, CLS and Shift labels OK on all builds
+va2: CHKDSK free bytes {'base': 529040, 'main': 529040, 'milestone': 529040, 'unknown': 529040} (main change +0 B)
