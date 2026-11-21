@@ -144,6 +144,12 @@ Cost: 544 bytes of conventional memory.
   scrolls without overwriting them; `ECHO` of ESC[>1h / ESC[>1l hides and
   shows them; free memory reported before/after.
 
+J0.4 accepted 2026-11-21 (`docs/J0.4-label-line.md`): 80x25 text
+(24 + ROM label row) on VA and VA2; labels from the VAIO table via
+DefSft/SftCtl; CON handles ESC[>1h (25 text rows), ESC[>1l, ESC[2J,
+ESC[H, which also fixes CLS. Cost 320 bytes. Open: SHIFT labels show the
+CR of `date`/`time` as a glyph; compare with NEC in J0.5.
+
 #### J0.5 — KEY command and INT DCh
 - Goal: INT DCh CL=0Ch (read) and CL=0Dh (write) for the function-key
   table in NEC format, and a project-written KEY.COM (list, set one key,
