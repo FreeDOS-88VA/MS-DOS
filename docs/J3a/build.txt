@@ -1,0 +1,32 @@
+J3a clean scratch builds (MASM 5.10, LINK 3.65 via emu2)
+
+MS-DOS base: 38044f85f516886797c3b7990a683ce1b9ad2ebe (main)
+MS-DOS J3a:  e240386d63c158eaa32d23faf6a7fc372b2ca985 (j3a)
+Builder:     7f467a2187a9e15c0c1bb84f179f214fe925153f + R1 build.py + J3a patch
+emu2:        9d8698d06e67359bc8b230c2d19d5b1503e60819
+
+VAIO and VAJFP: 0 MASM warnings, 0 errors. LINK L4021 (no stack segment)
+was emitted for the COM. Applied both builder hunks in scratch and compared
+the resulting build.py with the one run (identical).
+
+                                 Base           J3a
+VAIO RESEND                     12A4h          15BFh   (+795 bytes raw)
+DOS segment relative to IO.SYS  012Bh          015Ch   (+784 bytes aligned)
+IO.SYS                          21098          21898  (+800 bytes on disk)
+IO.SYS 1024-byte boot sectors      21             22
+JFP.COM                            —             848  (nonresident)
+
+Boot sector and all 34 other common files were identical by size and digest.
+Of the 36 existing files, only IO.SYS and the injected banner identity in
+COMMAND.COM changed. JFP.COM is the one additional file.
+
+                          SHA-256
+Base D88                  ba919f2d818667b84fc2671c033ba67ea52ea3c1096d52f3cfca7e5b7e27116b
+J3a D88                   492170ab69121ed413627004f49e12c8d04dbca023511184fbfb906f61d321e8
+Regression fixture D88   9c376af0c7b5b8cfc6998ffaa03d1427d98e696995e036d0f26cac72f2a1d77e
+Enabled fixture D88      bed3d25580792232d2bee09d2a37967df912adc1b99ef3f8792132a36f454055
+Base IO.SYS               6f970719b3c2f6d5512a1ea289bc89f971c5804f8c019881fda1abcb6cda9f60
+J3a IO.SYS                75cd63c1acf49ddaf48e0dfa2b40d1dcb9d407ec7904d528c4b0e5e17a152501
+MSDOS.SYS (both)          444961b2594d04d8e52caa30875c788733ad7385724fbd00b5684e6cef105cef
+JFP.COM                   daa10367dd8e398fc014b525591ee250759640116fab9f819604a72f268318ef
+JFPBYTE.COM (test only)   aee5de3e1a47a8943d39193bcd5a6a732419a3370314e9cb676eec660a31110b

@@ -1,0 +1,31 @@
+VA
+1. J0.3 steps 1/5/9: 8/8 (three F10 cold boots, exact T.TXT bytes)
+1. J0.4 steps 1–5: 10/10 (current clear+home behavior)
+1. KEY: 1/1 (31/31 entries matching IO.SYS)
+1. J2a step 1: 1/1
+1. CHKDSK: 2/2 (655360 total; free 529040 → 528256, -784 bytes)
+2. Prompt: 1/1 (ECHO 日本; strict missing-file path also checked)
+3. COPY CON / F10 / TYPE: 1/1 (J.TXT = 93 fa 96 7b 0d 0a)
+4. DIR / root name: 1/1 (93 fa 96 7b padded to 11 bytes)
+5. EDLIN I / 1L / E / TYPE: 1/1 (E.TXT = 93 fa 96 7b 0d 0a 1a)
+6. Editing: 6/6 (reading BS, ESC, Ctrl-C incl. idle, pending F1, F1/F3 template, two-column BS)
+7. Labels: 2/2 (shown/overwritten/restored; reserved row for hidden + deferred hide)
+8. Disable: 1/1 (plain prompt, normal/Shift label restoration)
+Supplemental: exact 43-tap streams in narrow and wide; DBCS peek/flush with no file calls; KEY F1; no extra enabled CHKDSK memory cost
+Gate: 35/35
+
+VA2
+1. J0.3 steps 1/5/9: 8/8 (three F10 cold boots, exact T.TXT bytes)
+1. J0.4 steps 1–5: 10/10 (current clear+home behavior)
+1. KEY: 1/1 (31/31 entries matching IO.SYS)
+1. J2a step 1: 1/1
+1. CHKDSK: 2/2 (655360 total; free 529040 → 528256, -784 bytes)
+2. Prompt: 1/1 (ECHO 日本; strict missing-file path also checked)
+3. COPY CON / F10 / TYPE: 1/1 (J.TXT = 93 fa 96 7b 0d 0a)
+4. DIR / root name: 1/1 (93 fa 96 7b padded to 11 bytes)
+5. EDLIN I / 1L / E / TYPE: 1/1 (E.TXT = 93 fa 96 7b 0d 0a 1a)
+6. Editing: 6/6 (reading BS, ESC, Ctrl-C incl. idle, pending F1, F1/F3 template, two-column BS)
+7. Labels: 2/2 (shown/overwritten/restored; reserved row for hidden + deferred hide)
+8. Disable: 1/1 (plain prompt, normal/Shift label restoration)
+Supplemental: exact 43-tap streams in narrow and wide; DBCS peek/flush with no file calls; KEY F1; no extra enabled CHKDSK memory cost
+Gate: 35/35

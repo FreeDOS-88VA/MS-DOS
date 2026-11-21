@@ -371,6 +371,14 @@ OUTWRAP DB      0              ;Logical column 81; BIOS cursor is at 80.
 OUTGRAPH DB     0              ;ESC )3: display high bytes as ANK.
 ESCSWRAP DB     0              ;Saved logical column, if beyond the edge.
 LABELON DB      -1              ;-1 until initialized, 0 hidden, 10 shown.
+JFPMODE DB      0               ;0 primitive, 1 ROM main, 2 reserved/primitive.
+JFPLABEL DB     10              ;Requested label layout while row is reserved.
+JFPDIRTY DB     0               ;The ROM may have drawn on the label row.
+JFPTRAIL DB     0               ;Second byte of a cached Shift-JIS word.
+JFPDRAIN DB     0               ;A confirmed ROM word still follows the current one.
+JFPSHIFT DB     0               ;Shift state of our last idle label repaint.
+JFPSEEN DB      0               ;After ROM use, idle plain labels may need help.
+SYSTEXT EQU     80*25*2         ;System split follows the full main buffer.
 
 ; NEC CON key table: 20 x 16 bytes followed by 11 x 6 bytes. Each
 ; slot has a NUL terminator; the F-key prefix is display metadata.
@@ -420,7 +428,12 @@ KEYINT  PROC    FAR
         JE      KIENTER
         CMP     CL,0DH
         JE      KIENTER
-        IRET
+        CMP     CL,0F0H         ;Private VA JFP mode handshake, not NEC KEY.
+        JNE     KINOP
+        CMP     AX,4A46H
+        JNE     KINOP
+        JMP     JFPINT
+KINOP:  IRET
 KIENTER:PUSH    AX
         PUSH    BX
         PUSH    CX
@@ -521,6 +534,7 @@ KIXFER: MOV     SI,AX
         REP     MOVSB
         RET
 KIWRITE:MOV     [KEYNEXT],0     ;Drop an in-flight expanded string only.
+        MOV     [JFPDIRTY],1
         DEC     CX              ;Never store a nonzero final byte.
 KIWCOPY:MOV     AL,ES:[DI]
         MOV     [SI],AL
@@ -562,6 +576,273 @@ ROMKEY: PUSH    DS
         POP     DS
         RET
 
+; INT DC / CL=F0h, AX=4A46h. Reply AX=464Ah, BX=current mode.
+; BX request: 0=query, 1=reserve system row, 2=commit, 3=release.
+; Only JFP.COM calls the transition operations. No DOS or JFP reset here.
+JFPINT: PUSH    CX
+        PUSH    DX
+        PUSH    SI
+        PUSH    DI
+        PUSH    BP
+        PUSH    DS
+        PUSH    ES
+        PUSH    CS
+        POP     DS
+        CMP     BX,1
+        JE      JFPRESV
+        CMP     BX,2
+        JE      JFPCOMMIT
+        CMP     BX,3
+        JE      JFPREL
+        JMP     JFPACK
+JFPREL: CMP     [JFPMODE],0
+        JNE     JFPOFF
+        JMP     JFPACK
+JFPOFF: MOV     [JFPMODE],0
+        MOV     [JFPSEEN],1
+        CALL    JFPCLEAR
+        MOV     AX,2F00H        ;Back to the ROM's plain-mode label renderer.
+        INT     83H
+        MOV     AX,2F0AH
+        INT     83H
+        MOV     AL,[JFPLABEL]
+        MOV     AH,2FH
+        CALL    LABELMODE
+        CMP     [LABELON],10
+        JNE     JFPACK
+        MOV     [JFPDIRTY],1    ;Some ROM states leave the row blank on exit.
+        CALL    JFPRIDLE        ;No composition check on the plain path.
+        JMP     SHORT JFPACK
+JFPRESV:CMP     [JFPMODE],0
+        JNE     JFPACK
+        MOV     AL,[LABELON]
+        MOV     [JFPLABEL],AL
+        MOV     AX,2F0AH
+        CALL    LABELMODE
+        CMP     [LABELON],10
+        JNE     JFPACK
+        MOV     [JFPMODE],2
+        JMP     SHORT JFPACK
+JFPCOMMIT:
+        CMP     [JFPMODE],2
+        JNE     JFPACK
+        MOV     AH,0EH          ;KyBook: reject an uninitialized main path.
+        INT     82H
+        MOV     BX,DX
+        MOV     AX,ES:[BX+01DEH] ;Documented JFPAddr field, 603KEYB §6.3.5.
+        OR      AX,ES:[BX+01E0H]
+        JZ      JFPACK
+        MOV     DX,0440H        ;Check both documented conversion buffers.
+        MOV     ES,DX
+        MOV     AX,ES:[0]
+        OR      AX,ES:[2]
+        JZ      JFPACK
+        MOV     AX,ES:[4]
+        OR      AX,ES:[6]
+        JZ      JFPACK
+        MOV     CS:[JFPMODE],1
+        CALL    JFPCLEAR
+        MOV     CS:[JFPDIRTY],1
+        CALL    JFPREFRESH
+JFPACK: XOR     BX,BX
+        MOV     BL,CS:[JFPMODE]
+        MOV     AX,464AH
+        POP     ES
+        POP     DS
+        POP     BP
+        POP     DI
+        POP     SI
+        POP     DX
+        POP     CX
+        IRET
+
+JFPCLEAR:
+        MOV     CS:[CHAR],0
+        MOV     CS:[JFPTRAIL],0
+        MOV     CS:[JFPDRAIN],0
+        MOV     CS:[KEYNEXT],0
+        MOV     CS:[ESCREPNEXT],0
+        RET
+
+; Redraw the idle row without SftCtl/DefSft: while enabled those calls
+; can leave ROM mode labels in the row or move composition inline.
+; As in ESCBOUNDARY, save/restore the V3 window with IRQs masked.
+; The text and attribute planes are 8000h bytes apart. Reproduce the
+; J0.4 six-cell label fields (including the leading FEh display marker).
+JFPREFRESH:
+        CALL    JFPIDLE
+        JE      JFPRIDLE
+        RET
+JFPRIDLE:MOV    AH,0BH          ;PrmSfts: left/right Shift in bits 0/1.
+        INT     82H
+        AND     AL,3
+        CMP     AL,CS:[JFPSHIFT]
+        JE      JFPRSAME
+        MOV     CS:[JFPSHIFT],AL
+        MOV     CS:[JFPDIRTY],1
+JFPRSAME:CMP    CS:[JFPDIRTY],0
+        JE      JFPRRET
+        MOV     CS:[JFPDIRTY],0
+        MOV     SI,OFFSET CONKEYS
+        OR      AL,AL
+        JZ      JFPRMAP
+        ADD     SI,10*16
+JFPRMAP:MOV     AX,0A000H
+        MOV     ES,AX
+        PUSHF
+        CLI
+        CLD
+        MOV     DX,0152H
+        IN      AX,DX
+        PUSH    AX
+        AND     AH,0F0H
+        OR      AH,1            ;SMBC=1 maps TVRAM.
+        OUT     DX,AX
+        MOV     DI,SYSTEXT
+        MOV     CX,80
+        MOV     AX,20H
+        REP     STOSW
+        MOV     DI,SYSTEXT+8000H
+        MOV     CX,80
+        MOV     AX,70H
+        REP     STOSW
+        CMP     CS:[OUTGRAPH],0
+        JE      JFPRFIELDS
+        MOV     WORD PTR ES:[SYSTEXT+2],'g'
+JFPRFIELDS:
+        MOV     DI,SYSTEXT+8
+        MOV     BX,10
+JFPBOX: MOV     CX,6
+        XOR     AH,AH
+JFPBOXB:MOV     AL,CS:[SI]
+        INC     SI
+        STOSW
+        MOV     WORD PTR ES:[DI+8000H-2],74H ;Mode 1, white reverse.
+        LOOP    JFPBOXB
+        ADD     SI,10           ;Next 16-byte key slot.
+        ADD     DI,2            ;One space between fields.
+        DEC     BX
+        CMP     BX,5
+        JNE     JFPBOXN
+        ADD     DI,6            ;Three more spaces between the two groups.
+JFPBOXN:OR      BX,BX
+        JNZ     JFPBOX
+        POP     AX
+        OUT     DX,AX
+        POPF
+JFPRRET:RET
+
+; Inspect the documented JFP work area (618JFP §6.18.6).
+; ZF=1 if the conversion input buffer is empty. Preserve AX/BX.
+JFPIDLE:MOV     DX,0440H
+        MOV     ES,DX
+        LES     DI,ES:[0]
+        CMP     BYTE PTR ES:[DI],0
+        RET
+
+; Main SnsChar may consume a raw key without returning a character.
+; In idle kana the ROM reserves some DOS soft keys for its own modes.
+; Save those keys for DOS, but not ahead of a reading or a confirmed word.
+JFPSENSE:
+        PUSHF
+        CLI
+        CALL    JFPPOLL
+        JC      JFPSNONE
+        POPF
+        CLC
+        JMP     SHORT JFPSDRAW
+JFPSNONE:POPF
+        STC
+JFPSDRAW:PUSHF
+        PUSH    AX
+        PUSH    BX
+        CALL    JFPREFRESH
+        POP     BX
+        POP     AX
+        POPF
+        RET
+
+JFPPOLL:MOV     AH,0AH
+        INT     82H
+        JNC     JFPHASRAW
+        CMP     CS:[JFPDRAIN],0 ;Without raw input, only drain committed words.
+        JNE     JFPMAIN
+        STC
+        RET
+JFPHASRAW:
+        CMP     CS:[JFPDRAIN],0
+        JNE     JFPRAW
+        CALL    JFPIDLE
+        JNE     JFPRAW
+        CMP     AL,03H          ;DOS break, ESC prefix, ordinary Backspace.
+        JE      JFPPRIM
+        CMP     AL,1BH
+        JE      JFPPRIM
+        CMP     AL,08H
+        JE      JFPPRIM
+        CMP     AH,8BH          ;Shift+F10 may also be consumed in narrow mode.
+        JE      JFPPRIM
+        MOV     ES,DX
+        TEST    BYTE PTR ES:[10H],1  ;Active width (documented mode byte).
+        JZ      JFPRAW
+        CMP     AH,36H          ;ROLL, INS, DEL.
+        JB      JFPRAW
+        CMP     AH,39H
+        JBE     JFPPRIM
+        CMP     AH,67H          ;F6–F10.
+        JB      JFPRAW
+        CMP     AH,6BH
+        JBE     JFPPRIM
+        CMP     AH,82H          ;Shift+F1–F10.
+        JB      JFPRAW
+        CMP     AH,8BH
+        JA      JFPRAW
+JFPPRIM:MOV     AH,09H
+        INT     82H
+        MOV     BX,AX           ;Normalize scan/internal code to main ABI.
+        XOR     AH,AH
+        RET
+JFPRAW: MOV     CS:[JFPDIRTY],1
+JFPMAIN:MOV     AH,01H
+        INT     82H
+        JC      JFPNODATA
+        XOR     AH,AH           ;Sensed ready: GetChar cannot block.
+        INT     82H
+        OR      AH,AH
+        JZ      JFPHAVE
+        CALL    JFPMORE
+JFPHAVE:CLC
+        RET
+JFPNODATA:
+        MOV     CS:[JFPDRAIN],0
+        STC
+        RET
+
+; Tested ROMs retain the just-returned word in the conversion output
+; buffer, clearing earlier words in place. A following word must reach
+; CON before we reserve an idle raw key. Bound the scan by SetJFP's
+; indirect limit, and leave the BIOS in charge if it doesn't match.
+JFPMORE:MOV     CS:[JFPDRAIN],1
+        MOV     DX,0440H
+        MOV     ES,DX
+        LES     DI,ES:[4]
+        MOV     CX,30
+JFPMLOOP:
+        CMP     WORD PTR ES:[DI],0
+        JNE     JFPMFOUND
+        ADD     DI,2
+        LOOP    JFPMLOOP
+        RET
+JFPMFOUND:
+        CMP     ES:[DI],AX
+        JNE     JFPMRET
+        CMP     CX,1            ;Last slot: don't read beyond the limit.
+        JE      JFPMLAST
+        CMP     WORD PTR ES:[DI+2],0
+        JNE     JFPMRET
+JFPMLAST:MOV    CS:[JFPDRAIN],0
+JFPMRET:RET
+
 ; Peek: ZF=1 if no character is waiting, else ZF=0 and AL = byte.
 ; A selected string takes precedence over any later primitive queue
 ; entries. Status can cache a key but never advances its string.
@@ -594,13 +875,49 @@ CISTA0: PUSH    CX
         PUSH    ES
 ; PrmSnsK/PrmGetK bypass the JFP. Decode AH before falling back to AL,
 ; so a known special scan always uses the CON definition.
-CISTA1: MOV     AH,0AH
+CISTA1: CMP     CS:[JFPMODE],1
+        JE      CISTAJ
+        CMP     CS:[JFPSEEN],0
+        JE      CISTAPRIM
+        CMP     CS:[LABELON],10
+        JNE     CISTAPRIM
+        ; VA may stop updating the shifted labels even after ROM master-off.
+        ; On a post-JFP plain read, retain the primitive queue and repaint.
+        MOV     AH,0AH
         INT     82H
-        JNC     CISTAG
+        PUSHF
+        JC      CISTADRAW
+        MOV     CS:[JFPDIRTY],1
+CISTADRAW:
+        CALL    JFPRIDLE        ;No input state or JFP BIOS access.
+        POPF
+        JMP     SHORT CISTAPRD
+CISTAPRIM:
+        MOV     AH,0AH
+        INT     82H
+CISTAPRD:JNC    CISTAG
+CISTAEMPTY:
         XOR     AL,AL
         JMP     CISTAR
 CISTAG: MOV     AH,09H
         INT     82H
+        JMP     SHORT CISTASCAN
+CISTAJ: CALL    JFPSENSE
+        JC      CISTAEMPTY
+        OR      AH,AH
+        JNZ     CISTAPAIR
+        CMP     BX,0FFFFH       ;Generated character, no physical scan.
+        JNE     CISTAMAIN             ;Use the main path's returned BH.
+        CMP     AL,3            ;ROM already handled Ctrl-C in composition.
+        JE      CISTA1          ;Do not break the DOS line as well.
+        JMP     SHORT CISTABYTE
+CISTAPAIR:
+        MOV     CS:[JFPTRAIL],AL
+        MOV     AL,AH
+        JMP     SHORT CISTABYTE
+CISTAMAIN:
+        MOV     AH,BH
+CISTASCAN:
         MOV     DL,AL           ;Save internal code for ordinary keys.
         MOV     AL,AH
         SUB     AL,62H
@@ -638,7 +955,9 @@ CISTAB: SUB     AL,36H
         JB      CISTAI
 CISTAA: MOV     AL,DL
         OR      AL,AL
-        JZ      CISTA1          ;Unknown scan without an internal code.
+        JNZ     CISTABYTE
+        JMP     CISTA1          ;Unknown scan without an internal code.
+CISTABYTE:
         MOV     CS:[CHAR],AL
         JMP     SHORT CISTAR
 CISTAH: MOV     AL,10           ;SHIFT+HOME/CLR follows HELP.
@@ -671,7 +990,9 @@ CINP:   CALL    CISTAT
         RET
 CINP1:  CMP     CS:[CHAR],0
         JE      CINPR
-        MOV     CS:[CHAR],0
+        MOV     AH,CS:[JFPTRAIL] ;Promote trail only when lead is consumed.
+        MOV     CS:[CHAR],AH
+        MOV     CS:[JFPTRAIL],0
         RET
 CINPR:  INC     CS:[ESCREPNEXT]
         CMP     CS:[ESCREPNEXT],OFFSET ESCREPEND
@@ -699,10 +1020,26 @@ CON_REA9:
         JMP     EXIT
 
 CON_FLSH:
-        MOV     [CHAR],0
-        MOV     [KEYNEXT],0
-        MOV     [ESCREPNEXT],0
-        CALL    CISTAT          ;Drain ROM queue, discarding whole strings.
+        CALL    JFPCLEAR
+        CMP     [JFPMODE],1
+        JNE     CON_FLPR
+        XOR     CX,CX           ;Preserve the width/controls across the flush.
+        INT     8DH             ;GetJFP.
+        PUSH    AX
+        PUSH    DX
+        MOV     AX,0400H        ;KbFlsh alone can leave confirmed ROM output.
+        INT     82H
+        POP     DX
+        POP     AX
+        MOV     CX,1
+        INT     8DH             ;SetJFP reinitializes buffers; no file calls.
+        MOV     AX,0201H
+        INT     82H             ;Keep ROM expansion off.
+        MOV     CS:[JFPDIRTY],1
+        CALL    JFPREFRESH
+        JMP     EXIT
+CON_FLPR:
+        CALL    CISTAT          ;Drain primitive queue, discarding strings.
         JNZ     CON_FLSH
         JMP     EXIT
 
@@ -1090,9 +1427,15 @@ ESCFINAL:
 ESCPRIVH:XOR    AL,AL
 ESCPRIVL:CMP    CL,1
         JNE     ESCCURSOR
+        CMP     [JFPMODE],0
+        JE      ESCLAYOUT
+        MOV     [JFPLABEL],AL   ;Defer hide/show until JFP releases the row.
+        JMP     SHORT ESCNOOP
+ESCLAYOUT:
         MOV     AH,2FH
         CALL    LABELMODE
         CALL    GRAPHMARK      ;Refresh also if graph was cleared while hidden.
+        MOV     [JFPDIRTY],1    ;For the post-JFP plain label painter only.
 ESCNOOP:CLC
         RET
 ESCCURSOR:
@@ -1509,7 +1852,12 @@ ESCGMODE:
 ESCGSET:CMP     AH,[OUTGRAPH]
         JE      ESCGDONE
         MOV     [OUTGRAPH],AH
-        CALL    GRAPHMARK
+        CMP     [JFPMODE],1
+        JNE     ESCGROM
+        MOV     [JFPDIRTY],1
+        CALL    JFPREFRESH
+        JMP     SHORT ESCGDONE
+ESCGROM:CALL    GRAPHMARK
 ESCGDONE:CLC
         RET
 
@@ -1803,7 +2151,7 @@ HWINIT: CLD
 ; DOS input queue and expansion continue to use CONKEYS/CONEDIT.
 TEXTBUFS DW     0
         DB      80,25
-        DW      0FA0H           ;80 columns * 25 rows * 2 bytes.
+        DW      SYSTEXT
         DB      80,1
 
 INITTEXT:
