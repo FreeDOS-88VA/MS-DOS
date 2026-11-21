@@ -14,6 +14,16 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 MATRIX = (('va', 640), ('va2', 256), ('va2', 640))
 MODES = ('ROM', 'FEP')
+CORPUS = (
+    ('nihongo', '日本語'), ('kanji', '漢字'), ('henkan', '変換'),
+    ('toukyou', '東京'), ('gakkou', '学校'), ('sensei', '先生'),
+    ('denwa', '電話'), ('jikan', '時間'), ('keisanki', '計算機'),
+    ('shinbun', '新聞'), ('watashi', '私'), ('kyou', '今日'),
+    ('ashita', '明日'), ('hon', '本'), ('kuruma', '車'),
+    ('yama', '山'), ('kawa', '川'), ('mizu', '水'),
+    ('sakura', '桜'), ('neko', '猫'),
+    ('nihongowohanasu', '日本語を話す'), ('kyouhaiitenkidesu', '今日はいい天気です'),
+)
 
 spec = importlib.util.spec_from_file_location('j3a_run', ROOT / 'docs/J3a/run.py')
 j3a = importlib.util.module_from_spec(spec)
@@ -141,6 +151,24 @@ def scenarios(cistat, screens):
         p.shot('type')
         yield name, p
 
+    for word, expected in CORPUS:
+        p = start()
+        p.echo(word)
+        p.shot('reading')
+        for i in range(1, 11):
+            p.event('key-tap HENKAN 3', 125 if i == 1 else 65)
+            p.shot(f'candidate-{i:02d}')
+        yield 'quality-' + word, p
+        if (word, expected) in CORPUS[-2:]:
+            p = start()
+            p.echo(word)
+            p.event('key-tap HENKAN 3', 125)
+            p.shot('focus-0')
+            for move in range(1, 7):
+                p.keys('RIGHT')
+                p.shot(f'focus-{move}')
+            yield 'segments-' + word, p
+
 
 def run_case(args, case):
     model, ram, mode, name, plan = case
@@ -180,6 +208,7 @@ def main():
         parser.add_argument(name, type=lambda value: Path(value).resolve())
     parser.add_argument('--cistat', required=True, help='VAIO CISTAT segment:offset from the tested build')
     parser.add_argument('--case', action='append', help='run only this scenario (repeatable)')
+    parser.add_argument('--prefix', action='append', default=[], help='select scenario names by prefix')
     parser.add_argument('--screens', action='store_true', help='also save screen BMPs in scratch')
     parser.add_argument('--jobs', type=int, default=6)
     args = parser.parse_args()
@@ -196,7 +225,11 @@ def main():
     if unknown:
         parser.error(f'unknown cases: {", ".join(sorted(unknown))}; available: {", ".join(plans)}')
     cases = [(model, ram, mode, name, p) for model, ram in MATRIX for mode in MODES
-             for name, p in plans.items() if args.case is None or name in args.case]
+             for name, p in plans.items()
+             if not (args.case or args.prefix) or name in (args.case or ())
+             or any(name.startswith(prefix) for prefix in args.prefix)]
+    if not cases:
+        parser.error('no matching cases')
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = [pool.submit(run_case, args, case) for case in cases]
         total = 0
