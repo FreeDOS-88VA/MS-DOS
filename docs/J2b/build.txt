@@ -1,0 +1,38 @@
+FreeDOS-88VA/freedos experiments/msdos4-va build.py
+Builder revision: 7f467a2187a9e15c0c1bb84f179f214fe925153f
+build.py SHA-256: b64aabacdd830f652f14ee10bea8a4d94710d33c7de13ad4c1f5ca69056ce028
+emu2 revision: 9d8698d06e67359bc8b230c2d19d5b1503e60819
+Both builds ran in scratch, with msdos.commit set in the corresponding lock.
+
+Baseline msdos: 3aafe18cc0554f76c43b317b4245c896e0f37a80
+J2b msdos:      8768bcea5248f5be591107b8e6bcc8fc0679a560
+
+MASM 5.10, VAIO.ASM: 0 warning errors, 0 severe errors (final assembly).
+Symbol from MASM listings      Baseline      J2b
+CISTAT                         06B5h         06CDh
+RESEND                         0D81h         1110h
+RESEND rounded to paragraphs   0D90h         1110h
+
+Baseline D88 SHA-256: 23fccd0e893187c56930cc5d54ec1b4958c7154861e831f1c51e49cd019d26f2
+J2b D88 SHA-256:      25e0e75f1322040c5f2a7b35ec6203d59a3670c73d0e1f25791aec3d48719f15
+J2b test D88 SHA-256: 5b81dcaf1bbfa0c5673d97e7c8cf4634292dd36cced2788a92c15d919698f32b
+ESCPROBE.COM SHA-256: bb98665ab495c5dd6929c3e75df445860968d39c90a1a3a17eb15d09d4896f92
+NEC DOS 3.3D system disk 1 (source image) SHA-256:
+                      0879cb724de42da021f6adeab447597fcd2553efe421440fb63ae02bfd69907f
+
+IO.SYS baseline: 19786 bytes (20 x 1024-byte boot sectors)
+SHA-256: b58e37daf984cd22f23a04b72cf72d933d7a72af56400f8f9973f0a9a343f00a
+IO.SYS J2b:      20698 bytes (21 x 1024-byte boot sectors, +912 bytes)
+SHA-256: 0124c08f306094374c4f370a52f722339592fda2602b440375a8551bae36c779
+Only IO.SYS changed in the two build-record.json file manifests. Boot sector and
+35 other files including MSDOS.SYS and COMMAND.COM matched by SHA-256 and size.
+Boot sector SHA-256: b153e2192d397705ec8ca475f3f3dd921dde42378aa7c6c1e34b9306902b8525
+
+Conventional RAM per CHKDSK on the distribution disks (both models):
+   655360 B total, 530352 -> 529456 B free (-896 B).
+
+The first assembly attempts failed MASM's 8086 branch-reach check; intermediate
+test runs also exposed a missing BIOS AH on hide, captures taken mid-SGR, a
+VA-specific FF glyph and orphan kanji halves. None of those runs count in the
+final gate. Final vaeg harness: 58 scenarios completed (29 per model, including
+baseline cold boots), checking every requested capture and the final exit event.

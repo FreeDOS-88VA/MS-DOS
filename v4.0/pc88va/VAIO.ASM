@@ -355,7 +355,17 @@ KEYSTS_Func DB  1
 CHAR    DB      0               ;Cached ordinary character, or 0.
 KEYNEXT DW      0               ;Offset of next string byte, or 0.
 OUTBUF  DB      0,0             ;NUL-terminated output string.
-ESCSTATE DB     0              ;Pending CON escape prefix (see OUTCHR).
+ESCOCTETS EQU   96             ;Hard bound, including discarded parameters.
+ESCSTATE DB     0              ;0=idle, 1=ESC, 2=CSI, 3/4=direct, 5=ESC ).
+ESCBUDGET DB    0              ;Byte budget left in the current CSI.
+ESCPRIV DB      0              ;0, '>', '?', or -1 for invalid parameters.
+ESCN    DB      0              ;Index of current parameter (8 slots).
+ESCARGS DB      8 DUP (0)      ;Values saturate at 255; no unbounded buffer.
+ESCROW  DB      0
+ESCSAVED DW     0              ;Askloc coordinates for CSI s/u.
+ESCREPNEXT DW   0              ;One pending CSI 6n response, 0 when empty.
+ESCREP  DB      1BH,'[00;00R'
+ESCREPEND LABEL BYTE
 OUTLEAD DB      0              ;Pending Shift-JIS lead, across CON writes.
 LABELON DB      -1              ;-1 until initialized, 0 hidden, 10 shown.
 
@@ -559,13 +569,19 @@ CISTAT: MOV     AL,CS:[CHAR]
 CISTAP: PUSH    BX
         MOV     BX,CS:[KEYNEXT]
         OR      BX,BX
-        JZ      CISTA0
+        JZ      CISTARP
         MOV     AL,CS:[BX]
         OR      AL,AL
         JZ      CISTAZ
         POP     BX
         RET
 CISTAZ: MOV     CS:[KEYNEXT],0
+CISTARP:MOV     BX,CS:[ESCREPNEXT]
+        OR      BX,BX
+        JZ      CISTA0
+        MOV     AL,CS:[BX]      ;After an active key string, before a new key.
+        POP     BX
+        RET
 CISTA0: PUSH    CX
         PUSH    DX
         PUSH    SI
@@ -650,8 +666,15 @@ CINP:   CALL    CISTAT
         JE      CINP1
         INC     CS:[KEYNEXT]
         RET
-CINP1:  MOV     CS:[CHAR],0
+CINP1:  CMP     CS:[CHAR],0
+        JE      CINPR
+        MOV     CS:[CHAR],0
         RET
+CINPR:  INC     CS:[ESCREPNEXT]
+        CMP     CS:[ESCREPNEXT],OFFSET ESCREPEND
+        JNE     CINPR9
+        MOV     CS:[ESCREPNEXT],0
+CINPR9: RET
 
 CON_RDND:
         CALL    CISTAT
@@ -675,6 +698,7 @@ CON_REA9:
 CON_FLSH:
         MOV     [CHAR],0
         MOV     [KEYNEXT],0
+        MOV     [ESCREPNEXT],0
         CALL    CISTAT          ;Drain ROM queue, discarding whole strings.
         JNZ     CON_FLSH
         JMP     EXIT
@@ -690,73 +714,13 @@ CON_WRI1:
 CON_WRI9:
         JMP     EXIT
 
-; Only four CON sequences are special. Keep the pending prefix across
-; requests; on a mismatch replay its printable bytes, then retry AL
-; (which may itself be ESC). No other bytes go to the ROM's parser.
+; CON owns the NEC parser. Do not put incomplete escapes into the ROM's
+; unrelated terminal parser. Preserve DOS's write-loop registers across it.
 OUTCHR: CMP     [ESCSTATE],0
-        JNE     OUTPEND
-        JMP     OUTNEW
-OUTPEND:CMP     [ESCSTATE],1   ;ESC
-        JE      OUTCSI
-        CMP     [ESCSTATE],2   ;ESC[
-        JE      OUTARGS
-        CMP     [ESCSTATE],3   ;ESC[>
-        JE      OUTONE
-        CMP     [ESCSTATE],4   ;ESC[>1
-        JE      OUTLABEL
-        CMP     AL,'J'         ;ESC[2
-        JNE     OUTREPLAY
-        MOV     AX,1702H       ;Erascn: clear current screen, not system row.
-        JMP     SHORT OUTESC
-OUTCSI: CMP     AL,'['
-        JE      OUTNEXT
-        JMP     SHORT OUTREPLAY
-OUTARGS:CMP     AL,'>'
-        JE      OUTNEXT
-        CMP     AL,'2'
-        JE      OUTTWO
-        CMP     AL,'H'
-        JNE     OUTREPLAY
-        MOV     AH,08H         ;Locate: home (DX=0 below).
-        JMP     SHORT OUTESC
-OUTONE: CMP     AL,'1'
-        JE      OUTNEXT
-        JMP     SHORT OUTREPLAY
-OUTLABEL:
-        CMP     AL,'h'
-        JE      OUTHIDE
-        CMP     AL,'l'
-        JNE     OUTREPLAY
-        MOV     AX,2F0AH
-        JMP     SHORT OUTESC
-OUTHIDE:MOV     AX,2F00H
-OUTESC: MOV     [ESCSTATE],0
-        JMP     OUTCALL
-OUTTWO: MOV     [ESCSTATE],5
+        JE      OUTNEW
+        CALL    OUTSAVEALL
+        JC      OUTNEW          ;Interrupted sequence: retry this byte.
         RET
-OUTNEXT:INC     [ESCSTATE]
-        RET
-
-OUTREPLAY:
-        PUSH    AX
-        CMP     [ESCSTATE],1
-        JE      OUTRESET
-        MOV     AL,'['
-        CALL    OUTCH1
-        CMP     [ESCSTATE],2
-        JE      OUTRESET
-        MOV     AL,'2'
-        CMP     [ESCSTATE],5
-        JE      OUTLAST
-        MOV     AL,'>'
-        CALL    OUTCH1
-        CMP     [ESCSTATE],4
-        JNE     OUTRESET
-        MOV     AL,'1'
-OUTLAST:CALL    OUTCH1
-OUTRESET:
-        POP     AX
-        MOV     [ESCSTATE],0
 OUTNEW: CMP     [OUTLEAD],0
         JE      OUTSINGLE
         CMP     AL,40H
@@ -766,9 +730,15 @@ OUTNEW: CMP     [OUTLEAD],0
         CMP     AL,0FCH
         JBE     OUTPAIR
 OUTBAD: MOV     [OUTLEAD],0     ;Do not join bytes across controls or ESC.
+        CMP     AL,7FH
+        JNE     OUTSINGLE
+        RET                     ;Retain J2a recovery for a bad DEL trail.
 OUTSINGLE:
         CMP     AL,1BH
-        JE      OUTNEXT
+        JNE     OUTBYTE
+        MOV     [ESCSTATE],1
+        RET
+OUTBYTE:
         CMP     AL,81H
         JB      OUTANK
         CMP     AL,9FH
@@ -791,20 +761,43 @@ OUTDBCS:XOR     AH,AH           ;Chuput: DX = complete Shift-JIS character.
         POP     DX
         RET
 
-; Keep the J0.4 control filter; allow the ROM's 80h ANK glyph too.
-OUTANK:
-        CMP     AL,0DH
-        JE      OUTCH1
+; Use the ROM's interpreted path only for controls shared with NEC.
+OUTANK: CMP     AL,07H
+        JB      OUTLIT
         CMP     AL,0AH
+        JBE     OUTCH1
+        CMP     AL,0CH
+        JNE     OUTCR
+        MOV     AL,' '          ;NEC FF is a blank cell, not VA's FF glyph/LF.
+        JMP     SHORT OUTCH1
+OUTCR:  CMP     AL,0DH
         JE      OUTCH1
-        CMP     AL,08H
-        JE      OUTCH1
+        CMP     AL,0BH
+        JE      OUTCONTROL
+        CMP     AL,1AH
+        JE      OUTCONTROL
+        CMP     AL,1EH
+        JE      OUTCONTROL
         CMP     AL,20H
-        JB      OUTCH9
+        JB      OUTLIT
         CMP     AL,7FH
-        JE      OUTCH9
+        JNE     OUTCH1
+OUTLIT: PUSH    DX
+        XOR     DX,DX
+        MOV     DL,AL
+        MOV     AH,01H         ;Litout: display a control as one glyph.
+        CALL    OUTCALL
+        POP     DX
+        RET
+OUTCONTROL:
+        JMP     SHORT OUTSAVEALL
 OUTCH1: MOV     AH,02H         ;Putstr, a single filtered byte.
-OUTCALL:PUSH    AX
+OUTCALL:CLC
+        JMP     SHORT OUTENTER
+OUTSAVEALL:
+        STC                     ;Select ESCPARSE, rather than raw ROM.
+OUTENTER:
+        PUSH    AX
         PUSH    BX
         PUSH    CX
         PUSH    DX
@@ -815,19 +808,17 @@ OUTCALL:PUSH    AX
         PUSH    ES
         PUSH    CS
         POP     DS
-        CMP     AH,2FH
-        JE      OUTMODE
-        OR      AH,AH
-        JZ      OUTINT          ;Chuput already has its character in DX.
-        XOR     DX,DX          ;Locate coordinates (0,0).
+        JC      OUTPARSE
         CMP     AH,02H
         JNE     OUTINT
         MOV     [OUTBUF],AL
         MOV     SI,OFFSET OUTBUF
         MOV     DX,8000H
 OUTINT: INT     83H
+        CLC
         JMP     SHORT OUTREGS
-OUTMODE:CALL    LABELMODE
+OUTPARSE:
+        CALL    ESCPARSE
 OUTREGS:POP     ES
         POP     DS
         POP     BP
@@ -838,6 +829,466 @@ OUTREGS:POP     ES
         POP     BX
         POP     AX
 OUTCH9: RET
+
+; AL = pending output byte; caller saved the write-loop registers.
+; Carry = retry AL as ordinary output. All paths to ESCROM finish here.
+ESCPARSE:
+        CMP     [ESCSTATE],0
+        JE      ESCCTL
+        CMP     [ESCSTATE],2
+        JNE     ESCNOTCSI
+        JMP     ESCCSI
+ESCNOTCSI:
+        MOV     BL,[ESCSTATE]
+        MOV     [ESCSTATE],0
+        CMP     BL,1
+        JE      ESCSHORT
+        CMP     BL,3
+        JE      ESCDIRROW
+        CMP     BL,4
+        JE      ESCDIRCOL
+        CLC                     ;ESC ) digit (mode switch deferred).
+        RET
+ESCDIRCOL:
+        SUB     AL,20H
+        MOV     DH,AL
+        MOV     DL,[ESCROW]
+        JMP     ESCLOCATE
+ESCDIRROW:
+        SUB     AL,20H
+        MOV     [ESCROW],AL
+        MOV     [ESCSTATE],4
+        JMP     SHORT ESCDONE
+ESCCTL: CMP     AL,0BH
+        JNE     ESCCT1
+        MOV     AX,0900H        ;VT moves up, not down, on NEC.
+        MOV     CL,1
+        JMP     ESCROM
+ESCCT1: CMP     AL,1AH
+        JE      ESCCLEAR
+        JMP     ESCHOME         ;1Eh.
+ESCSHORT:
+        CMP     AL,'['
+        JE      ESCSTART
+        CMP     AL,'='
+        JE      ESCADDR
+        CMP     AL,')'
+        JE      ESCGRAPH
+        CMP     AL,'*'
+        JE      ESCCLEAR
+        CMP     AL,'D'
+        JE      ESCINDEX
+        CMP     AL,'M'
+        JE      ESCRIND
+        CMP     AL,'E'
+        JNE     ESCDONE
+        MOV     AX,0000H        ;CR, then Index (including at bottom).
+        MOV     DX,000DH
+        INT     83H
+ESCINDEX:
+        MOV     AH,0DH
+        JMP     ESCROM
+ESCRIND:MOV     AH,0EH
+        JMP     ESCROM
+ESCADDR:MOV     [ESCSTATE],3
+        JMP     SHORT ESCDONE
+ESCGRAPH:
+        MOV     [ESCSTATE],5
+        JMP     SHORT ESCDONE
+ESCCLEAR:
+        MOV     AX,1702H
+        INT     83H
+        JMP     ESCHOME
+ESCSTART:
+        MOV     [ESCSTATE],2
+        MOV     [ESCN],0
+        MOV     [ESCPRIV],0
+        MOV     [ESCBUDGET],ESCOCTETS
+        XOR     AX,AX
+        MOV     WORD PTR [ESCARGS],AX
+ESCDONE:CLC
+        RET
+
+ESCCSI: CMP     AL,40H          ;A final ends the sequence, known or not.
+        JB      ESCPARAM
+        CMP     AL,7EH
+        JA      ESCRETRY
+        MOV     [ESCSTATE],0
+        JMP     ESCFINAL
+ESCRETRY:
+        ; Preserve J2a's literal [> before an interrupted Shift-JIS pair.
+        CMP     [ESCBUDGET],ESCOCTETS-1
+        JNE     ESCABORT
+        CMP     [ESCPRIV],'>'
+        JNE     ESCABORT
+        MOV     AL,'['
+        CALL    OUTCH1
+        MOV     AL,'>'
+        CALL    OUTCH1
+ESCABORT:
+        MOV     [ESCSTATE],0
+        STC
+        RET
+ESCPARAM:
+        CMP     AL,20H
+        JB      ESCBREAK
+        DEC     [ESCBUDGET]
+        JZ      ESCABORT
+        CMP     [ESCBUDGET],ESCOCTETS-64
+        JE      ESCINVALID      ;Ignore overlong commands, but find the final.
+        CMP     [ESCPRIV],-1
+        JE      ESCDONE
+        XOR     BX,BX
+        MOV     BL,[ESCN]
+        CMP     AL,'0'
+        JB      ESCINVALID
+        CMP     AL,'9'
+        JA      ESCSEP
+        SUB     AL,'0'
+        MOV     CL,AL
+        MOV     AL,[ESCARGS+BX]
+        MOV     AH,10
+        MUL     AH
+        ADD     AL,CL
+        ADC     AH,0
+        JZ      ESCDIGIT
+        MOV     AL,255
+ESCDIGIT:
+        MOV     [ESCARGS+BX],AL
+        JMP     SHORT ESCDONE
+ESCSEP: CMP     AL,';'
+        JNE     ESCPRFX
+        CMP     BL,7
+        JAE     ESCINVALID
+        INC     BX
+        MOV     [ESCN],BL
+        MOV     BYTE PTR [ESCARGS+BX],0
+        CLC
+        RET
+ESCPRFX:CMP     [ESCBUDGET],ESCOCTETS-1
+        JNE     ESCINVALID
+        CMP     AL,'>'
+        JE      ESCSET
+        CMP     AL,'?'
+        JNE     ESCINVALID
+ESCSET: MOV     [ESCPRIV],AL
+        JMP     ESCDONE
+ESCINVALID:
+        MOV     [ESCPRIV],-1
+        JMP     ESCDONE
+ESCBREAK:
+        CMP     AL,1BH          ;NEC consumes a second ESC in a CSI.
+        JNE     ESCABORT
+        MOV     [ESCSTATE],0
+        JMP     ESCDONE
+
+ESCFINAL:
+        MOV     CL,[ESCARGS]
+        CMP     [ESCPRIV],0
+        JE      ESCSTANDARD
+        CMP     [ESCPRIV],'>'
+        JNE     ESCNOOP
+        CMP     [ESCN],0
+        JNE     ESCNOOP
+        CMP     AL,'h'
+        JE      ESCPRIVH
+        CMP     AL,'l'
+        JNE     ESCNOOP
+        MOV     AL,10
+        JMP     SHORT ESCPRIVL
+ESCPRIVH:XOR    AL,AL
+ESCPRIVL:CMP    CL,1
+        JNE     ESCCURSOR
+        MOV     AH,2FH
+        CALL    LABELMODE
+ESCNOOP:CLC
+        RET
+ESCCURSOR:
+        CMP     CL,5
+        JNE     ESCNOOP
+        ; NEC >5h suppresses the cursor, >5l restores it.
+        OR      AL,AL
+        JZ      ESCCUR0
+        MOV     AL,3            ;Blinking block.
+ESCCUR0:MOV     AH,25H
+        JMP     ESCROM
+
+ESCSTANDARD:
+        CMP     AL,'H'
+        JE      ESCPOS
+        CMP     AL,'f'
+        JE      ESCPOS
+        CMP     AL,'m'
+        JNE     ESCONE
+        JMP     ESCATTR
+ESCONE: CMP     [ESCN],0
+        JNE     ESCNOOP
+        CMP     AL,'J'
+        JE      ESCJERASE
+        CMP     AL,'K'
+        JE      ESCJERASE
+        CMP     AL,'n'
+        JNE     ESCNOTREP
+        JMP     ESCREPORT
+ESCNOTREP:
+        CMP     AL,'s'
+        JE      ESCSAVE
+        CMP     AL,'u'
+        JE      ESCREST
+        CMP     AL,'L'
+        JE      ESCJLINE
+        CMP     AL,'M'
+        JNE     ESCMOVE
+ESCJLINE:JMP    ESCLINES
+ESCMOVE:SUB     AL,'A'
+        CMP     AL,3
+        JA      ESCNOOP
+        ADD     AL,09H          ;Goup, Godown, Goright, Goleft.
+        MOV     AH,AL
+        OR      CL,CL
+        JNZ     ESCMOV1
+        INC     CL
+ESCMOV1:CMP     CL,80           ;No movement needs more than 80 cells.
+        JBE     ESCROM
+        MOV     CL,80
+        JMP     SHORT ESCROM
+ESCJERASE:
+        JMP     ESCERASE
+ESCSAVE:MOV     AH,26H
+        INT     83H
+        MOV     [ESCSAVED],DX
+        JMP     SHORT ESCNOOP
+ESCREST:MOV     DX,[ESCSAVED]
+        JMP     SHORT ESCLOCATE
+ESCPOS: CMP     [ESCN],1
+        JE      ESCXY
+        CMP     [ESCBUDGET],ESCOCTETS ;A single numeric parameter is ignored.
+        JE      ESCHOME
+        CLC
+        RET
+ESCHOME:XOR     DX,DX
+        JMP     SHORT ESCLOCATE
+ESCXY:  MOV     DL,CL
+        MOV     DH,[ESCARGS+1]
+        OR      DL,DL
+        JZ      ESCX
+        DEC     DL
+ESCX:   OR      DH,DH
+        JZ      ESCLOCATE
+        DEC     DH
+ESCLOCATE:
+        ; Clamp explicitly before calling Locate, which uses signed inputs
+        ; on some ROM paths. The last visible row depends on LABELMODE.
+        CMP     DH,79
+        JBE     ESCLIMY
+        MOV     DH,79
+ESCLIMY:MOV     AL,23
+        CMP     [LABELON],0
+        JNE     ESCLIM
+        INC     AL
+ESCLIM: CMP     DL,AL
+        JBE     ESCLOC
+        MOV     DL,AL
+ESCLOC: MOV     AH,08H
+ESCROM: INT     83H
+        CLC
+        RET
+ESCERASE:
+        CMP     CL,2
+        JBE     ESCERASE0
+        CLC
+        RET
+ESCERASE0:
+        MOV     AH,17H          ;Erascn / Eralin use only the main split.
+        CMP     AL,'J'
+        JE      ESCERASE1
+        INC     AH
+ESCERASE1:
+        MOV     AL,CL
+        CMP     AX,1702H        ;NEC's whole-screen erase homes the cursor.
+        JE      ESCJCLEAR
+        CMP     AL,2
+        JE      ESCROM
+        JMP     ESCBOUNDARY
+ESCJCLEAR:
+        JMP     ESCCLEAR
+ESCLINES:
+        MOV     BL,15H          ;Insline / Delline.
+        CMP     AL,'L'
+        JE      ESCLINE0
+        MOV     BL,13H
+ESCLINE0:
+        OR      CL,CL
+        JNZ     ESCLINE1
+        INC     CL
+ESCLINE1:
+        MOV     AH,26H
+        INT     83H
+        MOV     AL,24
+        CMP     [LABELON],0
+        JNE     ESCLINE2
+        INC     AL
+ESCLINE2:
+        SUB     AL,DL           ;At most the rows left in the main split.
+        CMP     CL,AL
+        JBE     ESCLINE3
+        MOV     CL,AL
+ESCLINE3:
+        PUSH    DX
+        MOV     AH,BL
+        INT     83H
+        POP     DX
+        XOR     DH,DH           ;NEC returns to column 1.
+        JMP     SHORT ESCLOC
+
+ESCREPORT:
+        CMP     CL,6
+        JNE     ESCREPDONE
+        CMP     [ESCREPNEXT],0  ;Do not replace an unread response.
+        JNE     ESCREPDONE
+        MOV     AH,26H
+        INT     83H
+        MOV     AL,DL
+        INC     AL
+        AAM
+        ADD     AX,3030H
+        XCHG    AH,AL
+        MOV     WORD PTR [ESCREP+2],AX
+        MOV     AL,DH
+        INC     AL
+        AAM
+        ADD     AX,3030H
+        XCHG    AH,AL
+        MOV     WORD PTR [ESCREP+5],AX
+        MOV     [ESCREPNEXT],OFFSET ESCREP
+ESCREPDONE:
+        CLC
+        RET
+
+; A partial Eras{lin,cn} does not clean up a neighboring kanji half on
+; the VA ROM, unlike NEC CON. Compare the two TVRAM words at the boundary;
+; only widen the erase for a matching left/right pair in the same row.
+; AX = BIOS erase function+mode, BP saves it through Getadr.
+ESCBOUNDARY:
+        MOV     BP,AX
+        MOV     AH,26H          ;Askloc.
+        INT     83H
+        CMP     AL,0
+        JNE     ESCBLEFT
+        OR      DH,DH           ;No neighbor before column 1.
+        JZ      ESCBPLAIN
+        MOV     SI,-2
+        JMP     SHORT ESCBREAD
+ESCBLEFT:CMP    DH,79           ;No neighbor after column 80.
+        JAE     ESCBPLAIN
+        MOV     SI,2
+ESCBREAD:
+        PUSH    DX
+        MOV     AX,1A01H        ;Getadr: CX = physical TVRAM offset.
+        INT     83H
+        JC      ESCBFAIL
+        ADD     SI,CX
+        MOV     DI,CX
+        MOV     AX,0A000H
+        MOV     ES,AX
+        PUSHF                   ;Preserve the caller's window across read.
+        CLI
+        MOV     DX,0152H        ;V3 memory-map register, word I/O.
+        IN      AX,DX
+        MOV     BX,AX
+        AND     AH,0F0H
+        OR      AH,1            ;SMBC=1 maps TVRAM; retain the other bits.
+        OUT     DX,AX
+        MOV     CX,ES:[DI]
+        MOV     SI,ES:[SI]
+        MOV     AX,BX
+        OUT     DX,AX
+        POPF
+        POP     DX
+        MOV     AX,CX
+        MOV     BX,BP
+        OR      BL,BL
+        JNZ     ESCBCMP
+        XCHG    AX,SI           ;AX = left word, SI = right word.
+ESCBCMP:TEST    AH,AH
+        JZ      ESCBPLAIN       ;ANK cannot be the left half.
+        JS      ESCBPLAIN       ;Nor can another right half.
+        OR      AH,80H
+        CMP     AX,SI
+        JNE     ESCBPLAIN
+        PUSH    DX
+        DEC     DH
+        OR      BL,BL
+        JZ      ESCBLOC
+        ADD     DH,2
+ESCBLOC:MOV     AH,08H
+        INT     83H
+        MOV     AX,BP
+        INT     83H
+        POP     DX
+        JMP     ESCLOC          ;Restore the cursor after widening the range.
+ESCBFAIL:POP    DX
+ESCBPLAIN:
+        MOV     AX,BP
+        JMP     ESCROM
+
+; Each NEC SGR starts at normal. In VA's per-cell color mode reverse
+; swaps the nibbles, and secret uses equal foreground/background colors.
+; VA's blink/underline modes cannot preserve these per-cell colors.
+ESCATTR:XOR     BX,BX           ;BL = reverse, BH = secret.
+        MOV     DL,7            ;White on black; graphics mode unchanged.
+        XOR     CX,CX
+        MOV     CL,[ESCN]
+        INC     CX
+        MOV     SI,OFFSET ESCARGS
+        CLD
+ESCAT1: LODSB
+        CMP     AL,7
+        JE      ESCATREV
+        CMP     AL,8
+        JE      ESCATSEC
+        CMP     AL,16
+        JE      ESCATSEC
+        CMP     AL,17
+        JE      ESCATNEC
+        CMP     AL,30
+        JB      ESCATNEXT
+        CMP     AL,37
+        JBE     ESCATFG
+        CMP     AL,40
+        JB      ESCATNEXT
+        CMP     AL,47
+        JA      ESCATNEXT
+        MOV     BL,1            ;NEC 4x = reverse in that color.
+        SUB     AL,10
+ESCATFG:SUB     AL,30
+        JMP     SHORT ESCATCOL
+ESCATNEC:
+        MOV     AL,1
+ESCATCOL:
+        PUSH    BX
+        MOV     BX,OFFSET ESCCOLORS
+        XLAT
+        POP     BX
+        MOV     DL,AL
+        JMP     SHORT ESCATNEXT
+ESCATREV:MOV    BL,1
+        JMP     SHORT ESCATNEXT
+ESCATSEC:MOV    BH,1
+ESCATNEXT:
+        LOOP    ESCAT1
+        OR      BH,BH
+        JZ      ESCAT2
+        XOR     DL,DL
+ESCAT2: OR      BL,BL
+        JZ      ESCATSET
+        MOV     CL,4
+        SHL     DL,CL
+ESCATSET:
+        XOR     DH,DH
+        MOV     AH,05H          ;Setatr, current attribute in mode 0.
+        JMP     ESCROM
+ESCCOLORS DB    0,2,4,6,1,3,5,7 ;NEC ANSI RGB order -> VA GRB bits.
 
 ; The two layouts share the main framebuffer. The system buffer starts
 ; after all 25 main rows, so the split can change without copying text.

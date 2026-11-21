@@ -21,7 +21,7 @@ def rows(path):
             for y in range((height & 0x1fe)//line_height)]
 
 
-def main(run):
+def main(run, *, nec_clear=False, expected_memory=(530432, 530352)):
     def lines(name):
         return [line[3:].rstrip() for line in (run / (name + '.txt')).read_text().splitlines()[1:]]
 
@@ -114,8 +114,12 @@ def main(run):
     assert relevant('display/type')[-2:] == ['TYPE LINE 40', 'A:\\>']
     assert relevant('display/cls') == ['A:\\>'] and lines('display/cls')[1] == 'A:\\>'
     assert guest('display', 'F.TXT') == b'\x1b[2J\x1b[H'
-    assert relevant('erase/clear-mark') == ['CLEARED'] and lines('erase/clear-mark')[-1] == 'CLEARED'
-    assert relevant('erase/home-mark') == ['HOME', 'CLEARED'] and lines('erase/home-mark')[0] == 'HOME'
+    if nec_clear:
+        assert relevant('erase/clear-mark') == ['CLEARED'] and lines('erase/clear-mark')[0] == 'CLEARED'
+        assert relevant('erase/home-mark') == ['HOMERED'] and lines('erase/home-mark')[0] == 'HOMERED'
+    else:
+        assert relevant('erase/clear-mark') == ['CLEARED'] and lines('erase/clear-mark')[-1] == 'CLEARED'
+        assert relevant('erase/home-mark') == ['HOME', 'CLEARED'] and lines('erase/home-mark')[0] == 'HOME'
     for name in ('dir/first', 'dir/end', 'display/dir', 'display/type', 'display/cls',
                  'display/redirected', 'erase/clear-mark', 'erase/home-mark', 'pending-cls/result0'):
         assert labels(name) == default, name
@@ -125,7 +129,7 @@ def main(run):
     assert lines('toggle/pre') == lines('toggle/hide')[:24]
     assert lines('toggle/scroll') == [f'LINE #{i:02d}' for i in range(7, 31)] + ['']
     assert lines('toggle/show') == lines('toggle/scroll')[1:] and labels('toggle/show') == default
-    print('J0.4 (1–5): 10/10')
+    print('J0.4 (1–5): ' + ('9/10 legacy; ESC[2J now homes (NEC parity)' if nec_clear else '10/10'))
 
     io = guest('j1-key', 'IO.SYS')
     offset = io.index(b'\xfe C1  \x1bS\0')
@@ -144,13 +148,16 @@ def main(run):
         text = '\n'.join(lines(phase+'-mem/chkdsk'))
         assert '655360 total bytes memory' in text
         mem.append(int(re.search(r'(\d+) bytes free\b', text)[1]))
-    assert mem == [530432, 530352]
+    assert tuple(mem) == tuple(expected_memory), mem
     print(f'CHKDSK (2/2): {mem[0]} -> {mem[1]} free ({mem[1]-mem[0]:+d} bytes)')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('runs', type=Path)
+    parser.add_argument('--nec-clear', action='store_true', help='expect ESC[2J to home, as in J2b')
+    parser.add_argument('--expected-memory', type=int, nargs=2, default=(530432, 530352),
+                        metavar=('BEFORE', 'AFTER'))
     args = parser.parse_args()
     for model in ('va', 'va2'):
-        main(args.runs/model)
+        main(args.runs/model, nec_clear=args.nec_clear, expected_memory=args.expected_memory)
