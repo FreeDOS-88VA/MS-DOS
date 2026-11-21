@@ -239,6 +239,15 @@ comparison is done.
 
 - J3.0 — probe the ROM JFP under DOS (init sequence, memory, screen
   area, behavior during a pending conversion). Shared groundwork.
+- J3.0 accepted 2026-11-21 (`docs/J3.0-jfp-probe.md`): the ROM JFP
+  converts under DOS after `ResJFP → KbFlsh → SetJFP` (the callback is
+  null from the ROM's disk handoff; IntKb alone crashes). ZENKAKU toggles
+  kana input, HENKAN converts, KETTEI confirms; GetChar returns one
+  Shift-JIS word per character. The JFP draws its composition on the
+  label row (row 1 when labels are hidden), consumes editing keys while
+  composing, and `ResJFP` opens a `.DIC` and a `.DAT` file through
+  INT 21h, so it must not run inside a DOS call. Work areas are below
+  IO.SYS. pi recommended a project FEP; the maintainer wants both paths.
 - J3a — ROM JFP: VAIO initializes the JFP and reads CON through the KB
   BIOS main functions with conversion; keep the J0.3 key table (ROM
   expansion off); place the JFP area so the label line survives.
