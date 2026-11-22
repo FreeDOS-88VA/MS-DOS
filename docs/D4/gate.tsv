@@ -1,0 +1,13 @@
+model	MB	install	boot_copy_chkdsk_reboot	chkdsk_free_clusters	final_free_clusters	files_match	FATs_match
+va	5	raw	PASS	601	599	PASS	PASS
+va	10	raw	PASS	1218	1216	PASS	PASS
+va	20	raw	PASS	2453	2451	PASS	PASS
+va	40	raw	PASS	2459	2457	PASS	PASS
+va	10	mounted	PASS	1218	1216	PASS	PASS
+va	10	sys	PASS	1218	1216	PASS	PASS
+va2	5	raw	PASS	601	599	PASS	PASS
+va2	10	raw	PASS	1218	1216	PASS	PASS
+va2	20	raw	PASS	2453	2451	PASS	PASS
+va2	40	raw	PASS	2459	2457	PASS	PASS
+va2	10	mounted	PASS	1218	1216	PASS	PASS
+va2	10	sys	PASS	1218	1216	PASS	PASS

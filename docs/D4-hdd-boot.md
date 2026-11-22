@@ -68,3 +68,63 @@ floppy. The label precedes IO.SYS in the root. Each file size limits
 traversal to at most 64 sectors and each read is 1 KiB aligned; a short
 chain, an out-of-range cluster or missing end marker is fatal. The IPL
 passes the target and IO.SYS derives its letter from mounted NEC units.
+
+## M3 — Install from DOS
+
+Boot a floppy with the matching VA system files and leave A: current.
+Back up the disk before installing. `SYS C:` copies IO.SYS, MSDOS.SYS
+and COMMAND.COM from the current drive and installs the IPL. It accepts
+only a mounted, online NEC-layout unit and uses normal DOS file writes;
+existing root entries and non-system files may remain. SYS asks for a
+console confirmation before replacing any nonblank IPL other than the
+exact one it would install. It refuses the current and boot drives.
+
+`FORMAT C: /S` or `FORMAT /H0 /S` creates a fresh bootable filesystem
+and retains the D3 confirmation and mounted-drive quarantine. The same
+warning is shown before confirmation when FORMAT would replace a foreign
+or older IPL. FORMAT stages the source files before making changes, then
+writes their data, both FATs and the root through the SASI BIOS. Both
+commands publish the new IPL last. Neither command is transactional on
+error. `/H1 /S` can install on the second target, but to boot it in vaeg,
+attach the resulting disk as target 0. Reboot after FORMAT. Neither
+command installs CONFIG.SYS or AUTOEXEC.BAT; place them on the hard disk
+if wanted. The stock prompt on an empty installation is `C>`; `PROMPT
+$P$G` in AUTOEXEC.BAT displays `C:\>` at the root.
+
+MASM 5.10 assembled the changed programs with zero warnings and errors;
+LINK 3.65 reported only the expected no-stack-segment warnings. Used
+vaeg m153 (640 KiB, initialized backup settings) on VA and VA2.
+
+| Gate | VA | VA2 |
+|---|---|---|
+| Blank HDI, `FORMAT /H0 /S /V:D4HDD` | PASS: 5/10/20/40 MB | PASS: 5/10/20/40 MB |
+| Mounted `FORMAT C: /S /V:D4HDD`; `SYS C:` on empty NEC volume | PASS: 10 MB both | PASS: 10 MB both |
+| PC-Engine 1.1 media and NEC DOS 2.11, `DIR C:` and `TYPE C:\RESULT.TXT` | PASS: 40 MB | PASS: 40 MB |
+| DOS floppy boot, bootable HDD attached, C: readable | PASS: 40 MB | PASS: 40 MB |
+| HDD boot from target 0, target 1 mounted D: | PASS: 40 + 20 MB | PASS: 40 + 20 MB |
+| SYS refusal: native-prefix FAT16 or unrecognized/blank disk | PASS: 10 MB / 5 MB | PASS: 10 MB / 5 MB |
+| Cancel foreign IPL replacement, disk byte-identical | PASS: 5 MB | PASS: 5 MB |
+| Confirm foreign IPL replacement with SYS | NOT RUN | PASS: 5 MB transfer reported success; reboot NOT RUN |
+| Raw `FORMAT /H1 /S` with target 0 present | NOT RUN | PASS: 20 MB; host confirmed target 0 unchanged |
+| Raw FORMAT without `/S`: empty NEC root/FAT, IPL and data untouched | PASS: 5 MB | PASS: 5 MB |
+| Fragmented IO.SYS, second root sector and high physical block, then a self-loop in that chain | NOT RUN | PASS: 40 MB, boot and bounded refusal respectively |
+
+For each of the first two rows, cold-boot with no floppy, accept the
+initial date/time prompts, insert a floppy in B:, COPY its marker to C:
+and run CHKDSK. Copy the HDD AUTOEXEC.BAT fixture and write `BREAK=ON`
+to C:\CONFIG.SYS; reboot with no floppies and check the HDD-only marker,
+`BREAK` reports on, and DIR shows C:. The [gate table](D4/gate.tsv) gives
+per-run CHKDSK and final free cluster counts (the two startup files each
+consume one cluster). [Host verification](D4/verify-gate.py) compared
+installed files byte-for-byte with the project source floppy and checked
+both FATs and the reserved IPL.
+
+Screens: [FORMAT](D4/format-va.png), [CHKDSK and COPY](D4/chkdsk-va.png),
+[HDD reboot](D4/reboot-va2.png), [two targets](D4/dual-va2.png),
+[SYS cancellation](D4/sys-cancel.png), [PC-Engine](D4/interop-engine.png),
+[NEC DOS 2.11](D4/interop-nec211.png), [bad chain](D4/bad-chain.png).
+
+**NOT RUN:** full external builder pipeline (the affected modules were
+built and used in the gate), real hardware, physical boot switches,
+write-protect and interrupted-write recovery, low-memory runs, and
+floppy SYS and floppy FORMAT `/S`.

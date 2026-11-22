@@ -392,8 +392,13 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   NEC interchange (PC-Engine, MS-DOS 2.11) passed. NOT RUN: real
   hardware, bad media (no surface scan, unlike HDFORM's read pass).
 
-### D4 — HDD boot (later)
-- Boot sector and IPL for SASI.
+### D4 — HDD boot
+- `SYS d:` on a mounted NEC FAT12 SASI volume or `FORMAT d:|/Hn /S`
+  installs the SASI IPL and system files. IO.SYS sets the boot drive
+  from the mounted target while preserving A: and B: as floppies.
+- Implemented on `topic/d4-hdd-boot`; vaeg VA and VA2 gates recorded
+  in [D4](D4-hdd-boot.md). Real hardware and hardware switch settings
+  NOT RUN.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.

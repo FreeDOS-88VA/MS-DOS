@@ -113,12 +113,18 @@ HDIOCTL:CMP     DI,19
         JE      HDIDENT
         CMP     AH,0F1H         ;Quarantine this unit until reboot.
         JE      HDLOCK
+        CMP     AH,0F2H         ;SYS: identify an online NEC-layout unit.
+        JE      HDNECID
         CMP     AH,60H
         JE      HDGDP
         CMP     AH,67H
         JNE     HDUNK
         JMP     GIO_GAF
 HDUNK:  JMP     CMDERR
+HDNECID:CMP     BYTE PTR [SI+HDPREFIX],0
+        JNE     HDUNK
+        TEST    BYTE PTR [SI+HDTARGET],80H
+        JNZ     HDUNK
 HDIDENT:MOV     AL,[SI+HDTARGET]
         AND     AL,1
         MOV     AH,0D4H

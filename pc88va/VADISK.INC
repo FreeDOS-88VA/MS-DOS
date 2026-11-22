@@ -1,8 +1,8 @@
 ; SPDX-License-Identifier: MIT
 ;
-; Shared routines of the PC-88VA FORMAT and SYS commands.  They use only
-; MS-DOS 2.0 calls and the ROM floppy BIOS (INT 80h), so the same programs
-; run on MS-DOS 2.0 and 4.0.  Included in a .COM program with DS = CS.
+; Shared routines of the PC-88VA FORMAT and SYS commands. The floppy
+; path uses DOS 2.0 and INT 80h; SASI additionally needs the VA driver's
+; private DOS 4 IOCTLs and INT 81h. Included in a .COM with DS = CS.
 ; VABOOT.INC is generated from VABOOT.ASM by the build and defines
 ; BOOTCODE, the 1024-byte boot sector.
 
@@ -71,7 +71,7 @@ WAITEN1:
 WAITEN2:
         JMP     CRLF
 
-; Parse "d:" at the command tail.  On return CF=1 if absent or not A:/B:,
+; Parse "d:" at the command tail. On return CF=1 if absent or invalid,
 ; else [DRV] is set and SI points after the colon.
 GETDRV: MOV     SI,81H
 GETDR1: LODSB
@@ -81,7 +81,7 @@ GETDR1: LODSB
         JE      GETDR1
         AND     AL,0DFH
         SUB     AL,'A'
-        CMP     AL,1
+        CMP     AL,25
         JA      GETDR9
         CMP     BYTE PTR [SI],':'
         JNE     GETDR9
@@ -240,6 +240,10 @@ LOADS1: MOV     BX,[SYSIDX]
         POP     DS
         MOV     DX,OFFSET S_NOSYS
         JC      LOADS8
+        OR      AX,AX
+        JZ      LOADS8
+        CMP     AX,0FFF0H       ;Do not silently install a truncated file.
+        JAE     LOADS8
         MOV     BX,[SYSIDX]
         MOV     [SYSSIZE+BX],AX
         ADD     AX,15
