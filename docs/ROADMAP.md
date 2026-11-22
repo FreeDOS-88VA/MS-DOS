@@ -318,6 +318,11 @@ comparison is done.
   loads/reuses the external table; `JFP OFF` detaches and frees it. No
   table is allocated in plain or ROM mode. The `A:` path and explicit
   reload after ADD/DEL are unchanged.
+  Accepted 2026-11-22 (VA 640 KiB, VA2 256/640 KiB): the table is a DOS
+  block with MCB owner 8 (system), allocated last-fit by JFP.COM; VAIO
+  keeps 6 bytes of state and is 829 B smaller than J3b.4; 64 entries cost
+  at most 7,904 B; no leak over 5 ON/OFF cycles; 0 nested DOS calls.
+  Open: `A:\JFPUSER.DIC` is still fixed to A: (HDD boot users: revisit).
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
