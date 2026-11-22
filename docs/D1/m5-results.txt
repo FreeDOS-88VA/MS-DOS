@@ -1,0 +1,38 @@
+{"name": "msdos4-pc88va-2hd.d88", "sha256": "d1fa1da599a28a6e4e131e2e469de0a5cd866299c738b487c7ef7fdf51c1b7b8", "size": 1331888}
+Packaged DISKCOPY.COM matches standalone binary: d19b45bf0904c7bfd6e3486678ab9a64a04f8e4e79cd57fa3c515261ecafe41b
+
+Stock vaeg m153:
+va boot PASS
+va d16 PASS
+va d16:blank PASS
+va d16:mismatch PASS
+va dd8 PASS
+va dd8:blank PASS
+va dd8:mismatch PASS
+va dd9 PASS
+va dd9:blank PASS
+va dd9:mismatch PASS
+va hc PASS
+va hc:blank PASS
+va hc:mismatch PASS
+va hd-fm:mismatch PASS
+va hd77 PASS
+va hd77:blank PASS
+va hd77:mismatch PASS
+va hd80 PASS
+va hd80:blank PASS
+va hd80:mismatch PASS
+va not-ready PASS
+va protect PASS
+va2 boot PASS
+va2 d16 PASS
+va2 dd9 PASS
+va2 hd80 PASS
+
+Exotic case, stock vaeg m153:
+va exotic FAIL: track 92: IDs, density or data differ
+va exotic PASS
+
+Fixed vaeg 64e55e11:
+va hd-fm PASS
+va hd-fm:blank PASS
