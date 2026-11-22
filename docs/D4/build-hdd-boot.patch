@@ -12,16 +12,16 @@
      lines += ['        DB      ' + ','.join('%03XH' % b for b in boot[i:i + 16])
                for i in range(0, len(boot), 16)]
      return ('\r\n'.join(lines) + '\r\n').encode('ascii')
-@@ -333,6 +333,12 @@
-     dos.run(va, va / 'LINK.EXE', 'VABOOT,VABOOT.EXE;')
-     boot = mz_image(expect(va / 'VABOOT.EXE'))
-     (va / 'VABOOT.INC').write_bytes(boot_include(boot))
+@@ -329,6 +329,12 @@
+     for tool in ('MASM.EXE', 'LINK.EXE'):
+         shutil.copy(tools / tool, va)
+     dos.root = out
 +    dos.run(va, va / 'MASM.EXE', 'VAHDBOOT;')
 +    dos.run(va, va / 'LINK.EXE', 'VAHDBOOT,VAHDBOOT.EXE;')
 +    hdboot = mz_image(expect(va / 'VAHDBOOT.EXE'))
 +    if len(hdboot) != 1024:
 +        raise SystemExit('VAHDBOOT must occupy four SASI blocks')
 +    (va / 'VAHDBOOT.INC').write_bytes(boot_include(hdboot, 'HDBOOTCODE'))
-     for module in ('VAIO', 'VAFORMAT', 'VASYS', 'VAKEY', 'VAJFP'):
-         dos.run(va, va / 'MASM.EXE', module + ';')
-     (va / 'IO.LNK').write_bytes(('VAIO+' + '+'.join(SYSINIT_OBJECTS) + ',IO.EXE,IO.MAP;\r\n')
+     dos.run(va, va / 'MASM.EXE', 'VABOOT;')
+     dos.run(va, va / 'LINK.EXE', 'VABOOT,VABOOT.EXE;')
+     boot = mz_image(expect(va / 'VABOOT.EXE'))

@@ -52,7 +52,7 @@ LOADIT: ADD     AL,'A'
         CMP     [DRV],1
         JBE     FLOPPY
         JMP     HDSYS
-FLOPPY: MOV     CX,2            ;IO.SYS and MSDOS.SYS.
+FLOPPY: MOV     CX,NSYS         ;Include COMMAND.COM for standalone boot.
         CALL    LOADSYS
         JC      ERROR
         CALL    SETMODE
@@ -81,7 +81,7 @@ FLOPPY: MOV     CX,2            ;IO.SYS and MSDOS.SYS.
         INT     21H
         MOV     AL,[DRV]
         ADD     AL,'A'
-        MOV     CX,2
+        MOV     CX,NSYS
         CALL    SAVESYS
         JC      ERROR
 SUCCESS:MOV     DX,OFFSET S_SYSOK
