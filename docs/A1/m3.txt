@@ -1,0 +1,28 @@
+Final 2HD test build: MASM 5.10 assembled VAIO and VASPEED with 0 warnings
+and 0 severe errors. LINK/MZ-to-flat produced IO.SYS (28,762 bytes) and
+SPEED.COM (260 bytes). Builder patch dry-run: build.py and README.md applied
+cleanly to the template. No full builder distribution run.
+
+vaeg m153, VA and VA2, separate cold boots. All ten scenarios reached
+capture and exit; the runner verified the test markers.
+
+Scenario       VA                        VA2
+prn-mock       PRNMCK: P                 PRNMCK: P
+aux-mock       AUXMCK: P                 AUXMCK: P
+speed-valid    SPEED 9600, prompt        SPEED 9600, prompt
+speed-invalid  SPEED 9600x, Usage        SPEED 9600x, Usage
+after-mem      655360 total / 524096 free 655360 total / 524096 free
+
+PRNMCK checks DOS AH=05h, handle writes through LPT1, split Shift-JIS,
+output-until-busy and prefix count, output status, not ready and write
+fault. AUXMCK checks COM1 peek/status/read/flush, raw write including a
+high byte, CTS-busy/not-ready, and DOS AH=03h and AH=04h via AUX. Both
+isolated fixtures also returned P and exit 0 in emu2, excluding DOS
+standard handles. These are synthetic BIOS replies, not byte captures.
+
+Compared with the baseline on both models, CHKDSK conventional memory
+is unchanged at 655,360 bytes total and free memory fell 704 bytes (from
+524,800). IO.SYS grew 560 bytes on disk. The resident BIOS grew 396 bytes
+before rounding; the floppy DOS destination including the alignment
+workaround moved by 432 bytes. The free-memory result includes DOS and
+is measured, not inferred from the BIOS size.

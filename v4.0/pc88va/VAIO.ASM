@@ -55,17 +55,29 @@ CONDEV: DW      AUXDEV,BIOSSEG
         DW      CON_INT
         DB      'CON     '
 
-AUXDEV: DW      PRNDEV,BIOSSEG
+AUXDEV: DW      COMDEV,BIOSSEG
         DW      8000H
         DW      STRATEGY
         DW      AUX_INT
         DB      'AUX     '
 
-PRNDEV: DW      TIMDEV,BIOSSEG
+COMDEV: DW      PRNDEV,BIOSSEG
         DW      8000H
+        DW      STRATEGY
+        DW      AUX_INT
+        DB      'COM1    '
+
+PRNDEV: DW      LPTDEV,BIOSSEG
+        DW      0A000H          ;Character device, output until busy.
         DW      STRATEGY
         DW      PRN_INT
         DB      'PRN     '
+
+LPTDEV: DW      TIMDEV,BIOSSEG
+        DW      0A000H
+        DW      STRATEGY
+        DW      PRN_INT
+        DB      'LPT1    '
 
 TIMDEV: DW      DSKDEV,BIOSSEG
         DW      8008H           ;Character device, clock.
@@ -116,14 +128,14 @@ AUXTBL: DW      EXIT            ;0
         DW      EXIT            ;1
         DW      EXIT            ;2
         DW      CMDERR          ;3
-        DW      AUX_READ        ;4  - Read: end of file.
-        DW      BUS_EXIT        ;5  - Nothing waiting.
-        DW      EXIT            ;6
-        DW      EXIT            ;7
-        DW      EXIT            ;8  - Write: discarded.
-        DW      EXIT            ;9
-        DW      EXIT            ;10
-        DW      EXIT            ;11
+        DW      AUX_READ        ;4  - Blocking read.
+        DW      AUX_PEEK        ;5  - Non-destructive read.
+        DW      AUX_INST        ;6  - Input status.
+        DW      AUX_FLUSH       ;7  - Input flush.
+        DW      AUX_WRITE       ;8  - Write.
+        DW      AUX_WRITE       ;9  - Write with verify.
+        DW      AUX_OUTST       ;10 - Output status.
+        DW      EXIT            ;11 - No DOS-side transmit queue.
         DW      EXIT            ;12
 
 TIMTBL: DW      EXIT            ;0
@@ -148,10 +160,10 @@ PRNTBL: DW      EXIT            ;0
         DW      BUS_EXIT        ;5
         DW      EXIT            ;6
         DW      EXIT            ;7
-        DW      EXIT            ;8  - Write: discarded.
-        DW      EXIT            ;9
-        DW      EXIT            ;10
-        DW      EXIT            ;11
+        DW      PRN_WRITE       ;8  - Write.
+        DW      PRN_WRITE       ;9  - Write with verify.
+        DW      PRN_STATUS      ;10 - Output status.
+        DW      PRN_FLUSH       ;11 - Output flush.
         DW      EXIT            ;12
 
         SUBTTL  Strategy and interrupt routines.
@@ -259,10 +271,17 @@ ENTRY:  MOV     CS:[SAVESP],SP
         POP     DS
         JMP     WORD PTR [SI]
 
-; Commands above 12 exist only for the disk: 19 generic IOCTL and
-; 23/24 get/set logical drive map. Only the linked HDDDEV can enter
-; with HDTABLE; the optional tail is not called on a floppy-only boot.
-HICMD:  CMP     SI,OFFSET HDTABLE
+; PRN/LPT1 support command 16. The disk drivers additionally support
+; 19 generic IOCTL and 23/24 get/set logical drive map.
+HICMD:  CMP     SI,OFFSET PRNTBL
+        JNE     HIDISK
+        CMP     AL,16
+        JNE     CMDERR
+        LES     DI,[BX.TRANS]
+        PUSH    CS
+        POP     DS
+        JMP     PRN_BUSYWRITE
+HIDISK: CMP     SI,OFFSET HDTABLE
         JNE     HIFLOP
         XCHG    AX,DI           ;AL = unit, DI = command.
         PUSH    CS
@@ -2156,15 +2175,219 @@ ROWSLABEL:
 ROWSOK: CLC
 ROWSRET:RET
 
-        SUBTTL  AUX and clock.
+        SUBTTL  Printer, AUX and clock.
         PAGE
 
-AUX_READ:
-        JCXZ    AUX_REA9
-        MOV     AL,1AH          ;End of file.
-        REP     STOSB
-AUX_REA9:
+; The ROM interface specifies AX/DX results. Keep DOS buffer pointers,
+; loop counters and flags (except CF); BIOS waits need hardware IRQs.
+CHARBIOS MACRO  VECTOR
+        LOCAL   FAILED, RESTORE
+        PUSH    BX
+        PUSH    CX
+        PUSH    SI
+        PUSH    DI
+        PUSH    BP
+        PUSH    DS
+        PUSH    ES
+        PUSHF
+        STI
+        INT     VECTOR
+        JC      FAILED
+        POPF
+        CLC
+        JMP     SHORT RESTORE
+FAILED: POPF
+        STC
+RESTORE:POP     ES
+        POP     DS
+        POP     BP
+        POP     DI
+        POP     SI
+        POP     CX
+        POP     BX
+        RET
+        ENDM
+
+PRN_BIOS:
+        CHARBIOS 89H
+
+PRN_LEAD DB     0               ;Shared by PRN and LPT1 across requests.
+
+PRN_STATUS:
+        XOR     AX,AX
+        CALL    PRN_BIOS
+        OR      AL,AL
+        JZ      CHAR_OK
+        XOR     AL,AL
+        JMP     BUS_EXIT
+
+PRN_FLUSH:
+        MOV     [PRN_LEAD],0    ;Discard an incomplete character.
+CHAR_OK:
+        XOR     AX,AX
         JMP     EXIT
+
+PRN_WRITE:
+        XOR     SI,SI           ;Ordinary writes may wait in the ROM.
+        JMP     SHORT PRN_NEXT
+PRN_BUSYWRITE:
+        MOV     SI,1            ;Spooler: check before each character.
+PRN_NEXT:
+        JCXZ    CHAR_OK
+        OR      SI,SI
+        JZ      PRN_BYTE
+        XOR     AX,AX
+        CALL    PRN_BIOS
+        OR      AL,AL
+        JNZ     PRN_SHORT
+PRN_BYTE:
+        MOV     DL,ES:[DI]
+        MOV     DH,[PRN_LEAD]
+        OR      DH,DH
+        JZ      PRN_SINGLE
+        CMP     DL,40H
+        JB      PRN_BADTRAIL
+        CMP     DL,7FH
+        JE      PRN_BADTRAIL
+        CMP     DL,0FCH
+        JA      PRN_BADTRAIL
+        MOV     AH,1            ;ROM handles JIS and printer framing.
+        CALL    PRN_BIOS
+        JC      PRN_TEXTERR
+        MOV     [PRN_LEAD],0
+        JMP     SHORT PRN_SENT
+PRN_BADTRAIL:
+        MOV     [PRN_LEAD],0    ;Do not swallow a control after a stray lead.
+        XOR     DH,DH
+PRN_SINGLE:
+        CMP     DL,81H
+        JB      PRN_RAW
+        CMP     DL,9FH
+        JBE     PRN_HOLD
+        CMP     DL,0E0H
+        JB      PRN_RAW
+        CMP     DL,0FCH
+        JA      PRN_RAW
+PRN_HOLD:
+        MOV     [PRN_LEAD],DL
+        JMP     SHORT PRN_SENT
+PRN_RAW:
+        CMP     DL,9
+        JE      PRN_TAB
+        ; Let the ROM leave kanji mode before sending an ANK character.
+        ; Function 03h would send the byte without changing that mode.
+        MOV     AH,1            ;DH = 0 for a single byte.
+        CALL    PRN_BIOS
+        JC      PRN_TEXTERR
+        JMP     SHORT PRN_SENT
+PRN_TAB:
+        MOV     AH,3            ;Keep TAB literal (01h expands it).
+        CALL    PRN_BIOS
+        JC      PRN_RAWERR
+PRN_SENT:
+        INC     DI
+        DEC     CX
+        JMP     SHORT PRN_NEXT
+
+PRN_TEXTERR:
+        CMP     AL,3            ;Known timeout.
+        JE      CHAR_NOTREADY
+        JMP     SHORT CHAR_WRFAULT
+PRN_RAWERR:
+        XOR     AX,AX           ;03h does not distinguish STOP from timeout.
+        CALL    PRN_BIOS
+        OR      AL,AL
+        JNZ     CHAR_NOTREADY
+CHAR_WRFAULT:
+        MOV     AL,0AH
+        JMP     SHORT CHAR_IOERR
+CHAR_NOTREADY:
+        MOV     AL,2
+CHAR_IOERR:
+        CALL    CHAR_COUNT
+        JMP     ERR_EXIT
+PRN_SHORT:
+        CALL    CHAR_COUNT
+        XOR     AX,AX
+        JMP     EXIT
+
+; CX = bytes not transferred. Do not change AX (caller may have an error).
+CHAR_COUNT:
+        LDS     BX,CS:[PTRSAV]
+        SUB     [BX.COUNT],CX
+        RET
+
+AUX_BIOS:
+        CHARBIOS 8AH
+
+AUX_PEEK:
+        MOV     AH,4
+        CALL    AUX_BIOS
+        JC      AUX_BUSY
+        LDS     BX,[PTRSAV]
+        MOV     [BX.MEDIA],DL
+        JMP     CHAR_OK
+AUX_INST:
+        MOV     AH,4
+        CALL    AUX_BIOS
+        JC      AUX_BUSY
+        JMP     CHAR_OK
+AUX_BUSY:
+        XOR     AL,AL
+        JMP     BUS_EXIT
+AUX_FLUSH:
+        MOV     AH,0CH
+        CALL    AUX_BIOS
+        JMP     CHAR_OK
+
+AUX_READ:
+        JCXZ    AUX_OK
+        PUSHF
+        STI                     ;ROM IRQ fills the receive queue.
+AUX_RX:
+        MOV     AH,3
+        CALL    AUX_BIOS
+        JC      AUX_RX
+        TEST    AL,80H
+        JNZ     AUX_RXERR
+        MOV     ES:[DI],DL
+        INC     DI
+        LOOP    AUX_RX
+        POPF
+AUX_OK: JMP     CHAR_OK
+AUX_RXERR:
+        POPF
+        MOV     AL,0BH          ;Read fault; report only the accepted prefix.
+        JMP     CHAR_IOERR
+
+AUX_OUTST:
+        MOV     AH,6
+        CALL    AUX_BIOS
+        TEST    DH,41H          ;CTS inactive or XOFF held.
+        JNZ     AUX_BUSY
+        TEST    DL,01H          ;Tx ready.
+        JZ      AUX_BUSY
+        JMP     CHAR_OK
+
+AUX_WRITE:
+        JCXZ    AUX_OK
+AUX_TX: MOV     AH,6
+        CALL    AUX_BIOS
+        TEST    DH,40H          ;No CTS: don't submit to the UART.
+        JNZ     AUX_NOTRDY
+        XOR     DX,DX           ;Always submit exactly one raw byte.
+        MOV     DL,ES:[DI]
+        MOV     AH,1
+        CALL    AUX_BIOS
+        JC      AUX_TXERR
+        INC     DI
+        LOOP    AUX_TX
+        JMP     CHAR_OK
+AUX_NOTRDY:
+        JMP     CHAR_NOTREADY
+AUX_TXERR:
+        ; DOS retries its own byte/request; do not also replay $RETRY.
+        JMP     CHAR_WRFAULT
 
 ; CLOCK$ reads and sets the PC-88VA calendar.
         INCLUDE VAFEP.INC
@@ -2364,6 +2587,7 @@ GUNIT   DB      0
 MIDCACHE DB     NUNITS*24 DUP (0) ;Per unit: valid flag, serial, label, type.
 
 SASIMAP DB      0,0D3H         ;Available even when HDDDEV is overlaid.
+CALLFL  DW      0245H           ;Floppy and SASI ROM call flags; always resident.
 RESEND  LABEL   BYTE            ;End of resident BIOS without SASI.
 
         INCLUDE VAHDD.INC       ;Kept only if at least one target mounts.
@@ -2388,6 +2612,10 @@ HWFLPY: XOR     AX,AX
         MOV     WORD PTR CS:[OLD33+2],AX
         PUSH    DX              ;Keep the loaded kernel segment.
         CALL    INITTEXT
+        MOV     AH,8            ;Printer BIOS timeout (seconds).
+        MOV     DX,1
+        CALL    PRN_BIOS
+        CALL    INITAUX
         CLD
         CALL    MEMSIZE         ;AX = memory size in paragraphs.
         PUSH    CS
@@ -2476,6 +2704,22 @@ INITKN: INC     CL
         JC      INITTX9
         MOV     BYTE PTR CS:[LABELON],10
 INITTX9:RET
+
+; INT 8Ah, technical manual 6.10.3. Set baud after CINIT (which
+; initially reads firmware backup settings). Keep AUX a byte stream.
+INITAUX:
+        XOR     AX,AX
+        MOV     DX,4E37H        ;8N1 x16, RTS/DTR, reset errors, RX/TX enable.
+        CALL    AUX_BIOS
+        MOV     AH,8
+        MOV     DH,8            ;9600 baud.
+        CALL    AUX_BIOS
+        MOV     AH,9
+        MOV     DH,80H          ;No receive kanji conversion.
+        CALL    AUX_BIOS
+        MOV     AH,0AH
+        XOR     DH,DH           ;No XON/XOFF or SI/SO.
+        JMP     AUX_BIOS
 
 ; Measure writable conventional memory in 64 KB steps above IO.SYS.
 ; Each probed word is restored; backup memory settings are not used.
