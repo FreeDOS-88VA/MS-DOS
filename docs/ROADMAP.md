@@ -375,13 +375,12 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   both); not-ready/write-protect/hot removal and real hardware NOT RUN.
 
 ### D3 — SASI HDD format
-- Goal: FORMAT for SASI drives: physical format (BIOS FORMAT DRIVE)
-  and creation of the NEC VA single-volume FAT12 layout. Keep the IPL
-  reservation; HDD boot and system installation are D4 work. Either
-  extend VAFORMAT or add `pc88va/VAHDFMT.ASM`.
-- Depends on D2.
-- Gate (vaeg): format an empty SASI image, then DIR, COPY, CHKDSK on it;
-  refuse to touch a drive that is not SASI; confirm before destroying data.
+- `FORMAT d:` or `FORMAT /H0` / `/H1` creates the NEC VA single-volume
+  FAT12 layout; reboot to use the new volume. Like HDFORM, the default
+  does not physically format the drive. The IPL and data areas remain
+  untouched; HDD boot and system installation are D4 work.
+- Depends on D2. See [D3](D3-sasi-format.md) for syntax, safety checks,
+  and the vaeg comparison and interchange gates.
 
 ### D4 — HDD boot (later)
 - Boot sector and IPL for SASI.

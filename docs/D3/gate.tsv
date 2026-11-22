@@ -1,0 +1,9 @@
+model	HDI_MB	blocks_compared	different_blocks	DOS_DIR_COPY_MD	DOS_CHKDSK_free_clusters	PC_Engine_readbacks	NEC_2.11_DIR_TYPE	final_files	final_lost_clusters
+va	5	20196	0	pass	613	2/2	pass	3	0
+va	10	40920	0	pass	1230	2/2	pass	3	0
+va	20	81180	0	pass	2465	2/2	pass	3	0
+va	40	162360	0	pass	2465	2/2	pass	3	0
+va2	5	20196	0	pass	613	2/2	pass	3	0
+va2	10	40920	0	pass	1230	2/2	pass	3	0
+va2	20	81180	0	pass	2465	2/2	pass	3	0
+va2	40	162360	0	pass	2465	2/2	pass	3	0
