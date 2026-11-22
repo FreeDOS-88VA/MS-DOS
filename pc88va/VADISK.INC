@@ -323,3 +323,4 @@ S_NOROOM DB     'Cannot write the system files to the target disk',13,10,'$'
 S_SYSOK DB      'System transferred',13,10,'$'
 
         INCLUDE VABOOT.INC
+        INCLUDE VAHDBOOT.INC

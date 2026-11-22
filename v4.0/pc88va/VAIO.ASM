@@ -2217,7 +2217,10 @@ RESEND  LABEL   BYTE            ;End of resident BIOS without SASI.
 ; SYSINIT moves MSDOS.SYS over this initialization code while it still
 ; uses the stack it inherits, so that stack must lie outside IO.SYS.
 HWINIT: CLD
-        XOR     AX,AX
+        CMP     AX,5648H        ;VAHDBOOT marker; BL is the SASI target.
+        JNE     HWFLPY
+        MOV     CS:[HDBOOTTARGET],BL
+HWFLPY: XOR     AX,AX
         MOV     ES,AX
         MOV     AX,ES:[33H*4]
         MOV     WORD PTR CS:[OLD33],AX
@@ -2231,6 +2234,9 @@ HWINIT: CLD
         POP     DS
         MOV     [HDMEM],AX
         CALL    HDDISCOVER      ;Before SYSINIT overlays the discarded tail.
+        MOV     AL,[HDBOOTDRV]
+        OR      AL,AL
+        JZ      HDBOOTFAIL
         POP     BP
         MOV     CX,[HDMEM]
         ; SYSINIT moves DOS to this boundary before issuing device INIT.
@@ -2247,6 +2253,7 @@ HWEND:  ADD     AX,15
         MOV     DX,CS
         ADD     DX,AX           ;DX = final DOS segment.
 
+        MOV     BL,[HDBOOTDRV]
         MOV     AX,SYSINITSEG
         MOV     DS,AX
         ASSUME  DS:SYSINITSEG
@@ -2255,9 +2262,19 @@ HWEND:  ADD     AX,15
         MOV     [MEMORY_SIZE],CX
         MOV     WORD PTR [DEVICE_LIST],OFFSET DEVSTART
         MOV     WORD PTR [DEVICE_LIST+2],CS
-        MOV     [DEFAULT_DRIVE],1 ;VABOOT loads from A: (one-based SYSINIT).
+        MOV     [DEFAULT_DRIVE],BL ;One-based SYSINIT boot drive.
         ASSUME  DS:CODE
         JMP     SYSINIT
+
+HDBOOTFAIL:
+        MOV     SI,OFFSET HDBOOTMSG
+        MOV     DX,8000H
+        MOV     AH,2
+        INT     83H
+HDSTOP: CLI
+        HLT
+        JMP     HDSTOP
+HDBOOTMSG DB    13,10,'SASI boot volume did not mount',13,10,0
 
 ; J0.1 text-BIOS split. Define the ROM strings for display only; the
 ; DOS input queue and expansion continue to use CONKEYS/CONEDIT.

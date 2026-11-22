@@ -49,3 +49,22 @@ before replacing it, warn and require confirmation. The replacement
 changes boot ownership, not the filesystem layout. Real hardware,
 physical switch combinations and alternate hardware boot targets:
 **NOT RUN**.
+
+## M2 — Project IPL and IO.SYS
+
+MASM 5.10 and LINK 3.65 assembled and linked the updated IPLs and IO.SYS.
+The [builder patch](D4/build-hdd-boot.patch) generates `VAHDBOOT.INC` for
+SYS and FORMAT; dry-run applied to the builder template.
+
+| Model | Host-built 5 / 10 / 20 / 40 MB NEC volumes |
+|---|---|
+| VA | PASS / PASS / PASS / PASS |
+| VA2 | PASS / PASS / PASS / PASS |
+
+All eight IPL runs started with no floppies and produced the same
+[final screen](D4/dos-va-hdd.png): DOS banner, HDD AUTOEXEC marker,
+C: prompt, correct C: label, and successful DIR A: after inserting a
+floppy. The label precedes IO.SYS in the root. Each file size limits
+traversal to at most 64 sectors and each read is 1 KiB aligned; a short
+chain, an out-of-range cluster or missing end marker is fatal. The IPL
+passes the target and IO.SYS derives its letter from mounted NEC units.

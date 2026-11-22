@@ -94,6 +94,7 @@ START:  CLI
         MOV     SI,OFFSET DOSNAME
         CALL    LOADF
         MOV     DX,[DOSSEGV]
+        XOR     AX,AX           ;No SASI boot marker.
         DB      0EAH            ;JMP BIOSSEG:0
         DW      0,BIOSSEG
 

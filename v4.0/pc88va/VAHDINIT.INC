@@ -36,6 +36,8 @@ HDNEC   LABEL   BYTE
         DW      4,1,1
         DD      0,0
 
+HDBOOTTARGET DB 0FFH           ;FFh means floppy boot.
+HDBOOTDRV DB    1              ;A: unless the IPL specifies SASI.
 HDNEXT  DB      0
 HDTYPE  DB      0
 HDSKIP  DB      13,10,'SASI target '
@@ -62,8 +64,9 @@ HDPROBE:
 HDABSENT:JMP    HDPROBEN
 HDPRESENT:
         CMP     AL,4
-        JAE     HDPROBEB
-        MOV     [HDTYPE],AL
+        JB      HDTYPEOK
+        JMP     HDPROBEB
+HDTYPEOK:MOV    [HDTYPE],AL
         PUSH    CS
         POP     ES
         MOV     BP,OFFSET HDPROBEBUF
@@ -105,6 +108,14 @@ HDPROBEC:
         MOV     AL,[HDNEXT]
         MOV     [DI+HDTARGET],AL
         MOV     CL,AL
+        CMP     AL,[HDBOOTTARGET]
+        JNE     HDNOTBOOT
+        CMP     AH,0            ;NEC layout has no physical prefix.
+        JNE     HDNOTBOOT
+        MOV     AL,[HDUNITS]
+        ADD     AL,3            ;A: and B: precede the fixed units.
+        MOV     [HDBOOTDRV],AL
+HDNOTBOOT:
         MOV     AL,1
         SHL     AL,CL
         OR      [SASIMAP],AL
@@ -136,7 +147,12 @@ HDPROBEN:
         JAE     HDPROBED
         JMP     HDPROBE
 HDPROBED:
-        CMP     [HDUNITS],0
+        CMP     [HDBOOTTARGET],0FFH
+        JE      HDLINK
+        CMP     [HDBOOTDRV],1
+        JNE     HDLINK
+        MOV     [HDBOOTDRV],0
+HDLINK: CMP     [HDUNITS],0
         JE      HDPROBER
         MOV     WORD PTR [DSKDEV],OFFSET HDDDEV
         MOV     WORD PTR [DSKDEV+2],CS
