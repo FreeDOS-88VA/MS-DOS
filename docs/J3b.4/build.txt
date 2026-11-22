@@ -1,0 +1,17 @@
+J3b.4 final product build (M2 source; M3 is gate code and evidence only)
+
+Source: 53f41e0ef7126decb651de99980ee9e3f8c4c01f
+Builder: FreeDOS-88VA/freedos 7f467a2187a9e15c0c1bb84f179f214fe925153f
+  R1 build.py hunks and J3a build-jfp.patch, same recipe as J3c M6.
+Tool emulator: emu2 9d8698d06e67359bc8b230c2d19d5b1503e60819
+Boot banner: 20261122 (commit-JST), j3b4, 53f41e0e
+D88 (2HD): f4fd0dafad32f80089ab87df11d684b1cab05a37a105cd4dec11beb53e6dc733
+IO.SYS:    f292bba66934831f864a61b8d85394b2b492994471c06e8d98c91e43d9f9e4a4 (26,154 B)
+JFP.COM:   8036772b35275fbece7a0eba0dc2f64e02442c86a73b0c1a21f746c63576871b (3,647 B)
+IO.SYS and JFP.COM byte-identical to the incremental M2 gate build.
+VAIO listing: CISTAT 09F4h, RESEND 265Dh (base 09AAh, 20D3h).
+
+vaeg: Rel.20261121 (m153, 6367e5d3)
+  SHA-256 a3ab65a03eac9fd2abccca3d51b8e464266a4b6141b9d5132b5b667495655906
+  VA 640 KiB; VA2 at 256 and 640 KiB. Explicit Main_RAM with auto-sync;
+  no saved backup RAM. Local VA and VA2 ROM sets, no NEC media in Git.

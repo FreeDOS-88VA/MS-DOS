@@ -78,3 +78,112 @@ phrase focus to move or resize; starting phrase navigation on a BIOS
 candidate leaves the session in BIOS until it is closed. User words are
 not considered for an individual segment of a longer reading. Accepting
 or cancelling a user-only candidate makes no conversion BIOS call.
+
+## Safety and memory
+
+File I/O is in `VAJFP.ASM`. The CON path does a bounded linear scan of
+resident records and copies a validated word into the existing delivery
+buffer. The user-only path does not enter INT 8Dh. The BIOS path still
+uses `QuitJFP`, not learning/`Decide`.
+
+[USERMON](J3b.4/USERMON.NAS) reuses the J3b.3 INT 21h/83h/8Dh monitor
+and adds an INT 21h trap covering the **entire** outer DOS buffered
+CON read (AH=0Ah). Both scopes have positive controls. The outer trap
+counts and blocks any software DOS interrupt entered during the read,
+including outside a firmware call. The INT 83h counter remains scoped
+to the backend, so ordinary system-row painting does not count as a
+nested firmware text call. The gate cold-boots with the file saved by M2.
+On each configuration, the user-only case made no conversion firmware
+calls; the user→BIOS→user case made one each of `Sug1st`, `SugNxt`,
+`SugPrv` and `QuitJFP`. Both measured zero nested DOS entries over the
+whole read and zero nested DOS/text entries inside the BIOS. All six
+monitored images were byte-identical to the input disk. These are scoped
+interrupt observations, not qualification of arbitrary firmware or
+external ROM dictionaries.
+
+| Configuration | CHKDSK free, plain | FEP, no file | FEP, user file loaded |
+|---|---:|---:|---:|
+| VA 640 KiB | 524,000 B | 524,000 B | 524,000 B |
+| VA2 256 KiB | 130,784 B | 130,784 B | 130,784 B |
+| VA2 640 KiB | 524,000 B | 524,000 B | 524,000 B |
+
+VAIO `RESEND` moved from `20D3h` to `265Dh`: **+1,418 B** resident,
+**1,408 B** less free DOS memory after paragraph rounding, relative to
+J3c. IO.SYS is 26,154 B (was 24,730 B, 25 → 26 boot sectors at 1,024 B
+per sector); JFP.COM is 3,647 B and nonresident. COPY CON saved the
+expected full-width word bytes plus CR LF; EDLIN saved those same bytes
+plus Ctrl-Z. `TYPE` displayed the word from both files.
+
+## Gate results
+
+[Build pins](J3b.4/build.txt) · [M1](J3b.4/m1-results.txt) ·
+[M2](J3b.4/m2-results.txt) · [M3 user-hit checks and memory](J3b.4/m3-results.tsv) ·
+[Stock switch regression](J3b.4/switch-results.tsv).
+
+| Gate | VA 640 KiB | VA2 256 KiB | VA2 640 KiB |
+|---|---:|---:|---:|
+| M1: foreground commands, validation and exact format | 2/2 | 2/2 | 2/2 |
+| M2: candidate order/reload and corrupt-file fallback | 2/2 | 2/2 | 2/2 |
+| M3: cold load with user hits, monitors, COPY CON and EDLIN | 4/4 | 4/4 | 4/4 |
+| M3: CHKDSK in all three modes | 1/1 | 1/1 | 1/1 |
+| M3 stock: plain J0.3 1/5/9, J0.4 1–5 and usage | 21/21 | 21/21 | 21/21 |
+| M3 stock: `JFP ON` | 13/13 | 13/13 | 13/13 |
+| M3 stock: `JFP FEP` | 13/13 | 13/13 | 13/13 |
+| M3 stock: `JFP ROM` | 11/13 + 2 known differences | 11/13 + 2 known differences | 11/13 + 2 known differences |
+
+The first four rows count cold cases; the stock rows count grouped checks
+from 105 counted cold cases and 600 TVRAM captures. Each selector runs
+J3b.3 gates 2, 5 and 8 as part of J3c M6. The two ROM differences per
+configuration are the same as J3c: zero nested DOS entries but firmware
+text-BIOS calls in both scoped monitor contexts. There were no unexpected
+failures in the counted runs.
+
+**NOT RUN:** physical hardware, VA at 256 KiB, VA3, 2D and HDD,
+other ROM revisions, present firmware default `.DIC`/`.DAT` files,
+firmware registration or learning, interrupted/failed publish and
+rollback fault injection, exhaustive encodings or candidate sequences,
+and IRQ/DMA stress. The monitor establishes the observed behavior of
+buffered CON reads on these fixtures, not a proof for arbitrary software
+or firmware.
+
+## Reproduce
+
+Use the [J3b.3 builder and tool pins](J3b.3-bios-backend.md#reproduce),
+with `msdos.branch=topic/j3b4-user-dictionary`, `msdos.track=j3b4`. The
+foreground-only source is `f9bf9ac`; the final product source is
+`53f41e0` (the M3 commit changes only evidence). The final distribution
+was fully rebuilt; its IO.SYS and JFP.COM were byte-identical to the
+incremental M2 test build. Build and run with all artifacts in scratch.
+Set `PYTHONPATH` to include `docs/J3c`, `docs/J1`, the builder experiment,
+and vaeg's `tools/qa` directory. `$M1` and `$DIST` are the distributions,
+`$S` is scratch, and `$VAEG` / `$ROMS` point to m153 and the local ROM set.
+
+```sh
+F=docs/J3b.4/format_gate.py
+R=docs/J3b.4/resident_gate.py
+G=docs/J3b.4/safety_gate.py
+python3 -B "$F" pack "$M1" "$S/format.d88"
+python3 -B "$F" run "$VAEG" "$ROMS" "$S/format.d88" "$S/format" --cistat 1000:09AA
+python3 -B "$F" check "$S/format"
+python3 -B "$R" pack "$DIST" "$S/resident.d88"
+python3 -B "$R" run "$VAEG" "$ROMS" "$S/resident.d88" "$S/resident" --cistat 1000:09F4
+python3 -B "$R" check "$S/resident"
+nasm -I docs/J3b.3/ -f bin docs/J3b.4/USERMON.NAS -o "$S/USERMON.COM"
+python3 -B "$G" pack-user "$DIST" "$S/user.d88" "$S/USERMON.COM" "$S/resident/va-640/fep/resident"
+python3 -B "$G" pack-mem "$DIST" "$S/mem.d88"
+python3 -B "$G" run-user "$VAEG" "$ROMS" "$S/user.d88" "$S/user" --cistat 1000:09F4
+python3 -B "$G" run-mem "$VAEG" "$ROMS" "$S/mem.d88" "$S/mem" --cistat 1000:09F4
+python3 -B "$G" check-user "$S/user" "$S/user.d88"
+python3 -B "$G" check-mem "$S/mem"
+```
+
+For the stock regression, follow [J3c M6](J3c-comparison.md#m6--rebuilt-switch-gate)
+using `$DIST` from J3b.4 and `--cistat 1000:09F4` in both runs. The
+breakpoints are entries in **project VAIO**, from its MASM listings.
+Some compact enabled runs captured an unfinished paste or startup
+message. The counted result replaces the `j3a-prompt`, `return-candidate`,
+and FEP `return-reading` / `monitor-line` cases with cold reruns using the
+original waits (no key or assertion change). To generate these, call
+`run.main(switch_gate.enabled, ('ON', 'ROM', 'FEP'))` from Python with the
+same arguments, filtering `--case` / `--mode` as above. Use those case
+directories in the stock report instead of the compact ones.
