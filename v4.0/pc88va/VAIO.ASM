@@ -2048,6 +2048,7 @@ BPBTAB  DW      BPB,BPB
 CALLFL  DW      0245H           ;Flags for ROM disk calls.
 
 DSK_INIT:
+        CALL    HDDISCOVER      ;Link fixed disks before DOS follows DSKDEV.
         LDS     BX,[PTRSAV]
         MOV     BYTE PTR [BX+INITUNITS],NUNITS
         MOV     WORD PTR [BX+INITBPB],OFFSET BPBTAB
@@ -2231,7 +2232,6 @@ HWINIT: CLD
         PUSH    CS
         POP     DS
         MOV     [HDMEM],AX
-        CALL    HDDISCOVER
         POP     BP
         MOV     CX,[HDMEM]
         MOV     AX,OFFSET RESEND

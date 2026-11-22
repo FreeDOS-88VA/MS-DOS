@@ -1,9 +1,8 @@
 ; SASI fixed disks through INT 81h (602HDD, Function details).
 ; All addresses passed to the ROM are relative 256-byte block numbers.
 HDTABLE DW      HDINIT,HDMEDIA,HDBUILD,CMDERR,HDREAD,CMDERR,HDOK,HDOK
-        DW      HDNOWRITE,HDNOWRITE,HDOK,HDOK,CMDERR
+        DW      HDWRITE,HDWRITE,HDOK,HDOK,CMDERR
 
-HDBPS   EQU     0
 HDTOT16 EQU     8
 HDMEDIAID EQU   10
 HDTOT32 EQU     21
@@ -60,15 +59,19 @@ HDTYPE  DB      0
 HDSKIP  DB      13,10,'SASI target '
 HDSKIPN DB      '0',': unrecognized or unreadable volume',13,10,0
 
-; Called before SYSINIT moves the kernel. Only publish recognized units.
+; Called by floppy INIT before DOS follows the next device link.
+; Only publish recognized units.
 HDDISCOVER:
         MOV     AX,OFFSET HDBUFAREA+511
         AND     AX,0FE00H
         MOV     [HDBUF],AX
         MOV     DI,OFFSET HDBPBS
 HDPROBE:
+        XOR     BX,BX
+        XOR     CX,CX
+        XOR     DX,DX
         MOV     BH,[HDNEXT]
-        MOV     AH,09H
+        MOV     AX,0900H
         CALL    HDROM
         JC      HDABSENT
         CMP     AL,0FFH         ;vaeg can return success with no target.
@@ -194,19 +197,23 @@ HDVJUMP:
         JMP     SHORT HDVCAP
 HDVFAIL:STC
         RET
-HDVCAP: XOR     BX,BX
-        MOV     BL,[HDTYPE]
-        SHL     BX,1
-        SHL     BX,1
-        MOV     AX,[SI+19]
+HDVCAP: MOV     AX,[SI+19]
         XOR     DX,DX
         OR      AX,AX
-        JNZ     HDVTOTAL
-        MOV     AX,[SI+32]
+        JZ      HDVEXT
+        MOV     BX,[SI+32]
+        OR      BX,[SI+34]
+        JNZ     HDVFAIL
+        JMP     SHORT HDVGETCAP
+HDVEXT: MOV     AX,[SI+32]
         MOV     DX,[SI+34]
         CMP     DX,1            ;All supported geometries have <128K sectors.
         JA      HDVFAIL
-HDVTOTAL:
+HDVGETCAP:
+        XOR     BX,BX
+        MOV     BL,[HDTYPE]
+        SHL     BX,1
+        SHL     BX,1
         PUSH    DX
         PUSH    AX
         SHL     AX,1
@@ -247,8 +254,9 @@ HDVPOP: POP     AX
         OR      AX,AX
         JZ      HDVFAIL
         CMP     AX,65525
-        JAE     HDVFAIL
-        CMP     AX,4085
+        JB      HDVCLUST
+        JMP     HDVFAIL
+HDVCLUST:CMP    AX,4085
         JAE     HDVF16
         ADD     AX,2
         MOV     BX,3
@@ -278,6 +286,7 @@ HDROM:  PUSH    BX
         PUSH    ES
         PUSH    [CALLFL]
         POPF
+        CLC
         INT     81H
         CLD
         POP     ES
@@ -387,10 +396,10 @@ HDGDP2: MOV     ES:[DI+4],AX
 HDOP    DB      81H
 HDBLOCK DW      0,0             ;Current physical block index.
 HDLEFT  DW      0               ;Physical blocks remaining (DMA RAM bound).
-HDNOWRITE:
-        XOR     AL,AL           ;Write protected until write is enabled.
-        JMP     HDERROR
-HDREAD: CALL    HDFIND
+HDWRITE:MOV     [HDOP],82H       ;No ROM write-with-verify operation.
+        JMP     SHORT HDIO
+HDREAD: MOV     [HDOP],81H
+HDIO:   CALL    HDFIND
         OR      CX,CX
         JNZ     HDLBA
         JMP     HDOK
@@ -468,7 +477,7 @@ HDENDMEM:
         CMP     BX,[HDMEM]
         JBE     HDLOOP
 HDBOUNDS:MOV    AL,8            ;Sector not found / invalid transfer range.
-        JMP     SHORT HDERROR
+        JMP     HDERROR
 HDZERO: JMP     HDOK
 
 HDLOOP: MOV     AX,ES
@@ -494,6 +503,25 @@ HDDIRECT:
 HDBOUNCE:
         ; Even one physical block crosses the page: DMA to a safe
         ; resident buffer, then copy it with the CPU.
+        CMP     [HDOP],82H
+        JNE     HDBOUNCER
+        PUSH    DS
+        PUSH    ES
+        PUSH    SI
+        PUSH    DI
+        PUSH    ES
+        PUSH    CS
+        POP     ES
+        POP     DS
+        MOV     SI,DI
+        MOV     DI,CS:[HDBUF]
+        MOV     CX,128
+        REP     MOVSW
+        POP     DI
+        POP     SI
+        POP     ES
+        POP     DS
+HDBOUNCER:
         PUSH    ES
         PUSH    CS
         POP     ES
@@ -502,6 +530,8 @@ HDBOUNCE:
         CALL    HDTRANSFER
         POP     ES
         JC      HDFAULT
+        CMP     [HDOP],82H
+        JE      HDADVANCE
         PUSH    SI
         PUSH    DI
         MOV     SI,[HDBUF]
@@ -521,10 +551,23 @@ HDADVANCE:
         ADD     BX,AX
         MOV     ES,BX
         JMP     HDLOOP
-HDFAULT:MOV     AL,11           ;Read fault unless a specific code matches.
+HDFAULT:XOR     AL,AL           ;Write protection.
+        CMP     AH,05H
+        JE      HDERROR
+        MOV     AL,2            ;Not ready / no drive.
+        CMP     AH,04H
+        JE      HDERROR
         CMP     AH,0DH
-        JNE     HDERROR
-        MOV     AL,2            ;Not ready.
+        JE      HDERROR
+        MOV     AL,4            ;CRC error.
+        CMP     AH,06H
+        JE      HDERROR
+        CMP     AH,07H
+        JE      HDERROR
+        MOV     AL,11           ;Read fault.
+        CMP     [HDOP],81H
+        JE      HDERROR
+        MOV     AL,10           ;Write fault.
 HDERROR:LDS     BX,[PTRSAV]
         MOV     [BX.COUNT],0
         JMP     ERR_EXIT

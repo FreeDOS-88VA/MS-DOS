@@ -145,3 +145,62 @@ command 15 reports fixed media.
 | VA and VA2 | 40 MB NEC HDFORM | DIR sees empty C:; stock CHKDSK rejects the 3072-entry root (its limit is 512) |
 
 M2 did not test writes or real hardware. See M3 for NEC CHKDSK.
+
+## M3: writes and error paths
+
+Discovery now runs during floppy INIT, before DOS follows the next
+header link. Read and write use the same bounds checks and page splits;
+for writes, a straddling block is copied into the bounce buffer before
+DMA. DOS write-with-verify (command 9) uses ordinary WRITE DATA: this
+BIOS has no write-with-verify function, and the driver does not read
+back implicitly. Requests outside the volume return DOS error 08h
+before any ROM I/O. BIOS write refusal, not ready/no drive, and CRC
+status map to DOS errors 00h, 02h, and 04h respectively; other failures
+map to read/write fault. These mappings are not claims of emulator
+fault injection.
+
+CHKDSK needed two PC88VA-only changes: accept up to 3072 root entries
+with 1024-byte sectors, and recognize `D0h`–`D3h FFh FFh` as valid
+media prefixes. MASM 5.10 assembled VAIO with no errors or warnings,
+and CHKDSK was rebuilt with the PC88VA switches. VAIO `RESEND` moved
+from 265Dh (M1) to 3018h, +2491 resident bytes or +2496 after DOS
+paragraph rounding; this includes the DMA buffer and discovery code.
+
+[Gate evidence](D2/m3-gate.tsv) is from vaeg m153. The mixed-disk test
+used a scratch copy of the actual HDFORM-written 40 MB NEC disk at
+target 0, with a `mkhdi.py --layout native --fat 16` image at target 1.
+On each mounted volume the batch copied a 131,328-byte binary from A:
+and back, wrote a text marker, ran MD, copied a file into the new
+subdirectory, then ran DEL, RD, DIR and CHKDSK. The recovered binary
+matched the source; mtools also read matching binary and text files,
+and both FAT copies matched. For NEC only, mtools read a separate host
+view with a synthesized BPB and the FAT ID translated to F8h (mtools
+rejects D3h). The original HDI was not converted, and its IPL and tail
+outside the BPB extent were unchanged. NEC MS-DOS 2.11 on VA2 then
+listed the files and typed the marker written by this driver.
+
+A mixed 40 MB + 10 MB pair worked on both models. With two 40 MB HDIs,
+VA2 enumerated both, but on VA the ROM reported target 1 as absent
+(SENSE CF=0, AL=FFh), even with a standalone DOS-time BIOS probe. VA
+therefore exposed only C: with that combination. The driver does not
+assume a geometry for a target the BIOS cannot identify.
+
+[`HDRANGE.ASM`](../tests/pc88va/HDRANGE.ASM), for disposable 40 MB
+native images only, writes and reads a pattern in the final logical
+sector through INT 26h/25h using a buffer starting 128 bytes before a
+64 KiB boundary. It restores that sector and checks three rejected
+read/write requests: first sector at the end, valid start with a count
+crossing the end, and a 32-bit end calculation that would wrap.
+
+Floppy regressions (VA and VA2, 640 KiB, no SASI): `FORMAT B: /V:D2FMT`
+completed and reported 1,299,456 bytes free. `DISKCOPY A: B: /V`
+reported completion, and all 1280 × 1024-byte sectors matched; the copy
+booted back to the DOS prompt. For the J0.4 boot-screen check, a capture
+at the input routine showed 24 main rows and a prompt; the bottom
+16 pixels were identical to the pre-D2 boot capture on each model.
+The other J0.4 display and keyboard scenarios were not rerun.
+
+**NOT RUN:** hot removal, a distinct not-ready state, SASI
+write-protection (vaeg mounts HDDs read/write), and real hardware.
+No HDD formatting, HDD boot, PC-98 partition-table handling or
+`VASASI` support is claimed.

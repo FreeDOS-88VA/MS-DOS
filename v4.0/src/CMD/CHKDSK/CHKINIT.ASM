@@ -1069,7 +1069,17 @@ $$IF69:
 	      cmp     ax,2		;make sure it is ok			;an053;bgb;an032;bgb
 ;	      $IF     B,OR		;this is not!				;an053;bgb;an032;bgb
 	      JB $$LL71
+	IFDEF	PC88VA
+	      cmp     bytes_per_sector,1024
+	      JNE     CheckStandardRoot
+	      cmp     ax,3072		;NEC SASI type 3 has a 3072-entry root.
+	      JMP     SHORT CheckRootLimit
+CheckStandardRoot:
+	ENDIF
 	      cmp     ax,512		;make sure it is ok			;an053;bgb;an032;bgb
+	IFDEF	PC88VA
+CheckRootLimit:
+	ENDIF
 ;	      $IF     A 		;this is not!				;an053;bgb;an032;bgb
 	      JNA $$IF71
 $$LL71:

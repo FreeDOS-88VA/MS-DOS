@@ -1,0 +1,17 @@
+model	ram_kib	target_0	target_1	observed_units	chkdsk_total_bytes_C_D	guest_and_host_copy_match	hdrange
+VA	256	NEC FAT12 40 MB	Native FAT16 10 MB	C,D	40435712,10375680	C,D	-
+VA	640	NEC FAT12 40 MB	Native FAT16 10 MB	C,D	40435712,10375680	C,D	-
+VA2	256	NEC FAT12 40 MB	Native FAT16 10 MB	C,D	40435712,10375680	C,D	-
+VA2	640	NEC FAT12 40 MB	Native FAT16 10 MB	C,D	40435712,10375680	C,D	-
+VA	256	NEC FAT12 40 MB	Native FAT16 40 MB	C (target 1 SENSE AL=FFh)	40435712,-	C	-
+VA	640	NEC FAT12 40 MB	Native FAT16 40 MB	C (target 1 SENSE AL=FFh)	40435712,-	C	-
+VA2	256	NEC FAT12 40 MB	Native FAT16 40 MB	C,D	40435712,41463808	C,D	pass D
+VA2	640	NEC FAT12 40 MB	Native FAT16 40 MB	C,D	40435712,41463808	C,D	pass D
+VA	256	Native FAT16 40 MB	-	C	41463808,-	C	pass C
+VA	640	Native FAT16 40 MB	-	C	41463808,-	C	pass C
+VA2	256	Native FAT16 40 MB	-	C	41463808,-	C	pass C
+VA2	640	Native FAT16 40 MB	-	C	41463808,-	C	pass C
+VA	640	Native FAT12 5 MB	-	C	5142528,-	C	-
+VA2	640	Native FAT12 5 MB	-	C	5142528,-	C	-
+VA	640	VASASI marker 5 MB	-	none (target 0 warning)	-	-	-
+VA2	640	NEC FAT media/SENSE mismatch 5 MB	Oversize native BPB 10 MB	none (both target warnings)	-	-	-
