@@ -525,13 +525,29 @@ LDIOERR:MOV     DX,OFFSET IOMSG
         STC
         RET
 LOADDICT:
+        ; Keep the dictionary and both staging names on the DOS boot drive.
+        MOV     AX,3305H
+        XOR     DX,DX           ;Unsupported calls may leave DL untouched.
+        INT     21H
+        JC      LDDEFAULT
+        CMP     AL,5
+        JNE     LDDEFAULT
+        DEC     DL              ;DOS reports a one-based drive number.
+        CMP     DL,25
+        JBE     LDLETTER
+LDDEFAULT:
+        XOR     DL,DL           ;Fall back to A:.
+LDLETTER:
+        ADD     DL,'A'
+        MOV     [DICTORIG],DL
+        MOV     [DICTTEMP],DL
+        MOV     [DICTBAK],DL
         PUSH    DS
         POP     ES
         CLD
         MOV     [HADFILE],0
         MOV     [DICTCOUNT],0
         MOV     [DICTEND],OFFSET RECORDS
-        ; VABOOT and VAIO's SYSINIT handoff boot A: (also when CWD differs).
         MOV     DX,OFFSET DICTORIG
         MOV     AX,3D00H
         INT     21H

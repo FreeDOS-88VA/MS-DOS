@@ -329,7 +329,8 @@ comparison is done.
   block with MCB owner 8 (system), allocated last-fit by JFP.COM; VAIO
   keeps 6 bytes of state and is 829 B smaller than J3b.4; 64 entries cost
   at most 7,904 B; no leak over 5 ON/OFF cycles; 0 nested DOS calls.
-  Open: `A:\JFPUSER.DIC` is still fixed to A: (HDD boot users: revisit).
+  [F1](F1-small-fixes.md#3-user-dictionary-on-the-boot-drive) removes the
+  fixed A: path: the dictionary now follows the DOS boot drive.
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
@@ -397,9 +398,9 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   before the BIOS; 64 KiB DMA splits with a bounce block. Interchange
   verified both ways with PC-Engine 1.0/1.1 and NEC MS-DOS 2.11. CHKDSK
   accepts NEC media bytes D0h-D3h and 3072 root entries. Resident cost
-  +16 B without SASI, +1,216 B with one volume. Open: on VA two 40 MB
-  targets show only one (ROM SENSE reports target 1 absent; VA2 sees
-  both); not-ready/write-protect/hot removal and real hardware NOT RUN.
+  +16 B without SASI, +1,216 B with one volume. [F1](F1-small-fixes.md#2-a-40-mb-secondary-sasi-disk-on-va)
+  confirmed the VA BIOS does not recognize a 40 MB secondary (VA2 does).
+  Not-ready/write-protect/hot removal and real hardware NOT RUN.
 
 ### D3 — SASI HDD format
 - `FORMAT d:` or `FORMAT /H0` / `/H1` creates the NEC VA single-volume
@@ -433,8 +434,9 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   COMMAND.COM; FORMAT /S fits 256 KiB). Builder patch
   `docs/D4/build-hdd-boot.patch` (after the D1 patch). NOT RUN: real
   hardware, physical boot switches, write-protect/interrupted writes.
-  Follow-up: SASI `FORMAT /S` writes COMMAND.COM with a zero date/time
-  (80-01-01 0:00) instead of the source file's.
+  [F1](F1-small-fixes.md#1-system-file-dates) preserves the source
+  timestamps of all three system files in SASI and floppy `FORMAT /S`
+  and in `SYS`.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.

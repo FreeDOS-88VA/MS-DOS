@@ -77,7 +77,10 @@ HDRENTRY:PUSH   DI
         REP     MOVSB
         MOV     AX,[SYSATTR+BX]
         STOSB
-        MOV     WORD PTR ES:[DI+12],0021H ;1980-01-01.
+        MOV     AX,[SYSTIME+BX]
+        MOV     ES:[DI+10],AX
+        MOV     AX,[SYSDATE+BX]
+        MOV     ES:[DI+12],AX
         MOV     AX,[HSTART+BX]
         MOV     ES:[DI+14],AX
         MOV     AX,[SYSSIZE+BX]
