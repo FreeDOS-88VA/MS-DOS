@@ -204,3 +204,9 @@ The other J0.4 display and keyboard scenarios were not rerun.
 write-protection (vaeg mounts HDDs read/write), and real hardware.
 No HDD formatting, HDD boot, PC-98 partition-table handling or
 `VASASI` support is claimed.
+
+## M4: PC-Engine interchange
+
+See the [interchange procedure and evidence](D2/m4-interop.md). PC-Engine,
+MS-DOS 4.0 VA and NEC MS-DOS 2.11 accessed the same HDFORM filesystem on
+40 MB and 10 MB disks in vaeg. No driver changes were needed.
