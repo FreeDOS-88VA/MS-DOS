@@ -428,3 +428,14 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
+- A1 accepted 2026-11-23 (`docs/A1-aux-prn.md`, vaeg M163 = vaeg PR #86,
+  VA/VA2 640 KiB, basics on VA2 256 KiB): PRN/LPT1 through INT 89h with
+  Shift-JIS → JIS (`ESC K` … `ESC H`) via the BIOS, busy → `Not ready
+  writing device PRN` with Retry/Abort, Ctrl-P; AUX/COM1 through INT 8Ah
+  (9600 8N1 at boot, ROM RX queue, CTS), `COPY AUX`, `COPY … AUX`,
+  `CTTY AUX`, IOCTL 4406h; `SPEED baud` (builder patch
+  `docs/A1/build-speed.patch`). Also fixed a latent D2 bug: the ROM disk
+  call flags (`CALLFL`) lay in the discarded SASI tail, so floppy-only
+  boots read DOS memory as flags (DF=1 hung CHKDSK at some VAIO sizes).
+  PRINT.COM not shipped (IBM INT 17h hooks). NOT RUN: physical printers
+  and serial devices.
