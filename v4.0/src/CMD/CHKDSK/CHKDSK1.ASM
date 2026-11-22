@@ -301,6 +301,15 @@ RDOK:	;**Check_for_FAT_ID**********************************************
     xor     si,si		     ;offset of first byte in fat-table 	;an005;bgb
 ;;;;LODSB			    ;Check FAT ID byte
     mov     al,byte ptr es:[si]     ;get first byte of fat table
+IFDEF PC88VA
+    CMP     AL,0D0H            ;NEC fixed SASI FAT12 media signatures.
+    JB      CheckRegularMedia
+    CMP     AL,0D3H
+    JA      CheckRegularMedia
+    CMP     WORD PTR ES:[SI+1],0FFFFH
+    JE      $$IF17
+CheckRegularMedia:
+ENDIF
     CMP     AL,0F8H		    ;is it the correct id byte?
 ;   $IF     B,AND
     JNB $$IF17

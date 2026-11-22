@@ -73,7 +73,7 @@ TIMDEV: DW      DSKDEV,BIOSSEG
         DW      TIM_INT
         DB      'CLOCK$  '
 
-DSKDEV: DW      -1,-1           ;Last device.
+DSKDEV: DW      -1,-1           ;HWINIT may append HDDDEV.
         DW      2040H           ;Block device, media byte from the BPB,
                                 ;generic IOCTL (DOS 3.2 driver).
         DW      STRATEGY
@@ -214,6 +214,7 @@ TIM_INT:
 DSK_INT:
         PUSH    SI
         MOV     SI,OFFSET DSKTBL
+        JMP     SHORT ENTRY
 
 ; The DOS stack is shallow and the ROM services need more, so requests
 ; run on a private stack.  Mask IRQs explicitly: vaeg can deliver one
@@ -259,8 +260,15 @@ ENTRY:  MOV     CS:[SAVESP],SP
         JMP     WORD PTR [SI]
 
 ; Commands above 12 exist only for the disk: 19 generic IOCTL and
-; 23/24 get/set logical drive map.
-HICMD:  CMP     SI,OFFSET DSKTBL
+; 23/24 get/set logical drive map. Only the linked HDDDEV can enter
+; with HDTABLE; the optional tail is not called on a floppy-only boot.
+HICMD:  CMP     SI,OFFSET HDTABLE
+        JNE     HIFLOP
+        XCHG    AX,DI           ;AL = unit, DI = command.
+        PUSH    CS
+        POP     DS
+        JMP     HDHIGH
+HIFLOP: CMP     SI,OFFSET DSKTBL
         JNE     CMDERR
         XCHG    AX,DI           ;AL = unit, DI = command.
         PUSH    CS
@@ -2028,8 +2036,6 @@ BPB     DW      SECSIZ          ;Bytes per sector.
 
 BPBTAB  DW      BPB,BPB
 
-CALLFL  DW      0245H           ;Flags for ROM disk calls.
-
 DSK_INIT:
         LDS     BX,[PTRSAV]
         MOV     BYTE PTR [BX+INITUNITS],NUNITS
@@ -2190,10 +2196,14 @@ DSK_OWN:
 GUNIT   DB      0
 MIDCACHE DB     NUNITS*24 DUP (0) ;Per unit: valid flag, serial, label, type.
 
+RESEND  LABEL   BYTE            ;End of resident BIOS without SASI.
+
+        INCLUDE VAHDD.INC       ;Kept only if at least one target mounts.
+
         SUBTTL  Initialization (overlaid by MSDOS.SYS).
         PAGE
 
-RESEND  LABEL   BYTE            ;End of the resident BIOS.
+        INCLUDE VAHDINIT.INC
 
 ; Entered from VABOOT with DX = MSDOS.SYS segment.  Keep the boot stack:
 ; SYSINIT moves MSDOS.SYS over this initialization code while it still
@@ -2207,12 +2217,21 @@ HWINIT: CLD
         MOV     WORD PTR CS:[OLD33+2],AX
         PUSH    DX              ;Keep the loaded kernel segment.
         CALL    INITTEXT
-        POP     BP
         CLD
         CALL    MEMSIZE         ;AX = memory size in paragraphs.
-        MOV     CX,AX
+        PUSH    CS
+        POP     DS
+        MOV     [HDMEM],AX
+        CALL    HDDISCOVER      ;Before SYSINIT overlays the discarded tail.
+        POP     BP
+        MOV     CX,[HDMEM]
+        ; SYSINIT moves DOS to this boundary before issuing device INIT.
+        ; With no accepted unit, discard the whole optional SASI tail.
         MOV     AX,OFFSET RESEND
-        ADD     AX,15
+        CMP     [HDUNITS],0
+        JE      HWEND
+        MOV     AX,DI           ;End of the accepted BPB records.
+HWEND:  ADD     AX,15
         PUSH    CX
         MOV     CL,4
         SHR     AX,CL

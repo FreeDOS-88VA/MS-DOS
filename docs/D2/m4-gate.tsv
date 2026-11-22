@@ -1,0 +1,5 @@
+model	HDI_MB	HDFORM_free_bytes	PC-Engine_first_files	DOS_first_compares	CHKDSK_first_free_clusters	PC-Engine_second_compares	CHKDSK_final_free_clusters	NEC_2.11_DIR_TYPE	final_used_clusters	final_free_clusters	FAT_copies	lost_clusters
+va	10	10100736	4	4/4	1212	4/4	1192	pass	41	1192	equal	0
+va	40	40435712	4	4/4	2455	4/4	2443	pass	25	2443	equal	0
+va2	10	10100736	4	4/4	1212	4/4	1192	pass	41	1192	equal	0
+va2	40	40435712	4	4/4	2455	4/4	2443	pass	25	2443	equal	0

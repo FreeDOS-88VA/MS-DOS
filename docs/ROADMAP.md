@@ -358,18 +358,16 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   data path, deleted data.
 
 ### D2 — SASI hard disk driver
-- Goal: IO.SYS block units for SASI drives PC-98H31-H53 (5-40 MB) through
-  the ROM hard disk BIOS (602HDD), with FAT12/FAT16 partitions.
-- Agree the partition table layout first (NEC 3.3D style or a VA-specific
-  one; FreeDOS-88VA M17/M19 contracts are the reference).
-- Files: `v4.0/pc88va/VAIO.ASM` or a new `VAHDD.INC`.
-- Gate: read/write a FAT16 volume on a vaeg SASI image; no drive, drive
-  not ready and write-protect cases.
+- IO.SYS attaches one fixed disk per recognized SASI target (5–40 MB)
+  through the ROM hard disk BIOS (602HDD). No partition table: NEC VA
+  FAT12 is the default; the FreeDOS native-prefix FAT12/16 layout is also
+  recognized. See [D2](D2-sasi-driver.md) for layouts and gates.
 
 ### D3 — SASI HDD format
-- Goal: FORMAT for SASI drives: physical format (BIOS FORMAT DRIVE),
-  partition creation, and FAT12/16 logical format; /S copies the system.
-  Either extend VAFORMAT or add `pc88va/VAHDFMT.ASM`.
+- Goal: FORMAT for SASI drives: physical format (BIOS FORMAT DRIVE)
+  and creation of the NEC VA single-volume FAT12 layout. Keep the IPL
+  reservation; HDD boot and system installation are D4 work. Either
+  extend VAFORMAT or add `pc88va/VAHDFMT.ASM`.
 - Depends on D2.
 - Gate (vaeg): format an empty SASI image, then DIR, COPY, CHKDSK on it;
   refuse to touch a drive that is not SASI; confirm before destroying data.
