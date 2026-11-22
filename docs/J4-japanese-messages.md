@@ -15,3 +15,16 @@ Out-of-catalog sources include direct DBs in the SYSINIT/BIOS skeleton and VAIO,
 | M1 | This plan, group inventory | Plan and counts |
 | M2 | Catalog/generator, scratch builder patch, evidence | VA and VA2: boot, DIR alignment, missing command, empty-B critical error with A/R/F, DATE/TIME, COPY error, CHKDSK and resident-size comparison |
 | M3 | Utility catalog and hard-coded display text, builder patch, evidence | Each shipped utility on vaeg, EDLIN Y/N, English rebuild/boot |
+
+## M2 results
+
+Apply `docs/D4/build-hdd-boot.patch` and `docs/J4/build-messages.patch` in a scratch copy of the builder (either order). Pin the MS-DOS lock to the source being tested. `--messages ja` selects the overlay; the ordinary build still selects English. The overlay preserves message grammar and regenerates the byte offsets before shipping its CRLF file to DOS tools. The initial J4 scratch builds stopped at VAFORMAT because the base builder lacked the D4-generated VAHDBOOT.INC; resumed the VA stage with D4 applied after confirming the NMAKE/bootstrap COMMAND comparison. Both catalogs produced images.
+
+| Gate (vaeg m153) | VA | VA2 |
+|---|---|---|
+| Japanese image boots; DIR /W numeric columns, missing command, parse error, COPY missing source, DATE/TIME prompts, VOL/VER, CHKDSK | Observed | Observed |
+| Empty B:, Japanese prompt, A returns to shell, R retries | Observed | Observed |
+| F returns to shell on empty B: | Partial: another INT 24h prompt follows | Partial: another INT 24h prompt follows |
+| DEL prompt and insert-disk prompt | NOT RUN | NOT RUN |
+
+[Decoded screens](J4/core-output.txt). DATE retained the `yy-mm-dd` format. VER retains the product name and version. Normal resident COMMAND `DATARESEND`: `1636h` → `167Eh` (+72 bytes unrounded, +80 bytes in paragraphs); `/MSG` boundary `extmsgend`: `1A1Eh` → `1A63h` (+69 unrounded). English VA CHKDSK showed 524,112 bytes free; Japanese VA showed 524,032. This is not a measurement of `/MSG` boot or an isolation of all IO/kernel memory changes.

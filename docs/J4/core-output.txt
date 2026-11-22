@@ -1,0 +1,414 @@
+=== va dir ===
+A:\>DIR /W
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+ ディレクトリ: A:\
+
+COMMAND  COM    AUTOEXEC BAT    CONFIG   SYS    LICENSE  TXT    README   TXT
+APPEND   EXE    ASSIGN   COM    ATTRIB   EXE    BACKUP   COM    CHKDSK   COM
+COMP     COM    COUNTRY  SYS    DEBUG    COM    EDLIN    COM    EXE2BIN  EXE
+FASTOPEN EXE    FC       EXE    FIND     EXE    FORMAT   COM    JFP      COM
+JOIN     EXE    KEY      COM    LABEL    COM    MEM      EXE    MORE     COM
+NLSFUNC  EXE    RECOVER  COM    REPLACE  EXE    RESTORE  COM    SHARE    EXE
+SORT     EXE    SUBST    EXE    SYS      COM    TREE     COM    XCOPY    EXE
+       35 個のファイル     780288 バイトの空き
+
+A:\>
+
+
+
+
+=== va missing ===
+A:\>NOSUCH
+コマンドまたはファイル名が正しくありません
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va parse ===
+A:\>DIR /!
+無効なスイッチ -  /!
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va vol-ver ===
+A:\>VOL
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+
+A:\>VER
+
+MS-DOS Version 4.00
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+=== va date ===
+A:\>DATE
+現在の日付は Mon 2026-11-23 です
+新しい日付を入力してください (yy-mm-dd):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va time ===
+A:\>TIME
+現在の時刻は   0:44:41.00 です
+新しい時刻を入力してください:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va copy ===
+A:\>COPY NOSUCH.TXT COPY.TXT
+ファイルが見つかりません - NOSUCH.TXT
+        0 個のファイルをコピーしました
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va chkdsk ===
+A:\>CHKDSK
+
+ボリューム MSDOS4-VA   の作成日時: 1988-06-17 0:00
+ボリューム番号は 1988-0617 です
+
+   1299456 バイトのディスク総容量
+     68608 バイト (3 個の隠しファイル)
+    450560 バイト (35 個のユーザーファイル)
+    780288 バイトのディスク空き領域
+
+      1024 バイトの割り当て単位
+      1269 個の総割り当て単位
+       762 個の空き割り当て単位
+
+    655360 バイトの総メモリ
+    524032 バイトの空き
+
+A:\>
+
+
+=== va abort ===
+A:\>DIR B:
+
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?a
+
+A:\>ECHO AFTER-A
+AFTER-A
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+=== va retry-fail ===
+A:\>DIR B:
+
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?r
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?f
+ドライブ B にボリュームラベルはありません
+ ディレクトリ: B:\
+
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)
+
+
+
+
+
+
+=== va2 dir ===
+A:\>DIR /W
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+ ディレクトリ: A:\
+
+COMMAND  COM    AUTOEXEC BAT    CONFIG   SYS    LICENSE  TXT    README   TXT
+APPEND   EXE    ASSIGN   COM    ATTRIB   EXE    BACKUP   COM    CHKDSK   COM
+COMP     COM    COUNTRY  SYS    DEBUG    COM    EDLIN    COM    EXE2BIN  EXE
+FASTOPEN EXE    FC       EXE    FIND     EXE    FORMAT   COM    JFP      COM
+JOIN     EXE    KEY      COM    LABEL    COM    MEM      EXE    MORE     COM
+NLSFUNC  EXE    RECOVER  COM    REPLACE  EXE    RESTORE  COM    SHARE    EXE
+SORT     EXE    SUBST    EXE    SYS      COM    TREE     COM    XCOPY    EXE
+       35 個のファイル     780288 バイトの空き
+
+A:\>
+
+
+
+
+=== va2 missing ===
+A:\>NOSUCH
+コマンドまたはファイル名が正しくありません
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va2 parse ===
+A:\>DIR /!
+無効なスイッチ -  /!
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va2 vol-ver ===
+A:\>VOL
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+
+A:\>VER
+
+MS-DOS Version 4.00
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+=== va2 date ===
+A:\>DATE
+現在の日付は Mon 2026-11-23 です
+新しい日付を入力してください (yy-mm-dd):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va2 time ===
+A:\>TIME
+現在の時刻は   0:45:07.00 です
+新しい時刻を入力してください:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va2 copy ===
+A:\>COPY NOSUCH.TXT COPY.TXT
+ファイルが見つかりません - NOSUCH.TXT
+        0 個のファイルをコピーしました
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== va2 chkdsk ===
+A:\>CHKDSK
+
+ボリューム MSDOS4-VA   の作成日時: 1988-06-17 0:00
+ボリューム番号は 1988-0617 です
+
+   1299456 バイトのディスク総容量
+     68608 バイト (3 個の隠しファイル)
+    450560 バイト (35 個のユーザーファイル)
+    780288 バイトのディスク空き領域
+
+      1024 バイトの割り当て単位
+      1269 個の総割り当て単位
+       762 個の空き割り当て単位
+
+    655360 バイトの総メモリ
+    524032 バイトの空き
+
+A:\>
+
+
+=== va2 abort ===
+A:\>DIR B:
+
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?a
+
+A:\>ECHO AFTER-A
+AFTER-A
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+=== va2 retry-fail ===
+A:\>DIR B:
+
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?r
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?f
+ドライブ B にボリュームラベルはありません
+ ディレクトリ: B:\
+
+
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)
