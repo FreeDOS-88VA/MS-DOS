@@ -20,6 +20,9 @@ IBMVER	EQU	TRUE
 IBMJAPVER   EQU FALSE
 MSVER	EQU	FALSE
 
+PSP_TAIL_LEN EQU 80H
+PSP_TAIL    EQU 81H
+
 STDOUT	EQU	1			 ;AN003;
 ;------------------------------
 ; EXTENDED ATTRIBUTE Equates
@@ -108,11 +111,10 @@ START1:
 	ENDIF
 	MOV	MAXCOL,AH
 
-	XOR	BX,BX			; DUP FILE HANDLE 0
-	MOV	AH,XDUP
-	INT	21H
-	MOV	BP,AX			; Place new handle in BP
+	CALL	OpenInput
+	MOV	BP,AX			; File handle for paging and code page lookup
 
+	XOR	BX,BX
 	MOV	AH,CLOSE		; CLOSE STANDARD IN
 	INT	21H
 
@@ -152,6 +154,10 @@ ALOOP:
 	MOV	BX,BP
 	MOV	AH,READ
 	INT	21H
+	JNC	ReadOK
+	MOV	SI,OFFSET ReadMsg
+	JMP	InputError
+ReadOK:
 	OR	AX,AX
 	JNZ	SETCX
 DONE:	INT	20H
@@ -252,6 +258,104 @@ CHARLOOP:
 	JZ	GOBIG
 	JMP	TLOOP
 GOBIG:	JMP	ALOOP
+
+; Return a read handle in AX. Terminate the single path in the counted
+; PSP tail after validating that there are no extra arguments.
+OpenInput:
+	MOV	SI,PSP_TAIL
+	XOR	BX,BX
+	MOV	BL,DS:[PSP_TAIL_LEN]
+	ADD	BX,SI
+	CALL	SkipSpaces
+	CMP	SI,BX
+	JE	FilterInput
+
+	XOR	AH,AH
+	CMP	BYTE PTR [SI],'"'
+	JNE	PathStart
+	INC	SI
+	MOV	AH,'"'
+PathStart:
+	MOV	DX,SI
+PathChar:
+	CMP	SI,BX
+	JAE	PathEnd
+	MOV	AL,[SI]
+	CMP	AL,'"'
+	JE	CloseQuote
+	OR	AH,AH
+	JNZ	NextPathChar
+	CMP	AL,' '
+	JE	PathEnd
+	CMP	AL,9
+	JE	PathEnd
+NextPathChar:
+	INC	SI
+	JMP	SHORT PathChar
+CloseQuote:
+	OR	AH,AH
+	JZ	BadUsage
+	MOV	DI,SI
+	INC	SI
+	JMP	SHORT CheckPath
+PathEnd:
+	OR	AH,AH
+	JNZ	BadUsage
+	MOV	DI,SI
+CheckPath:
+	CMP	DI,DX
+	JE	BadUsage
+	CALL	SkipSpaces
+	CMP	SI,BX
+	JNE	BadUsage
+	MOV	BYTE PTR [DI],0
+	MOV	AX,OPEN SHL 8
+	INT	21H
+	JC	OpenFailed
+	OR	AX,AX
+	JNZ	InputReady
+	; If stdin was closed, preserve the newly opened handle 0 before reuse.
+	JMP	SHORT FilterInput
+OpenFailed:
+	MOV	SI,OFFSET OpenMsg
+	JMP	SHORT InputError
+FilterInput:
+	XOR	BX,BX
+	MOV	AH,XDUP
+	INT	21H
+	JNC	InputReady
+	MOV	SI,OFFSET ReadMsg
+	JMP	SHORT InputError
+BadUsage:
+	MOV	SI,OFFSET UsageMsg
+InputError:
+	MOV	BX,STDERR
+	XOR	CX,CX
+	MOV	CL,[SI]
+	LEA	DX,[SI+1]
+	MOV	AH,WRITE
+	INT	21H
+	MOV	AX,(EXIT SHL 8) OR 1
+	INT	21H
+InputReady:
+	RET
+
+SkipSpaces:
+	CMP	SI,BX
+	JAE	SpacesDone
+	CMP	BYTE PTR [SI],' '
+	JE	NextSpace
+	CMP	BYTE PTR [SI],9
+	JNE	SpacesDone
+NextSpace:
+	INC	SI
+	JMP	SHORT SkipSpaces
+SpacesDone:
+	RET
+
+UsageMsg DB OpenMsg-UsageMsg-1,"Usage: MORE [filename]",13,10
+OpenMsg DB ReadMsg-OpenMsg-1,"MORE: Cannot open input file",13,10
+ReadMsg DB MAXROW-ReadMsg-1,"MORE: Cannot read input",13,10
 
 MAXROW	DB	25
 MAXCOL	DB	80
