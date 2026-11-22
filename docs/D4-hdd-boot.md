@@ -104,7 +104,7 @@ vaeg m153 (640 KiB, initialized backup settings) on VA and VA2.
 | HDD boot from target 0, target 1 mounted D: | PASS: 40 + 20 MB | PASS: 40 + 20 MB |
 | SYS refusal: native-prefix FAT16 or unrecognized/blank disk | PASS: 10 MB / 5 MB | PASS: 10 MB / 5 MB |
 | Cancel foreign IPL replacement, disk byte-identical | PASS: 5 MB | PASS: 5 MB |
-| Confirm foreign IPL replacement with SYS | NOT RUN | PASS: 5 MB transfer reported success; reboot NOT RUN |
+| Confirm foreign IPL replacement with SYS | NOT RUN | PASS: 5 MB, including HDD-only reboot (Fix 1) |
 | Raw `FORMAT /H1 /S` with target 0 present | NOT RUN | PASS: 20 MB; host confirmed target 0 unchanged |
 | Raw FORMAT without `/S`: empty NEC root/FAT, IPL and data untouched | PASS: 5 MB | PASS: 5 MB |
 | Fragmented IO.SYS, second root sector and high physical block, then a self-loop in that chain | NOT RUN | PASS: 40 MB, boot and bounded refusal respectively |
@@ -124,7 +124,65 @@ Screens: [FORMAT](D4/format-va.png), [CHKDSK and COPY](D4/chkdsk-va.png),
 [SYS cancellation](D4/sys-cancel.png), [PC-Engine](D4/interop-engine.png),
 [NEC DOS 2.11](D4/interop-nec211.png), [bad chain](D4/bad-chain.png).
 
-**NOT RUN:** full external builder pipeline (the affected modules were
-built and used in the gate), real hardware, physical boot switches,
-write-protect and interrupted-write recovery, low-memory runs, and
-floppy SYS and floppy FORMAT `/S`.
+## Fix 1 — Distribution build and floppy regressions
+
+The D4 builder patch originally overlapped the D1 patch at the module
+list. It now inserts the HDD IPL build before the floppy IPL build.
+The scratch builder template needed the [D1 patch](D1/build-diskcopy.patch)
+for `DISKCOPY.COM`; applied it first, then the D4 patch. The lock pinned
+`components/msdos` to `3381f653c451187d3be338b44fc2955746d95d26` on
+`topic/d4-hdd-boot`, release track `d4`, and retained emu2
+`9d8698d06e67359bc8b230c2d19d5b1503e60819`.
+
+On the initial full build (`9650b898`), `FORMAT B:` followed by `SYS B:`
+reported success but standalone boot stopped at `Bad or missing Command
+Interpreter` on both models. Floppy SYS now transfers `COMMAND.COM` as
+well as `IO.SYS` and `MSDOS.SYS`. On the 256 KiB VA2, `FORMAT B: /S`
+also failed with `Insufficient memory`: the shared loader required a full
+64 KiB of free staging space before each read, even for smaller files.
+It now measures each file first, checks its paragraph-rounded size
+against the available memory, and requires an exact-length read.
+
+The full emu2/NMAKE/MASM/LINK pipeline produced `msdos4-pc88va-2hd.d88`
+(1,331,888 bytes), SHA-256
+`c71b51cd45d38595376a5d9632af9b613b413d121ebeaa67c2b17e0be2dbda57`.
+Read all 38 expected files back from the D88 and matched their lengths
+and SHA-256 values against the builder's output manifest. This includes:
+
+```text
+APPEND.EXE ASSIGN.COM ATTRIB.EXE AUTOEXEC.BAT BACKUP.COM CHKDSK.COM
+COMMAND.COM COMP.COM CONFIG.SYS COUNTRY.SYS DEBUG.COM DISKCOPY.COM
+EDLIN.COM EXE2BIN.EXE FASTOPEN.EXE FC.EXE FIND.EXE FORMAT.COM IO.SYS
+JFP.COM JOIN.EXE KEY.COM LABEL.COM LICENSE.TXT MEM.EXE MORE.COM MSDOS.SYS
+NLSFUNC.EXE README.TXT RECOVER.COM REPLACE.EXE RESTORE.COM SHARE.EXE
+SORT.EXE SUBST.EXE SYS.COM TREE.COM XCOPY.EXE
+```
+
+Regression gates used vaeg m153 and fresh emulator starts for each
+boot. In the floppy runs no SASI disk was attached; the target moved
+from B: to A: and booted with the second drive empty. Each target boot
+showed the release banner, the expected DOS prompt and a successful
+`DIR`.
+
+| Distribution gate | VA 640 KiB | VA2 640 KiB | VA2 256 KiB |
+|---|---|---|---|
+| `FORMAT B: /S /V:FLOPPY`, boot target and check `FLOPPY` label | PASS | PASS | PASS |
+| `FORMAT B:`, `SYS B:`, boot target without a separate `COPY` | PASS | PASS | NOT RUN |
+| `DISKCOPY A: B: /V`, boot the copy | PASS | PASS | NOT RUN |
+| Blank 40 MB HDI, `FORMAT /H0 /S`, boot HDD alone, then boot distribution floppy and `DIR C:` | PASS | PASS | NOT RUN |
+| 5 MB PC-Engine 1.1 HDD, confirm `SYS C:` IPL replacement and boot HDD alone | NOT RUN | PASS | NOT RUN |
+
+Both `DISKCOPY` runs reported `Copy complete.`; every copied track
+matched the distribution's sector IDs, density and data (allowing for
+sector rotation), and the source D88 was unmodified.
+
+On the 5 MB VA2 run, the HDD booted PC-Engine to `Ready` before `SYS`.
+MS-DOS then warned about the foreign IPL, accepted `Y` and reported
+`System transferred`. The subsequent floppy-free boot reached `C>`;
+all preexisting PC-Engine files were unchanged. On both 40 MB runs,
+HDD-only boot reached `C>` and floppy boot with the HDD mounted reached
+`A:\\>` with C: readable. Host checks matched the installed system files
+to the distribution and verified both HDD FAT copies and the new IPL.
+
+**NOT RUN:** real hardware, physical boot switches, and write-protect
+and interrupted-write recovery.
