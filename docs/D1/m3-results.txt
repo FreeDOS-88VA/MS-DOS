@@ -1,0 +1,32 @@
+va hc PASS
+va dd9 PASS
+va hd80 PASS
+va hd77 PASS
+va dd8 PASS
+va d16 PASS
+va exotic PASS
+va boot PASS
+va protect PASS
+va not-ready PASS
+va hd-fm FAIL: track 00: IDs, density or data differ
+va hc:blank PASS
+va hd80:blank PASS
+va hd77:blank PASS
+va dd9:blank PASS
+va d16:blank PASS
+va dd8:blank PASS
+va d16:mismatch PASS
+va dd8:mismatch PASS
+va dd9:mismatch PASS
+va hc:mismatch PASS
+va hd-fm:mismatch PASS
+va hd77:mismatch PASS
+va hd80:mismatch PASS
+va2 boot PASS
+va2 d16 PASS
+va2 dd9 PASS
+va2 hd80 PASS
+
+Fixed vaeg 64e55e11:
+va hd-fm PASS
+va hd-fm:blank PASS

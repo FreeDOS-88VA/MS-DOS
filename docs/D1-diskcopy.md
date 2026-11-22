@@ -150,3 +150,58 @@ on m153. The actual CRC-error Ignore path and VA2 `/T` were **NOT RUN**.
 The FDC trace on `hd80`, `hd-fm`, `d16` and `exotic` showed no READ DATA
 DMA range crossing a 64 KiB page; the tested allocations did not span
 multiple pages.
+
+## M3 — Two-drive copy (amended gate)
+
+The gate is a verified two-drive copy and D88 comparison for **each**
+fixture, plus a copied MS-DOS disk that boots. `D1/copy_gate.py` checks
+track presence, cyclic ID order, density, N and full sector bytes.
+It ignores D88 header fields unrelated to layout and data. Debug
+`mount-fdd` worked when the script waited for DOS to load the program
+and for the emulator's delayed insertion before sending Enter.
+
+The program selects the source mode and checks that it can configure
+that mode on the target drive. If the target has enough readable IDs
+to identify its mode and it differs, the program refuses the copy.
+Otherwise it selects the source mode and allows FORMAT to try the
+media; blank and unreadable media cannot be distinguished by this
+probe. FORMAT uses user EOT as the number of IDs and a gap selected
+from the manual's tables. `/V` compares a readback byte for byte.
+Ignore on a mixed-N or unreadable ID track leaves the target track
+untouched; Ignore on a data read writes whatever DMA supplied with
+zeros for the bytes not transferred. The final incomplete summary
+lists all affected tracks in hex. A skipped track is not erased:
+use a blank target if it must remain unformatted.
+
+| Case (VA, vaeg m153) | Observed result |
+|---|---|
+| hd77 | Tracks matched; program correctly reported incomplete after Ignore on 6 absent tracks |
+| hd80, hc, dd9, dd8, d16 | Tracks matched and `/V` completed |
+| boot | Tracks matched; copied disk booted to the MS-DOS 4.00 prompt |
+| Target guards | Mode mismatch, write-protected target and missing target each produced the expected refusal; target seed bytes were unchanged. |
+| hd-fm | **FAIL.** The FM FORMAT command (`0Dh` at the FDC) transferred all 26 IDs, but the target's density was `00h` instead of `40h`. The first FM verify read failed, and track 00h did not match. |
+| exotic | PASS under amended gate: ignored mixed-N 00h and absent 02h; summary listed both. All remaining tracks matched, including the independent C/H and high R on 01h. |
+
+Blank targets passed for `hd77`, `hd80`, `hc`, `dd9`, `dd8` and `d16`
+(on m153) and `hd-fm` (on the fixed build below). All seven standard
+fixtures were refused without changing a preformatted target of another
+mode on m153: `d16` targets for all but `d16`, which used an `hd80`
+target. The blank images had no tracks and the appropriate D88 type.
+
+VA2 on m153: `hd80`, `dd9`, `d16` and `boot` passed `/V` and the
+D88 comparison; `boot` also reached the DOS prompt on the copy.
+Real hardware, a CRC data failure, deleted-data copying, and copy
+protection beyond the listed layouts: **NOT RUN**.
+
+### vaeg FM format fix
+
+`fix/d88-format-fm` commit `64e55e11` (based on `origin/main`
+`3c2c9cd0`) sets the D88 density bit to the inverse of the FDC MF bit
+in `fdd_formating_d88`, matching the READ ID and READ DATA checks.
+The m153 comparison failed at track 00h; on the fixed SDL2 build,
+`hd-fm` passed `/V` and matched on both a formatted and a blank
+D88 target. No emulator changes were pushed.
+
+## M4/M5
+
+Not yet run at the M3 commit.

@@ -1,6 +1,6 @@
         TITLE   PC-88VA BIOS disk copy
 ; SPDX-License-Identifier: MIT
-; M2 read side. Assemble MASM, LINK then convert to a .COM at ORG 100h.
+; Assemble MASM, LINK then convert to a .COM at ORG 100h.
 CODE    SEGMENT BYTE PUBLIC 'CODE'
         ASSUME CS:CODE,DS:CODE,SS:CODE
         ORG 100H
@@ -14,22 +14,33 @@ NIDMAX  EQU     40
 START:  MOV     SP,OFFSET STACKTOP
         CLD
         MOV     SI,81H
-        CALL    SPACE
-        LODSB
-        AND     AL,0DFH
-        SUB     AL,'A'
-        CMP     AL,1
-        JA      USAGE
+        CALL    GETDRV
+        JC      USAGE
+        MOV     [SOURCE],AL
         MOV     [DRIVE],AL
-        LODSB
-        CMP     AL,':'
-        JNE     USAGE
         CALL    SPACE
+        CMP     BYTE PTR [SI],'/'
+        JNE     ARG2
         LODSW
         AND     AH,0DFH
         CMP     AX,'T/'
         JNE     USAGE
+        MOV     BYTE PTR [DIAG],1
+        JMP     SHORT ARGEND
+ARG2:   CALL    GETDRV
+        JC      USAGE
+        CMP     AL,[SOURCE]
+        JE      USAGE
+        MOV     [TARGET],AL
         CALL    SPACE
+        CMP     BYTE PTR [SI],13
+        JE      ARGEND
+        LODSW
+        AND     AH,0DFH
+        CMP     AX,'V/'
+        JNE     USAGE
+        MOV     BYTE PTR [VERIFY],1
+ARGEND: CALL    SPACE
         CMP     BYTE PTR [SI],13
         JNE     USAGE
         ; Round the first free paragraph up to a physical 1K boundary.
@@ -43,6 +54,8 @@ START:  MOV     SP,OFFSET STACKTOP
         AND     AX,0FFC0H
         MOV     [BUFSEG],AX
         ADD     AX,NIDMAX*64
+        MOV     [STAGESEG],AX
+        ADD     AX,64
         CMP     AX,DS:[2]
         JBE     INIT
         MOV     DX,OFFSET NOMEN
@@ -66,37 +79,97 @@ INIT:   MOV     AH,0DH          ;GET BOOK
         MOV     WORD PTR [SAVPARM+2],AX
         MOV     AL,ES:[SI+USERPARM+4]
         MOV     [SAVPARM+4],AL
-        MOV     BL,[DRIVE]
-        XOR     BH,BH
-        MOV     DI,SI
-        MOV     AL,ES:[DI+BX+DISKMODE]
-        MOV     [SAVMODE],AL
+        MOV     AX,ES:[SI+DISKMODE]
+        MOV     WORD PTR [SAVMODES],AX
+        CMP     BYTE PTR [DIAG],0
+        JNE     STARTSRC
+        MOV     DX,OFFSET SOURCEQ
+        CALL    INSERT
+STARTSRC:
         CALL    DETECT
-        JNC     SCAN0
-        MOV     DX,OFFSET NOIDS
-        CALL    MESSAGE
-        JMP     ABORT
+        JNC     SOURCEMODE
+        JMP     CANTMODE
+SOURCEMODE:
+        MOV     AL,[MODE]
+        MOV     [SRCMODE],AL
+        CMP     BYTE PTR [DIAG],0
+        JNE     SCAN0
+        MOV     AL,[TARGET]
+        MOV     [DRIVE],AL
+        MOV     DX,OFFSET TARGETQ
+        CALL    INSERT
+        CALL    CHECKTARGET
 SCAN0:  MOV     BYTE PTR [TRACK],0
-SCAN:   CALL    COLLECT
+        JMP     SHORT SCAN
+CHECKTARGET:
+        CALL    USETARGET
+        CALL    WRITEREADY
+        CALL    DETECT
+        JNC     TARGETMODE
+        JMP     USETARGET       ;No readable IDs: allow blank media.
+TARGETMODE:
+        MOV     AL,[MODE]
+        CMP     AL,[SRCMODE]
+        JNE     MODEBAD
+        RET
+MODEBAD:MOV     DX,OFFSET MISMATCH
+        JMP     COPYFAIL
+SCAN:   CALL    USESOURCE
+        CALL    COLLECT
         JNC     SCAN1
         MOV     BYTE PTR [NUMIDS],0
         CALL    ASKERROR
 SCAN1:  CALL    READTRACK
+        CMP     BYTE PTR [DIAG],0
+        JE      SCANCOPY
         CALL    REPORT
+        JMP     SHORT SCANNEXT
+SCANCOPY:
+        CALL    COPYTRACK
+SCANNEXT:
         INC     [TRACK]
         MOV     AL,[TRACK]
         CMP     AL,[LIMIT]
         JB      SCAN
-        CALL    RESTMODE
+        CALL    RESTORE
+        CMP     BYTE PTR [DIAG],0
+        JE      COPYDONE
         MOV     DX,OFFSET DONE
         MOV     CX,DONEEND-DONE
         CALL    STDOUT
-        MOV     AX,4C00H
+        JMP     SHORT SUCCESS
+COPYDONE:
+        MOV     DX,OFFSET COPIED
+        CMP     BYTE PTR [IGNORED],0
+        JE      COPYOK
+        MOV     DX,OFFSET INCOMPLETE
+        CALL    MESSAGE
+        CALL    SUMMARY
+        JMP     SHORT BADEND
+COPYOK: CALL    MESSAGE
+SUCCESS:MOV     AX,4C00H
         INT     21H
-ABORT:  CALL    RESTMODE
-        MOV     AX,4C01H
+CANTMODE:
+        MOV     DX,OFFSET NOIDS
+COPYFAIL:
+        CALL    MESSAGE
+ABORT:  CALL    RESTORE
+BADEND: MOV     AX,4C01H
         INT     21H
 
+GETDRV: CALL    SPACE
+        LODSB
+        AND     AL,0DFH
+        SUB     AL,'A'
+        CMP     AL,1
+        JA      BADDRV
+        CMP     BYTE PTR [SI],':'
+        JNE     BADDRV
+        INC     SI
+        CLC
+        RET
+BADDRV: STC
+        RET
 SPACE:  CMP     BYTE PTR [SI],' '
         JE      SPACE1
         CMP     BYTE PTR [SI],9
@@ -108,9 +181,10 @@ SPACE2: RET
 ; Media inference: 2HD first if current mode is 2HD, otherwise after
 ; the lower densities. Probe cylinder 1 before accepting 2DD, since
 ; the 2DD setting may read every other cylinder of some 2D media.
-DETECT: CMP     BYTE PTR [SAVMODE],20H
+DETECT: CALL    SAVEDMODE
+        CMP     AL,20H
         JB      DETLOW
-        CMP     BYTE PTR [SAVMODE],30H
+        CMP     AL,30H
         JAE     DETLOW
         CALL    TRYHD
         JNC     DETOK
@@ -150,9 +224,32 @@ SEL1:   MOV     AH,0AH
         MOV     CH,[DRIVE]
         CALL    BIOS
         JMP     STATUS
+USESOURCE:
+        MOV     AL,[SOURCE]
+        JMP     SHORT USEMODE
+USETARGET:
+        MOV     AL,[TARGET]
+USEMODE:MOV     [DRIVE],AL
+        MOV     AL,[SRCMODE]
+        CALL    SELECT
+        JNC     USEOK
+        JMP     CANTMODE
+USEOK:  RET
+SAVEDMODE:
+        XOR     BX,BX
+        MOV     BL,[DRIVE]
+        MOV     AL,[SAVMODES+BX]
+        RET
+RESTORE:
+        MOV     AL,[SOURCE]
+        MOV     [DRIVE],AL
+        CALL    RESTMODE
+        CMP     BYTE PTR [DIAG],0
+        JNE     REST9
+        MOV     AL,[TARGET]
+        MOV     [DRIVE],AL
 RESTMODE:
-        PUSH    AX
-        MOV     AL,[SAVMODE]
+        CALL    SAVEDMODE
         CMP     AL,0FFH
         JNE     REST1
         MOV     AL,01H          ;Manual: FFh has hardware settings of 01h.
@@ -160,12 +257,9 @@ REST1:  MOV     AH,0AH
         MOV     CH,[DRIVE]
         CALL    BIOS
         LES     DI,DWORD PTR [BOOKOFF]
-        XOR     BX,BX
-        MOV     BL,[DRIVE]
-        MOV     AL,[SAVMODE]
+        CALL    SAVEDMODE
         MOV     ES:[DI+BX+DISKMODE],AL
-        POP     AX
-        RET
+REST9:  RET
 
 ; Collect one circular sequence of unique CHRN tuples. An immediate
 ; repeated tuple is a one-sector track; a repeat anywhere except the
@@ -222,6 +316,7 @@ STATUS: JC      COLEND
 ; number of IDs. Preclear each slot so an ignored partial/no DMA leaves
 ; the bytes actually transferred followed by zeros, never stale data.
 READTRACK:
+        MOV     BYTE PTR [COMMAND],81H
         XOR     SI,SI
         MOV     AX,[BUFSEG]
         MOV     [SLOTSEG],AX
@@ -243,6 +338,29 @@ RDSEC:  MOV     DI,SI
         XOR     AX,AX
         XOR     DI,DI
         REP     STOSW
+        CALL    TRANSFER
+        MOV     [ERRORS+SI],AH
+        JNC     HASH
+        CALL    ASKERROR
+HASH:   MOV     ES,[SLOTSEG]
+        XOR     AX,AX
+        XOR     BX,BX
+        XOR     DI,DI
+        MOV     CX,[SECBYTES]
+HASH1:  ROL     AX,1
+        MOV     BL,ES:[DI]
+        INC     DI
+        ADD     AX,BX
+        LOOP    HASH1
+        MOV     DI,SI
+        SHL     DI,1
+        MOV     [SUMS+DI],AX
+        ADD     WORD PTR [SLOTSEG],64
+        INC     SI
+        JMP     RD1
+
+; SI selects sector; ES:0 is the (aligned) DMA buffer.
+TRANSFER:
         MOV     DI,SI
         SHL     DI,1
         SHL     DI,1
@@ -267,36 +385,176 @@ RD2:    MOV     [PARM+2],AL
         MOV     AL,80H
 RD3:    MOV     [PARM+4],AL
         POP     BX
-        MOV     AL,[LIMIT]
-        SHR     AL,1
-        DEC     AL
-        MOV     [PARM],AL
+        CALL    MAXCYL
         MOV     BYTE PTR [PARM+1],0FFH
         MOV     CH,[DRIVE]
         MOV     CL,[TRACK]
         XOR     BP,BP
-        MOV     AX,8101H
+        MOV     AL,1
+        MOV     AH,[COMMAND]
         CALL    RAW
-        CALL    STATUS
-        MOV     [ERRORS+SI],AH
-        JNC     HASH
-        CALL    ASKERROR
-HASH:   MOV     ES,[SLOTSEG]
-        XOR     AX,AX
-        XOR     BX,BX
-        XOR     DI,DI
-        MOV     CX,[SECBYTES]
-HASH1:  ROL     AX,1
-        MOV     BL,ES:[DI]
-        INC     DI
-        ADD     AX,BX
-        LOOP    HASH1
+        JMP     STATUS
+MAXCYL: MOV     AL,[LIMIT]
+        SHR     AL,1
+        DEC     AL
+        MOV     [PARM],AL
+        RET
+
+; FORMAT takes only one physical N. Reject mixed N instead of writing
+; an ID table whose data fields cannot be formatted to match the source.
+COPYTRACK:
+        XOR     CX,CX
+        MOV     CL,[NUMIDS]
+        JCXZ    COPYRET
+        MOV     SI,OFFSET IDS+3
+        MOV     AL,[SI]
+CKSIZE: CMP     AL,[SI]
+        JNE     MIXED
+        ADD     SI,4
+        LOOP    CKSIZE
+        CALL    USETARGET
+        CALL    FORMAT
+        XOR     SI,SI
+        MOV     AX,[BUFSEG]
+        MOV     [SLOTSEG],AX
+WRITE1: MOV     ES,[SLOTSEG]
+        MOV     BYTE PTR [COMMAND],82H
+        CALL    TRANSFER
+        JNC     WRITE2
+        CALL    WRITEERROR
+        JMP     WRITE1
+WRITE2: CMP     BYTE PTR [VERIFY],0
+        JE      WRITE4
+        MOV     ES,[STAGESEG]
+        MOV     BYTE PTR [COMMAND],81H
+        CALL    TRANSFER
+        JC      VERIFYFAIL
         MOV     DI,SI
         SHL     DI,1
-        MOV     [SUMS+DI],AX
-        ADD     WORD PTR [SLOTSEG],64
+        SHL     DI,1
+        MOV     CL,[IDS+DI+3]
+        MOV     AX,128
+        SHL     AX,CL
+        MOV     CX,AX
+        SHR     CX,1
+        MOV     AX,[SLOTSEG]
+        PUSH    DS
+        PUSH    SI
+        MOV     DS,AX
+        XOR     SI,SI
+        XOR     DI,DI
+        REPE    CMPSW
+        POP     SI
+        POP     DS
+        JNE     VERIFYFAIL
+WRITE4: ADD     WORD PTR [SLOTSEG],64
         INC     SI
-        JMP     RD1
+        MOV     AX,SI
+        CMP     AL,[NUMIDS]
+        JB      WRITE1
+COPYRET:RET
+MIXED:  PUSH    DS
+        POP     ES
+        MOV     DI,OFFSET MIXEDTRK
+        MOV     AL,[TRACK]
+        CALL    HEX
+        MOV     DX,OFFSET MIXEDERR
+        CALL    MESSAGE
+        JMP     ASK1
+VERIFYFAIL:
+        MOV     DX,OFFSET VERIFYERR
+        JMP     COPYFAIL
+
+FORMAT: CALL    WRITEREADY
+        MOV     ES,[STAGESEG]
+        XOR     DI,DI
+        MOV     SI,OFFSET IDS
+        XOR     CX,CX
+        MOV     CL,[NUMIDS]
+        SHL     CX,1
+        REP     MOVSW
+        CALL    MAXCYL
+        MOV     AL,[NUMIDS]
+        MOV     [PARM+1],AL      ;FORMAT uses EOT as sector count.
+        XOR     BX,BX
+        MOV     BL,[IDS+3]
+        MOV     DL,BL
+        OR      DL,[FM]
+        MOV     AL,[FORMATGAPS+BX]
+        TEST    DL,80H
+        JZ      FMTGAP
+        MOV     AL,[FMFMTGAPS+BX]
+FMTGAP: MOV     [PARM+3],AL
+        MOV     CH,[DRIVE]
+        MOV     CL,[TRACK]
+        XOR     BP,BP
+        MOV     AX,83E5H
+        CALL    RAW
+        CALL    STATUS
+        JNC     COPYRET
+        CALL    WRITEERROR
+        JMP     FORMAT
+
+; Ready and write-protect errors are tested before touching the target.
+WRITEREADY:
+        MOV     AH,07H          ;SENSE: AL = ST3, AH=1 means write protected.
+        MOV     CH,[DRIVE]
+        CALL    BIOS
+        JC      RDYERR
+        CMP     AH,1
+        JE      RDYWP
+        TEST    AL,40H
+        JNZ     RDYWP
+        TEST    AL,20H
+        JZ      RDYNR
+        RET
+RDYNR:  MOV     AH,4
+        JMP     SHORT RDYERR
+RDYWP:  MOV     AH,5
+RDYERR: CALL    WRITEERROR
+        JMP     WRITEREADY
+WRITEERROR:
+        PUSH    SI
+        MOV     DX,OFFSET WRITEERR
+        CMP     AH,5
+        JE      WRITEWP
+        CMP     AH,3
+        JB      WRPROMPT
+        CMP     AH,4
+        JA      WRPROMPT
+        MOV     DX,OFFSET NOTREADY
+        JMP     SHORT WRPROMPT
+WRITEWP:MOV     DX,OFFSET PROTECT
+WRPROMPT:
+        CALL    MESSAGE
+WRKEY:  MOV     AH,07H
+        INT     21H
+        AND     AL,0DFH
+        CMP     AL,'A'
+        JNE     WRKEY1
+        JMP     ABORT
+WRKEY1: CMP     AL,'R'
+        JNE     WRKEY
+        POP     SI
+        RET
+
+; DX points at a prompt with a drive letter just before the colon.
+INSERT: PUSH    DX
+        CALL    MESSAGE
+        MOV     AL,[DRIVE]
+        ADD     AL,'A'
+        MOV     [LETTER],AL
+        MOV     DX,OFFSET INSERTEND
+        CALL    MESSAGE
+INSKEY: MOV     AH,07H
+        INT     21H
+        CMP     AL,27
+        JNE     INSKEY1
+        JMP     ABORT
+INSKEY1:CMP     AL,13
+        JNE     INSKEY
+        POP     DX
+        RET
 
 ; RAW uses scoped BIOS work changes so subsequent DOS requests are not
 ; made with our IDR or USERPARM overrides. BX/CX/DX are ROM outputs.
@@ -438,18 +696,45 @@ ASKERROR:
         CALL    HEX
         MOV     DX,OFFSET BADREAD
         CALL    MESSAGE
-ASK1:   MOV     AH,07H
+        JMP     SHORT ASKKEY
+ASK1:   PUSH    SI
+ASKKEY:   MOV     AH,07H
         INT     21H
         OR      AL,20H
         CMP     AL,'a'
         JNE     ASK2
         JMP     ABORT
 ASK2:   CMP     AL,'i'
-        JNE     ASK1
+        JNE     ASKKEY
+        MOV     BYTE PTR [IGNORED],1
+        XOR     BX,BX
+        MOV     BL,[TRACK]
+        MOV     BYTE PTR [MISSED+BX],1
         MOV     DX,OFFSET IGNORE
         CALL    MESSAGE
         POP     SI
         RET
+; List every track affected by Ignore, including partial data reads.
+SUMMARY:PUSH    DS
+        POP     ES
+        MOV     DI,OFFSET LINE
+        XOR     BX,BX
+SUM1:   CMP     BYTE PTR [MISSED+BX],0
+        JE      SUM2
+        MOV     AL,BL
+        CALL    HEX
+        MOV     AL,' '
+        STOSB
+SUM2:   INC     BX
+        CMP     BL,[LIMIT]
+        JB      SUM1
+        MOV     AX,0A0DH
+        STOSW
+        MOV     AL,'$'
+        STOSB
+        MOV     DX,OFFSET LINE
+        JMP     MESSAGE
+
 ; '$'-terminated diagnostic to stderr, keeping layout output separate.
 MESSAGE:PUSH    DX
         MOV     SI,DX
@@ -465,9 +750,25 @@ MSG1:   LODSB
         INT     21H
         RET
 
-HELP    DB      'Usage: DISKCOPY source: /T (read-only diagnostic)',13,10,'$'
+HELP    DB      'Usage: DISKCOPY source: target: [/V]',13,10
+        DB      '       DISKCOPY source: /T (read-only diagnostic)',13,10,'$'
 NOMEN   DB      'Not enough conventional memory.',13,10,'$'
-NOIDS   DB      'Cannot identify media mode (no readable IDs).',13,10,'$'
+NOIDS   DB      'Cannot select or identify media mode.',13,10,'$'
+SOURCEQ DB      'Insert SOURCE diskette in drive $'
+TARGETQ DB      'Target data will be destroyed.',13,10
+        DB      'Insert TARGET diskette in drive $'
+INSERTEND LABEL BYTE
+LETTER  DB      'A: and press ENTER (Esc aborts).',13,10,'$'
+MISMATCH DB     'Source and target media modes differ.',13,10,'$'
+MIXEDERR DB     'Track '
+MIXEDTRK DB     '00: mixed sector sizes cannot be reproduced.',13,10
+         DB     'Abort or Ignore (A/I)? $'
+VERIFYERR DB    'Target sector verification failed.',13,10,'$'
+WRITEERR DB     'Target write error. Retry or Abort (R/A)?',13,10,'$'
+NOTREADY DB     'Target not ready. Retry or Abort (R/A)?',13,10,'$'
+PROTECT DB      'Target is write protected. Retry or Abort (R/A)?',13,10,'$'
+COPIED  DB      'Copy complete.',13,10,'$'
+INCOMPLETE DB   'Copy incomplete. Tracks not fully reproduced (hex):',13,10,'$'
 OUTERR  DB      'Cannot write diagnostic output.',13,10,'$'
 BADREAD DB      'Read error on track '
 BADTRK  DB      '00h (BIOS '
@@ -477,6 +778,14 @@ DONE    DB      'DONE',13,10
 DONEEND LABEL   BYTE
 DRIVE   DB      0
 MODE    DB      0
+SOURCE  DB      0
+TARGET  DB      0
+SRCMODE DB      0
+DIAG    DB      0
+VERIFY  DB      0
+IGNORED DB      0
+MISSED  DB      160 DUP (0)
+COMMAND DB      0
 TRACK   DB      0
 FM      DB      0
 LIMIT   DB      0
@@ -485,11 +794,14 @@ BOOKOFF DW      0
 BOOKSEG DW      0
 SAVCTL  DW      0
 SAVPARM DB      5 DUP (0)
-SAVMODE DB      0
+SAVMODES DB     2 DUP (0)
 PARM    DB      5 DUP (0)
 READGAPS DB     07H,0EH,2AH,35H
 FMGAPS   DB     07H,0EH,1BH,35H
+FORMATGAPS DB   1BH,36H,50H,74H
+FMFMTGAPS DB    1BH,2AH,3AH,74H
 BUFSEG  DW      0
+STAGESEG DW     0
 SLOTSEG DW      0
 SECBYTES DW     0
 IDS     DB      4*NIDMAX DUP (?)
