@@ -586,11 +586,11 @@ ROMKEY: PUSH    DS
 
 ; INT DC / CL=F0h, AX=4A47h. Reply AX=474Ah, BX=current mode.
 ; BX request: 0=query, 1=reserve for ROM, 2=commit ROM, 3=release
-; (returns detached dictionary segment in BX, or 0).
+; (returns detached dictionary payload segment in BX, or 0).
 ; 4=commit master-disabled project FEP from reservation. Reply 3=project.
 ; 5=replace table from ES:SI (validated v2 payload), DX bytes. DI=0
-; tries reuse; otherwise DI is a new DOS block of at least ceil(DX/16)
-; paragraphs. DX=0 detaches. AX=554Ah returns old segment to free in BX
+; tries reuse; otherwise DI is a new block's payload segment with room
+; for ceil(DX/16) paragraphs. DX=0 detaches. AX=554Ah returns old payload in BX
 ; (0 for reuse/no old block); AX=4E4Ah asks for a larger block.
 ; Only JFP.COM calls the transition operations. No DOS or JFP reset here.
 JFPINT: PUSH    CX

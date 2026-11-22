@@ -142,11 +142,24 @@ FEPLOADOK:
         JC      FEPUPLOADERR
         CALL    ALLOCBLOCK
         JC      FEPUPLOADERR
-        PUSH    AX
-        MOV     DI,AX
+        MOV     ES,AX           ;Describe this block to DOS MEM /D.
+        XOR     DI,DI
+        XOR     AX,AX
+        MOV     CX,8
+        CLD
+        REP     STOSW
+        MOV     BYTE PTR ES:[0],'T' ;CONFIG INSTALL-style subarena header.
+        MOV     DI,ES
+        MOV     AX,DI
         DEC     AX
         MOV     ES,AX
+        MOV     BX,ES:[3]       ;MCB size includes the subarena header.
+        DEC     BX
         MOV     WORD PTR ES:[1],8 ;DOS system owner, not our transient PSP.
+        MOV     ES,DI
+        MOV     ES:[3],BX       ;Length of the payload in paragraphs.
+        INC     DI              ;VAIO sees a payload at payload-segment:0.
+        PUSH    DI
         CALL    INSTALLDICT
         POP     DX
         CMP     AX,554AH
@@ -275,7 +288,7 @@ ALLOCBLOCK:
         INT     21H
         JC      ALOCSETERR
         MOV     BX,[DICTEND]
-        SUB     BX,OFFSET RECORDS-15
+        SUB     BX,OFFSET RECORDS-31 ;Round up and include MEM /D header.
         MOV     CL,4
         SHR     BX,CL
         MOV     AH,48H
@@ -295,6 +308,7 @@ ALOCSETERR:
 FREEBLOCK:
         OR      BX,BX           ;Also clears carry on the no-block path.
         JZ      FREEEND
+        DEC     BX              ;Payload segment -> DOS block segment.
         MOV     ES,BX
         MOV     AH,49H
         INT     21H
