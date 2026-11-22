@@ -1,0 +1,22 @@
+--- a/experiments/msdos4-va/README.md
++++ b/experiments/msdos4-va/README.md
+@@ -88,3 +88,3 @@
+ | FDISK, DRIVER.SYS | IBM fixed-disk partitioning and IBM diskette parameters. |
+-| DISKCOPY, DISKCOMP | Assume 512-byte sectors in many places; DISKCOPY also formats tracks through generic IOCTL, which the PC-88VA driver does not implement, and calls INT 13h. Not ported. |
++| Microsoft DISKCOPY, DISKCOMP | Not ported. The Microsoft DISKCOPY assumes 512-byte sectors in many places, uses generic format IOCTL and calls INT 13h. The distribution instead ships the ROM BIOS implementation from `pc88va/VADCOPY.ASM` as `DISKCOPY.COM`. |
+ | RAMDRIVE.SYS, VDISK.SYS, SMARTDRV, XMA2EMS.SYS, XMAEM.SYS | Need extended or expanded memory of IBM-compatible machines. |
+--- a/experiments/msdos4-va/build.py
++++ b/experiments/msdos4-va/build.py
+@@ -335,3 +335,3 @@
+     (va / 'VABOOT.INC').write_bytes(boot_include(boot))
+-    for module in ('VAIO', 'VAFORMAT', 'VASYS', 'VAKEY', 'VAJFP'):
++    for module in ('VAIO', 'VAFORMAT', 'VASYS', 'VAKEY', 'VAJFP', 'VADCOPY'):
+         dos.run(va, va / 'MASM.EXE', module + ';')
+@@ -344,2 +344,3 @@
+     dos.run(va, va / 'LINK.EXE', 'VAJFP,VAJFP.EXE;')
++    dos.run(va, va / 'LINK.EXE', 'VADCOPY,VADCOPY.EXE;')
+     iosys = mz_image(expect(va / 'IO.EXE'), base=BIOSSEG)
+@@ -348,2 +349,3 @@
+     built['JFP.COM'] = mz_image(expect(va / 'VAJFP.EXE'), origin=0x100)
++    built['DISKCOPY.COM'] = mz_image(expect(va / 'VADCOPY.EXE'), origin=0x100)
+     built['KEY.COM'] = mz_image(expect(va / 'VAKEY.EXE'), origin=0x100)

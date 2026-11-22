@@ -238,3 +238,29 @@ build (`64e55e11`). The other fixtures were not gated in one-drive mode
 on the final build. The two-drive Y/N loop ran on m153 (two successful
 copies, then N, then boot of the copied disk); `/T` also passed its
 `exotic` and `hd-fm` comparisons on m153 with the final M4 binary.
+
+## M5 — Builder integration
+
+The builder template did not ship DISKCOPY. The Microsoft program in
+`v4.0/src/CMD/DISKCOPY` uses generic track IOCTL and INT 13h; this port
+instead talks directly to the ROM floppy BIOS. Apply
+[`D1/build-diskcopy.patch`](D1/build-diskcopy.patch) with `patch -p1`
+from the builder root, and update the `msdos` pin in
+`experiments/msdos4-va/lock.json` to a source commit containing D1.
+The patch adds VADCOPY to the existing MASM/LINK pass and installs the
+origin-100h image as `DISKCOPY.COM`. No Microsoft source is changed.
+
+The integration gate uses `D1/copy_gate.py run … --packaged` to boot
+and exercise the generated distribution without injecting a replacement
+COM or AUTOEXEC. On the boot case it also boots the target disk.
+The scratch builder pinned `3480e45`. The COM extracted from its
+D88 matched the independently assembled M4 executable byte for byte
+and matched the builder's recorded SHA-256.
+
+[Integration output and hashes](D1/m5-results.txt): all amended M3
+cases passed on the distribution on the same model/build combinations,
+including a boot of the copied distribution on both VA and VA2. The
+known m153 FM format failure was not repeated here; the FM copies used
+the fixed build. The first packaged `exotic` run stopped before copy
+completion at the script's 4000-frame cutoff; it passed at 5400 frames
+without rebuilding the image.
