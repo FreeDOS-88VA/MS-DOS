@@ -396,9 +396,16 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
 - `SYS d:` on a mounted NEC FAT12 SASI volume or `FORMAT d:|/Hn /S`
   installs the SASI IPL and system files. IO.SYS sets the boot drive
   from the mounted target while preserving A: and B: as floppies.
-- Implemented on `topic/d4-hdd-boot`; vaeg VA and VA2 gates recorded
-  in [D4](D4-hdd-boot.md). Real hardware and hardware switch settings
-  NOT RUN.
+- D4 accepted 2026-11-22 (`docs/D4-hdd-boot.md`, vaeg VA/VA2, 5-40 MB):
+  the ROM boots SASI target 0 block 0 (512 B at 3000:0, V3) when the
+  setup enables fixed-disk boot; `pc88va/VAHDBOOT.ASM` (blocks 0-3)
+  loads IO.SYS/MSDOS.SYS through bounded FAT12 chains; HDD-only boot to
+  C> with CONFIG.SYS/AUTOEXEC.BAT from C:; floppy boot with the HDD
+  mounted; replaces a PC-Engine IPL only after confirmation. Fix 1
+  found and fixed two floppy regressions (floppy SYS now copies
+  COMMAND.COM; FORMAT /S fits 256 KiB). Builder patch
+  `docs/D4/build-hdd-boot.patch` (after the D1 patch). NOT RUN: real
+  hardware, physical boot switches, write-protect/interrupted writes.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
