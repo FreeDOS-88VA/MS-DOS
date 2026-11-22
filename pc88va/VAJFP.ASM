@@ -140,12 +140,7 @@ FEPLOADOK:
         MOV     AH,4AH          ;Return unused COM arena before allocating.
         INT     21H
         JC      FEPUPLOADERR
-        MOV     BX,[DICTEND]
-        SUB     BX,OFFSET RECORDS-15
-        MOV     CL,4
-        SHR     BX,CL
-        MOV     AH,48H
-        INT     21H
+        CALL    ALLOCBLOCK
         JC      FEPUPLOADERR
         PUSH    AX
         MOV     DI,AX
@@ -268,6 +263,35 @@ INSTALLDICT:
         POP     ES
         MOV     BX,5
         JMP     SHORT VAIO
+ALLOCBLOCK:
+        ; Place the long-lived block high, not directly after our COM.
+        ; First fit there would strand the COM's arena below the table.
+        MOV     AX,5800H        ;Get allocation strategy.
+        INT     21H
+        JC      ALOCRET
+        PUSH    AX
+        MOV     AX,5801H
+        MOV     BX,2            ;Last fit, split from the high end.
+        INT     21H
+        JC      ALOCSETERR
+        MOV     BX,[DICTEND]
+        SUB     BX,OFFSET RECORDS-15
+        MOV     CL,4
+        SHR     BX,CL
+        MOV     AH,48H
+        INT     21H
+        POP     BX              ;Original strategy. Preserve allocation result.
+        PUSHF
+        PUSH    AX
+        MOV     AX,5801H
+        INT     21H
+        POP     AX
+        POPF
+ALOCRET:RET
+ALOCSETERR:
+        POP     AX
+        STC
+        RET
 FREEBLOCK:
         OR      BX,BX           ;Also clears carry on the no-block path.
         JZ      FREEEND
