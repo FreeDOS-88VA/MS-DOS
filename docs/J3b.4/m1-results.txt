@@ -1,0 +1,10 @@
+va  640 KiB  PLAIN  edtest  exit;  1 TVRAM shots
+va  640 KiB  PLAIN  fulltest  exit;  1 TVRAM shots
+va2 256 KiB  PLAIN  edtest  exit;  1 TVRAM shots
+va2 256 KiB  PLAIN  fulltest  exit;  1 TVRAM shots
+va2 640 KiB  PLAIN  edtest  exit;  1 TVRAM shots
+va2 640 KiB  PLAIN  fulltest  exit;  1 TVRAM shots
+6 cases reached exit; 6 TVRAM shots
+va-640: PASS ADD/DEL/LIST, boot root, rejected duplicate/missing/invalid/oversize/full, exact FAT readback
+va2-256: PASS ADD/DEL/LIST, boot root, rejected duplicate/missing/invalid/oversize/full, exact FAT readback
+va2-640: PASS ADD/DEL/LIST, boot root, rejected duplicate/missing/invalid/oversize/full, exact FAT readback

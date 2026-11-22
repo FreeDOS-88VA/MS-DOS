@@ -1,0 +1,12 @@
+va-640	user-only	PASS	ROM calls 0 0 0 0 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va-640	user-bridge	PASS	ROM calls 1 1 1 1 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va-640	COPY CON / EDLIN	PASS	exact FAT bytes and TYPE
+va2-256	user-only	PASS	ROM calls 0 0 0 0 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-256	user-bridge	PASS	ROM calls 1 1 1 1 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-256	COPY CON / EDLIN	PASS	exact FAT bytes and TYPE
+va2-640	user-only	PASS	ROM calls 0 0 0 0 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-640	user-bridge	PASS	ROM calls 1 1 1 1 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-640	COPY CON / EDLIN	PASS	exact FAT bytes and TYPE
+va-640	CHKDSK plain/empty/loaded	PASS	524000/524000/524000
+va2-256	CHKDSK plain/empty/loaded	PASS	130784/130784/130784
+va2-640	CHKDSK plain/empty/loaded	PASS	524000/524000/524000

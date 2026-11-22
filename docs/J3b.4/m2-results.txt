@@ -1,0 +1,10 @@
+va  640 KiB  FEP  resident  exit; 18 TVRAM shots
+va  640 KiB  FEP  corrupt  exit;  4 TVRAM shots
+va2 256 KiB  FEP  resident  exit; 18 TVRAM shots
+va2 256 KiB  FEP  corrupt  exit;  4 TVRAM shots
+va2 640 KiB  FEP  resident  exit; 18 TVRAM shots
+va2 640 KiB  FEP  corrupt  exit;  4 TVRAM shots
+6 cases reached exit; 66 TVRAM shots
+va-640: PASS registration/reload, user↔BIOS order, confirm, built-in miss, corrupt fallback
+va2-256: PASS registration/reload, user↔BIOS order, confirm, built-in miss, corrupt fallback
+va2-640: PASS registration/reload, user↔BIOS order, confirm, built-in miss, corrupt fallback

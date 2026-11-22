@@ -8,7 +8,7 @@ FEPPC   DW      0               ;Unresolved suffix length (0..4).
 FEPPEND DB      4 DUP (0)
 FEPCELLS DW     FEPMax DUP (0)
 FEPREAD DW      0               ;Next uncached confirmed byte, or zero.
-FEPCHOICE DB    0               ;An open candidate session.
+FEPCHOICE DB    0               ;0 none, 1 BIOS, 2 whole-reading user word.
 FEPKATA DB      0               ;Explicit F7, independent of the backend.
 FEPFOCUS DW     0               ;BIOS focus start:length in full-width cells.
 FEPCOUNT DB     0               ;Validated candidate length in cells.
@@ -20,6 +20,16 @@ FEPVISIBLE EQU  72              ;Leave room for prefix, focus and cursor.
 FEPPFX  DB      '[H] '
 FEPBUF  DB      FEPVISIBLE+1 DUP (0) ;Unmarked candidate or editable reading.
 FEPCVIEW DB     '[C] ',FEPVISIBLE+3 DUP (0) ;Candidate display with focus.
+; Same fixed record layout as VAJFP's version-1 file, without the header.
+FEPUFIELD EQU   60
+FEPUREC EQU     2+2*FEPUFIELD
+FEPUCAP EQU     8*FEPUREC
+FEPUEND DW      OFFSET FEPUDATA
+FEPUSLOT DW     0               ;Current/last matching user-record offset.
+FEPUBRIDGE DB   0               ;Can return from BIOS to the user prefix.
+FEPUFOCUS DW    0
+FEPUFIRST DB    FEPVISIBLE+1 DUP (0) ;Initial BIOS result for reverse crossing.
+FEPUDATA DB     FEPUCAP DUP (0)
 
 ; Pump only after a primitive get. CF=0 returns the original AX for the
 ; ordinary VAIO decoder; CF=1 means project consumed the physical key.
@@ -157,6 +167,9 @@ FEPPREVKEY:
         CALL    FEPPREV
         JMP     SHORT FEPDRAW
 FEPPHRASE:
+        CMP     [FEPCHOICE],2   ;Whole-reading user words have no phrases.
+        JE      FEPDRAW
+        MOV     [FEPUBRIDGE],0 ;Stay in BIOS once navigating its phrases.
         CALL    FEPSUG
         JMP     SHORT FEPDRAW
 FEPFIRST:
@@ -223,8 +236,8 @@ FEPEDITDONE:RET
 ; 618JFP section 6.18.3. Serialize at the CON request boundary; never
 ; invoke reset, file services or learning here. Begin accepts only full-
 ; width hiragana (plus the prolonged sound mark). All Sug calls see the
-; same input and output buffers throughout a session. Use BIOS ordering
-; and endpoint semantics, not an unbounded project candidate list.
+; same input and output buffers throughout a session. A bounded, exact
+; whole-reading user prefix precedes BIOS ordering and endpoint semantics.
 FEPBEGIN:
         JCXZ    FEPBADREAD
         MOV     DI,OFFSET FEPINPUT
@@ -240,6 +253,14 @@ FEPIN2: MOV     [DI],AH
         ADD     DI,2
         LOOP    FEPIN1
         MOV     BYTE PTR [DI],0
+        MOV     [FEPUBRIDGE],0
+        MOV     BX,OFFSET FEPUDATA
+        MOV     DX,FEPUREC
+        CALL    FEPUFIND
+        JNC     FEPSTARTBIOS
+        JMP     FEPUAPPLY
+FEPBADREAD:RET
+FEPSTARTBIOS:
         ; Discard the prior session's entire output, including terminators.
         MOV     DI,OFFSET FEPWORK
         PUSH    DS
@@ -249,11 +270,117 @@ FEPIN2: MOV     [DI],AH
         REP     STOSB
         MOV     [FEPGUARD],0A5H
         MOV     CL,4            ;Sug1st.
-        JMP     SHORT FEPSUG
-FEPBADREAD:RET
-FEPNEXT:MOV     CL,5            ;SugNxt.
-        JMP     SHORT FEPSUG
-FEPPREV:MOV     CL,6            ;SugPrv.
+        JMP     FEPSUG
+FEPNEXT:CMP     [FEPCHOICE],2
+        JE      FEPUNEXT
+        MOV     CL,5            ;SugNxt.
+        JMP     FEPSUG
+FEPPREV:CMP     [FEPCHOICE],2
+        JNE     FEPBIOSPREV
+        JMP     FEPUPREV
+FEPBIOSPREV:CMP [FEPUBRIDGE],0
+        JNE     FEPUBACK
+        MOV     CL,6            ;SugPrv.
+        JMP     FEPSUG
+
+FEPUNEXT:MOV    BX,[FEPUSLOT]
+        ADD     BX,FEPUREC
+        MOV     DX,FEPUREC
+        CALL    FEPUFIND
+        JC      FEPUAPPLY
+        MOV     [FEPCHOICE],0   ;Even an invalid BIOS result needs QuitJFP.
+        CALL    FEPSTARTBIOS
+        CMP     [FEPCHOICE],1
+        JNE     FEPURET
+        MOV     [FEPUBRIDGE],1
+        MOV     AX,[FEPFOCUS]
+        MOV     [FEPUFOCUS],AX
+        MOV     SI,OFFSET FEPBUF
+        MOV     DI,OFFSET FEPUFIRST
+        CALL    FEPVISLEN
+        REP     MOVSB           ;FEPSUG left ES=DS on success.
+        RET
+FEPUBACK:
+        ; Do not ask BIOS to go before its first candidate: on VA2 it
+        ; wraps for some readings despite the documented endpoint behavior.
+        CALL    FEPUATFIRST
+        JE      FEPUBACKUSER
+        MOV     CL,6
+        JMP     FEPSUG
+FEPUBACKUSER:
+        CALL    FEPCANCEL
+        MOV     BX,[FEPUSLOT]
+        JMP     SHORT FEPUAPPLY
+FEPUATFIRST:
+        MOV     AX,[FEPFOCUS]
+        CMP     AX,[FEPUFOCUS]
+        JNE     FEPURET
+        PUSH    DS
+        POP     ES
+        MOV     SI,OFFSET FEPBUF
+        MOV     DI,OFFSET FEPUFIRST
+        CALL    FEPVISLEN
+        REPE    CMPSB
+FEPURET:RET
+FEPVISLEN:XOR   CH,CH
+        MOV     CL,[FEPCOUNT]
+        SHL     CX,1
+        INC     CX              ;Include terminator.
+        RET
+
+FEPUPREV:MOV    BX,[FEPUSLOT]
+        SUB     BX,FEPUREC
+        MOV     DX,-FEPUREC
+        CALL    FEPUFIND
+        JNC     FEPURET
+FEPUAPPLY:
+        MOV     [FEPUSLOT],BX
+        LEA     SI,[BX+2+FEPUFIELD]
+        MOV     DI,OFFSET FEPBUF
+        XOR     CH,CH
+        MOV     CL,[BX+1]
+        MOV     AX,CX
+        SHR     AX,1
+        MOV     [FEPCOUNT],AL
+        MOV     [FEPFOCUS],AX   ;Highlight the whole user word.
+        PUSH    DS
+        POP     ES
+        REP     MOVSB
+        MOV     BYTE PTR [DI],0
+        MOV     [FEPCHOICE],2
+        RET
+
+; BX points at the first slot to test; DX is the signed slot stride.
+; Return CF=1 with BX at a match. No DOS and no firmware calls.
+FEPUFIND:
+        PUSH    DS
+        POP     ES
+FEPUSCAN:CMP    BX,OFFSET FEPUDATA
+        JB      FEPUNONE
+        CMP     BX,[FEPUEND]
+        JAE     FEPUNONE
+        MOV     AX,[FEPLEN]
+        CMP     AL,[BX]
+        JNE     FEPUSKIP
+        MOV     AL,[BX+1]       ;Defend the copy bound even for a bad caller.
+        CMP     AL,2
+        JB      FEPUSKIP
+        CMP     AL,FEPUFIELD
+        JA      FEPUSKIP
+        TEST    AL,1
+        JNZ     FEPUSKIP
+        MOV     SI,OFFSET FEPINPUT
+        LEA     DI,[BX+2]
+        MOV     CX,[FEPLEN]
+        REPE    CMPSB
+        JE      FEPUFOUND
+FEPUSKIP:ADD    BX,DX
+        JMP     SHORT FEPUSCAN
+FEPUNONE:CLC
+        RET
+FEPUFOUND:STC
+        RET
+
 FEPSUG: MOV     SI,OFFSET FEPINPUT
         MOV     DI,OFFSET FEPWORK
         CALL    FEPJFP
@@ -300,11 +427,15 @@ FEPOUT3:MOV     CX,SI
         MOV     [FEPCHOICE],1
         RET
 FEPCANCEL:
+        CMP     [FEPCHOICE],2
+        JE      FEPCLEARCHOICE ;No BIOS session for a user word.
         PUSH    AX              ;FEPADD still needs the letter in AL.
         MOV     CL,3            ;QuitJFP: reset pending front-end state.
         CALL    FEPJFP
         POP     AX
+FEPCLEARCHOICE:
         MOV     [FEPCHOICE],0
+        MOV     [FEPUBRIDGE],0
         RET
 FEPCOMMIT:
         ; §6.18.3 Decide learns; there is no documented non-learning
