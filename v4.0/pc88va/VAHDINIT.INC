@@ -104,6 +104,10 @@ HDPROBEC:
         POP     DI
         MOV     AL,[HDNEXT]
         MOV     [DI+HDTARGET],AL
+        MOV     CL,AL
+        MOV     AL,1
+        SHL     AL,CL
+        OR      [SASIMAP],AL
         ; The scale is derived from the copied sector size.
         MOV     AL,[DI+1]
         MOV     [DI+HDSCALE],AL

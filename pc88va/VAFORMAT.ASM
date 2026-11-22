@@ -2,7 +2,8 @@
 
 ; SPDX-License-Identifier: MIT
 ;
-; FORMAT d: [/S] [/V:label]
+; FORMAT A:|B: [/S] [/V:label]
+; FORMAT d:|/H0|/H1 [/V:label]  (SASI, NEC VA FAT12)
 ;
 ; Formats a 2HD diskette in drive A: or B: with 1024-byte sectors, 8
 ; sectors per track, 80 cylinders and 2 heads (1,280 sectors), writes the
@@ -24,7 +25,8 @@ LBLNAME DB      11 DUP (' ')
 HASLBL  DB      0
 WORKSEG DW      0               ;8 KB sector buffer.
 
-S_USAGE DB      'Usage: FORMAT A:|B: [/S] [/V:label]',13,10,'$'
+S_USAGE DB      'Usage: FORMAT A:|B: [/S] [/V:label]',13,10
+        DB      '       FORMAT d:|/H0|/H1 [/V:label] (SASI)',13,10,'$'
 S_INS1  DB      'Insert new diskette for drive $'
 S_INS2  DB      ':',13,10,'and press ENTER when ready...$'
 S_FMT   DB      'Formatting...$'
@@ -41,8 +43,33 @@ S_CUR   DB      'Cannot format the current drive with /S',13,10,'$'
 ; the .COM segment, so run on a stack inside the program.
 MAIN:   MOV     SP,OFFSET STKTOP
         CLD
-        CALL    GETDRV
-        JC      USAGE
+        MOV     SI,81H          ;DISKCOPY's GETDRV only accepts A:/B:.
+FMTSKIP:LODSB
+        CMP     AL,' '
+        JE      FMTSKIP
+        CMP     AL,9
+        JE      FMTSKIP
+        CMP     AL,'/'
+        JE      FMTRAW
+        AND     AL,0DFH
+        SUB     AL,'A'
+        CMP     AL,25
+        JA      USAGE
+        CMP     BYTE PTR [SI],':'
+        JNE     USAGE
+        INC     SI
+        MOV     [DRV],AL
+        JMP     SHORT OPT1
+FMTRAW: LODSB
+        AND     AL,0DFH
+        CMP     AL,'H'
+        JNE     USAGE
+        LODSB
+        SUB     AL,'0'
+        CMP     AL,1
+        JA      USAGE
+        MOV     [FTARGET],AL
+        MOV     [DRV],0FFH
 OPT1:   LODSB
         CMP     AL,' '
         JE      OPT1
@@ -95,7 +122,10 @@ OPTEND: MOV     AX,OFFSET ENDPROG+15
         MOV     [WORKSEG],AX
         ADD     AX,200H
         MOV     [NEXTSEG],AX
-        CMP     [OPTSYS],0
+        CMP     [DRV],1
+        JBE     @F
+        JMP     SASIFORM
+@@:     CMP     [OPTSYS],0
         JE      ASK
         MOV     AH,19H          ;Current drive is the source.
         INT     21H
@@ -208,6 +238,37 @@ ROOT1:  CALL    WRSEC
         LOOP    ROOT1
         CMP     [HASLBL],0
         JE      ROOT2
+        CALL    ROOTLABEL
+ROOT2:  MOV     AX,1+NFAT*FATSEC
+        XOR     BX,BX
+        CALL    WRSEC
+        JNC     @F
+        JMP     FMTERR
+@@:     PUSH    CS
+        POP     ES
+        MOV     AH,0DH          ;Make DOS read the new disk.
+        INT     21H
+
+        CMP     [OPTSYS],0
+        JE      REPORT
+        MOV     AL,[DRV]
+        ADD     AL,'A'
+        MOV     CX,NSYS
+        CALL    SAVESYS
+        JNC     SYSOK
+        CALL    PUTS
+        MOV     AX,4C04H
+        INT     21H
+SYSOK:  MOV     DX,OFFSET S_SYSOK
+        CALL    PUTS
+        JMP     SHORT REPORT
+
+; Write one standard FAT volume-label entry at ES:0.
+ROOTLABEL:
+        XOR     AX,AX
+        XOR     DI,DI
+        MOV     CX,16
+        REP     STOSW
         MOV     SI,OFFSET LBLNAME
         XOR     DI,DI
         MOV     CX,11
@@ -240,27 +301,7 @@ ROOT1:  CALL    WRSEC
         OR      AX,BX
         OR      AL,DL
         MOV     ES:[24],AX
-ROOT2:  MOV     AX,1+NFAT*FATSEC
-        XOR     BX,BX
-        CALL    WRSEC
-        JC      FMTERR
-        PUSH    CS
-        POP     ES
-        MOV     AH,0DH          ;Make DOS read the new disk.
-        INT     21H
-
-        CMP     [OPTSYS],0
-        JE      REPORT
-        MOV     AL,[DRV]
-        ADD     AL,'A'
-        MOV     CX,NSYS
-        CALL    SAVESYS
-        JNC     SYSOK
-        CALL    PUTS
-        MOV     AX,4C04H
-        INT     21H
-SYSOK:  MOV     DX,OFFSET S_SYSOK
-        CALL    PUTS
+        RET
 
 REPORT: CALL    CRLF
         MOV     DL,[DRV]
@@ -323,6 +364,291 @@ CLRBUF: PUSH    AX
         POP     CX
         POP     AX
         XOR     BX,BX
+        RET
+
+; SASI layout (602HDD section 6.2.3; D2 NEC BPB table). All metadata is
+; below physical block 420. The first FAT signature is written last.
+FTARGET DB      0
+FTYPE   DB      0
+FBLOCK  DW      0
+FFAT2   DW      0
+FROOT   DW      0
+FEND    DW      0
+FIO     DW      0
+HFLAGS  DW      0245H          ;ROM call flags as in the resident driver.
+FANSWER DB      8,0,8 DUP (0)
+FFATS   DB      1,2,4,4         ;1024-byte sectors per FAT.
+FROOTS  DB      19,31,47,96     ;32 root entries per sector.
+S_HSYS  DB      '/S is not supported for SASI disks.',13,10,'$'
+S_HBAD  DB      'No supported SASI disk for this selection.',13,10,'$'
+S_HMNT  DB      'Target is already mounted. Use its DOS drive letter.',13,10,'$'
+S_HCUR  DB      'Cannot format the current or boot drive.',13,10,'$'
+S_HWARN DB      'ALL DATA ON FIXED DISK $'
+S_HTARG DB      ' (SASI target $'
+S_HWRAW DB      'SASI target $'
+S_HWEND DB      ' WILL BE LOST',13,10,'Type Y and press Enter to continue: $'
+S_HSTOP DB      'Format cancelled.',13,10,'$'
+S_HCON  DB      'SASI FORMAT requires console input.',13,10,'$'
+S_HMEM  DB      'Not enough memory for the SASI format buffer.',13,10,'$'
+S_HFAT  DB      'Writing FATs...',13,10,'$'
+S_HROOT DB      'Writing root directory...',13,10,'$'
+S_HDONE DB      'Format complete. Reboot before accessing the disk.',13,10,'$'
+S_HFAIL DB      'SASI format failed. Reboot before accessing the disk.',13,10,'$'
+
+SASIFORM:
+        CMP     [OPTSYS],0
+        JE      HBUFFER
+        MOV     DX,OFFSET S_HSYS
+        JMP     HREFUSE
+HBUFFER:MOV     AX,[WORKSEG]    ;Align physical DMA buffer to 1024 bytes.
+        ADD     AX,63
+        AND     AX,0FFC0H
+        MOV     [WORKSEG],AX
+        ADD     AX,64
+        CMP     AX,DS:[2]       ;End of the DOS allocation (PSP:0002).
+        JBE     HSELECT
+        MOV     DX,OFFSET S_HMEM
+        JMP     HREFUSE
+HSELECT:CMP     [DRV],0FFH
+        JE      HRAW
+        MOV     BL,[DRV]
+        INC     BL
+        CALL    HIDENT
+        JC      HBAD
+        MOV     [FTARGET],AL
+        MOV     AH,19H
+        INT     21H
+        INC     AL
+        CALL    HPROTECT
+        MOV     AX,3305H        ;DOS boot drive (one-based).
+        INT     21H
+        CMP     DL,1
+        JB      HBAD
+        CMP     DL,26
+        JA      HBAD
+        MOV     AL,DL
+        CALL    HPROTECT
+        JMP     SHORT HSENSE
+HRAW:   MOV     BL,1            ;VA floppy driver knows the boot-time map.
+        MOV     CL,0F0H
+        CALL    HIOCTL
+        JC      HBAD
+        CMP     BYTE PTR [FIO+1],0D3H
+        JNE     HBAD
+        MOV     AL,1
+        MOV     CL,[FTARGET]
+        SHL     AL,CL
+        TEST    BYTE PTR [FIO],AL
+        JZ      HSENSE
+        MOV     DX,OFFSET S_HMNT
+        JMP     HREFUSE
+HBAD:   MOV     DX,OFFSET S_HBAD
+HREFUSE:CALL    PUTS
+        MOV     AX,4C01H
+        INT     21H
+
+HSENSE: CALL    HPROBE
+        JC      HBAD
+        MOV     [FTYPE],AL
+        MOV     AX,4400H        ;Don't take destructive confirmation from a file.
+        XOR     BX,BX
+        INT     21H
+        JC      HNOCON
+        AND     DL,81H          ;Character device with console input bit.
+        CMP     DL,81H
+        JE      HWARN
+HNOCON: MOV     DX,OFFSET S_HCON
+        JMP     HREFUSE
+HWARN:  MOV     DX,OFFSET S_HWARN
+        CALL    PUTS
+        MOV     DX,OFFSET S_HWRAW
+        CMP     [DRV],0FFH
+        JE      HWRAW
+        MOV     DL,[DRV]
+        ADD     DL,'A'
+        CALL    HCHAR
+        MOV     DL,':'
+        CALL    HCHAR
+        MOV     DX,OFFSET S_HTARG
+HWRAW:  CALL    PUTS
+        MOV     DL,[FTARGET]
+        ADD     DL,'0'
+        CALL    HCHAR
+        CMP     [DRV],0FFH
+        JE      HWEND
+        MOV     DL,')'
+        CALL    HCHAR
+HWEND:  MOV     DX,OFFSET S_HWEND
+        CALL    PUTS
+        MOV     DX,OFFSET FANSWER
+        MOV     AX,0C0AH        ;Discard type-ahead before asking DOS for a line.
+        INT     21H
+        CALL    CRLF
+        CMP     [FANSWER+1],1
+        JNE     HCANCEL
+        MOV     AL,[FANSWER+2]
+        AND     AL,0DFH
+        CMP     AL,'Y'
+        JE      HCONFIRM
+HCANCEL:MOV     DX,OFFSET S_HSTOP
+        JMP     HREFUSE
+HCONFIRM:
+        CALL    HPROBE          ;Recheck BIOS type before committing.
+        JC      HREFJ
+        CMP     AL,[FTYPE]
+        JNE     HREFJ
+        CMP     [DRV],0FFH
+        JE      HFORMAT
+        MOV     AH,0DH          ;Flush DOS buffers before taking the unit offline.
+        INT     21H
+        MOV     BL,[DRV]
+        INC     BL
+        MOV     AL,[FTARGET]
+        MOV     AH,0D4H
+        MOV     [FIO],AX
+        MOV     CL,0F1H
+        CALL    HIOCTL
+        JNC     HFORMAT
+HREFJ:  JMP     HBAD
+
+HFORMAT:MOV     ES,[WORKSEG]
+        XOR     BX,BX
+        MOV     BL,[FTYPE]
+        XOR     AX,AX
+        MOV     AL,FFATS[BX]
+        SHL     AX,1
+        SHL     AX,1
+        ADD     AX,4
+        MOV     [FFAT2],AX
+        SHL     AX,1
+        SUB     AX,4
+        MOV     [FROOT],AX
+        XOR     DX,DX
+        MOV     DL,FROOTS[BX]
+        SHL     DX,1
+        SHL     DX,1
+        ADD     DX,AX
+        MOV     [FEND],DX
+
+        MOV     DX,OFFSET S_HFAT
+        CALL    PUTS
+        CALL    CLRBUF
+        MOV     [FBLOCK],8      ;Skip first logical sector of FAT 1.
+HFAT:   MOV     AX,[FBLOCK]
+        CMP     AX,[FROOT]
+        JE      HROOT
+        CMP     AX,[FFAT2]
+        JE      HFATNEXT
+        CALL    HWRITE
+        JC      HFAIL
+HFATNEXT:
+        ADD     [FBLOCK],4
+        JMP     HFAT
+HROOT:  MOV     DX,OFFSET S_HROOT
+        CALL    PUTS
+        XOR     DI,DI
+        MOV     CX,32
+HENTRY: MOV     AL,0
+        STOSB
+        MOV     AL,0E5H         ;HDFORM: 00h then 31 E5h bytes per entry.
+        PUSH    CX
+        MOV     CX,31
+        REP     STOSB
+        POP     CX
+        LOOP    HENTRY
+HROOT1: CALL    HWRITE
+        JC      HFAIL
+        ADD     [FBLOCK],4
+        MOV     AX,[FBLOCK]
+        CMP     AX,[FEND]
+        JB      HROOT1
+        CMP     [HASLBL],0
+        JE      HSIGN
+        CALL    ROOTLABEL
+        MOV     AX,[FROOT]
+        MOV     [FBLOCK],AX
+        CALL    HWRITE
+        JC      HFAIL
+HSIGN:  CALL    CLRBUF
+        MOV     AL,[FTYPE]
+        ADD     AL,0D0H
+        MOV     ES:[0],AL
+        MOV     WORD PTR ES:[1],0FFFFH
+        MOV     AX,[FFAT2]
+        MOV     [FBLOCK],AX
+        CALL    HWRITE
+        JC      HFAIL
+        MOV     [FBLOCK],4
+        CALL    HWRITE
+        JC      HFAIL
+        MOV     DX,OFFSET S_HDONE
+        CALL    PUTS
+        MOV     AX,4C00H
+        INT     21H
+HFAIL:  MOV     DX,OFFSET S_HFAIL
+        CALL    PUTS
+        MOV     AX,4C04H
+        INT     21H
+
+HCHAR:  MOV     AH,02H
+        INT     21H
+        RET
+
+; AL = one-based current or boot letter; also catch an alias of the target.
+HPROTECT:
+        MOV     BL,AL
+        DEC     AL
+        CMP     AL,[DRV]
+        JE      HCUR
+        CALL    HIDENT
+        JC      HOTHER
+        CMP     AL,[FTARGET]
+        JNE     HOTHER
+HCUR:   MOV     DX,OFFSET S_HCUR
+        JMP     HREFUSE
+HOTHER: RET
+
+HIDENT: MOV     [FIO],0         ;Require the driver to fill this packet.
+        MOV     CL,0F0H
+        CALL    HIOCTL
+        JC      HIDA
+        MOV     AX,[FIO]
+        CMP     AH,0D4H
+        JNE     HIDFAIL
+        CMP     AL,2
+        CMC
+HIDA:   RET
+HIDFAIL:STC
+        RET
+HIOCTL: MOV     CH,08H
+        XOR     BH,BH
+        MOV     DX,OFFSET FIO
+        MOV     AX,440DH
+        INT     21H
+        RET
+
+HPROBE: MOV     BH,[FTARGET]
+        MOV     AX,0900H
+        CALL    HROM
+        JC      HIDA
+        CMP     AL,4            ;Includes the ROM's AL=FFh (no target).
+        CMC
+        RET
+HWRITE: XOR     DX,DX
+        XOR     BP,BP
+        MOV     CX,[FBLOCK]
+        MOV     BH,[FTARGET]
+        OR      BH,80H          ;Relative block addressing.
+        MOV     AX,8204H        ;WRITE DATA, no retries, four blocks.
+HROM:   PUSH    DS
+        PUSH    ES
+        PUSH    [HFLAGS]
+        POPF
+        CLC
+        INT     81H
+        CLD
+        POP     ES
+        POP     DS
         RET
 
         DW      256 DUP (0)

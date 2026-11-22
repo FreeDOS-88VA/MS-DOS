@@ -2116,6 +2116,8 @@ DSK_GIO:
         LES     DI,[BX+19]
         PUSH    CS
         POP     DS
+        CMP     AH,0F0H         ;VA FORMAT: boot-time SASI mount bitmap.
+        JE      GIO_SASI
         CMP     AH,60H
         JE      GIO_GDP
         CMP     AH,61H
@@ -2123,8 +2125,9 @@ DSK_GIO:
         CMP     AH,41H
         JE      GIO_WR
         CMP     AH,66H
-        JE      GIO_GMI
-        CMP     AH,67H
+        JNE     @F
+        JMP     GIO_GMI
+@@:     CMP     AH,67H
         JE      GIO_GAF
         CMP     AH,40H          ;Set device parameters: nothing to change.
         JE      GIO_OK
@@ -2132,6 +2135,10 @@ DSK_GIO:
         JE      GIO_OK
 GIO_BAD:
         JMP     CMDERR
+GIO_SASI:
+        MOV     AX,WORD PTR [SASIMAP]    ;Low: mounted targets. High: interface tag.
+        MOV     ES:[DI],AX
+        JMP     GIO_OK
 
 ; Get device parameters: 80-cylinder removable drive with the 2HD BPB.
 GIO_GDP:
@@ -2196,6 +2203,7 @@ DSK_OWN:
 GUNIT   DB      0
 MIDCACHE DB     NUNITS*24 DUP (0) ;Per unit: valid flag, serial, label, type.
 
+SASIMAP DB      0,0D3H         ;Available even when HDDDEV is overlaid.
 RESEND  LABEL   BYTE            ;End of resident BIOS without SASI.
 
         INCLUDE VAHDD.INC       ;Kept only if at least one target mounts.
@@ -2247,7 +2255,7 @@ HWEND:  ADD     AX,15
         MOV     [MEMORY_SIZE],CX
         MOV     WORD PTR [DEVICE_LIST],OFFSET DEVSTART
         MOV     WORD PTR [DEVICE_LIST+2],CS
-        MOV     [DEFAULT_DRIVE],0
+        MOV     [DEFAULT_DRIVE],1 ;VABOOT loads from A: (one-based SYSINIT).
         ASSUME  DS:CODE
         JMP     SYSINIT
 

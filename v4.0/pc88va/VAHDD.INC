@@ -69,16 +69,26 @@ HDFOUND:MOV     BL,HDSIZE
         RET
 
 HDMEDIA:CALL    HDFIND
+        MOV     AL,1
+        TEST    BYTE PTR [SI+HDTARGET],80H
+        JZ      HDMEDSTAT
+        NEG     AL              ;Changed: DOS must not reuse the old BPB.
+HDMEDSTAT:
         LDS     BX,[PTRSAV]
-        MOV     BYTE PTR [BX+MEDSTAT],1
+        MOV     [BX+MEDSTAT],AL
         JMP     HDOK
 HDBUILD:CALL    HDFIND
+        TEST    BYTE PTR [SI+HDTARGET],80H
+        JNZ     HDNOTRDY
         LDS     BX,[PTRSAV]
         MOV     AL,CS:[SI+HDMEDIAID]
         MOV     [BX.MEDIA],AL
         MOV     [BX+BPBPTR],SI
         MOV     WORD PTR [BX+BPBPTR+2],CS
         JMP     HDOK
+HDNOTRDY:
+        MOV     AL,2
+        JMP     ERR_EXIT
 
 HDHIGH: CMP     DI,13
         JB      HDUNK
@@ -99,12 +109,28 @@ HDIOCTL:CMP     DI,19
         LES     DI,[BX+19]
         PUSH    CS
         POP     DS
+        CMP     AH,0F0H         ;VA FORMAT: identify physical SASI target.
+        JE      HDIDENT
+        CMP     AH,0F1H         ;Quarantine this unit until reboot.
+        JE      HDLOCK
         CMP     AH,60H
         JE      HDGDP
         CMP     AH,67H
         JNE     HDUNK
         JMP     GIO_GAF
 HDUNK:  JMP     CMDERR
+HDIDENT:MOV     AL,[SI+HDTARGET]
+        AND     AL,1
+        MOV     AH,0D4H
+        MOV     ES:[DI],AX
+        JMP     HDOK
+HDLOCK: MOV     AL,[SI+HDTARGET]
+        AND     AL,1
+        MOV     AH,0D4H
+        CMP     AX,ES:[DI]      ;Must match the target the user confirmed.
+        JNE     HDUNK
+        OR      BYTE PTR [SI+HDTARGET],80H
+        JMP     HDOK
 HDGDP:  MOV     BYTE PTR ES:[DI+1],5 ;Fixed disk.
         MOV     WORD PTR ES:[DI+2],1 ;Non-removable.
         MOV     AX,[SI+HDTOT16]
@@ -150,7 +176,11 @@ HDWRITE:MOV     [HDOP],82H       ;No ROM write-with-verify operation.
         JMP     SHORT HDIO
 HDREAD: MOV     [HDOP],81H
 HDIO:   CALL    HDFIND
-        OR      CX,CX
+        TEST    BYTE PTR [SI+HDTARGET],80H
+        JZ      HDREADY
+        MOV     AL,2
+        JMP     HDERROR
+HDREADY:OR      CX,CX
         JNZ     HDLBA
         JMP     HDOK
 HDLBA:  XOR     AX,AX
