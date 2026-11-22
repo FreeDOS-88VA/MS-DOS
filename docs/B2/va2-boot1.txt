@@ -1,0 +1,274 @@
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>TYPE CONFIG.SYS
+FILES=20
+BUFFERS=10
+LASTDRIVE=E
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>TYPE CONFIG.SYS
+FILES=20
+BUFFERS=10
+LASTDRIVE=E
+
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>TYPE CONFIG.SYS
+FILES=20
+BUFFERS=10
+LASTDRIVE=E
+
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY COMMAND.COM X.COM
+        1 個のファイルをコピーしました
+
+A:\>
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>TYPE CONFIG.SYS
+FILES=20
+BUFFERS=10
+LASTDRIVE=E
+
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY COMMAND.COM X.COM
+        1 個のファイルをコピーしました
+
+A:\>MD SUB
+
+A:\>
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>TYPE CONFIG.SYS
+FILES=20
+BUFFERS=10
+LASTDRIVE=E
+
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY COMMAND.COM X.COM
+        1 個のファイルをコピーしました
+
+A:\>MD SUB
+
+A:\>COPY X.COM SUB
+        1 個のファイルをコピーしました
+
+A:\>
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>TYPE CONFIG.SYS
+FILES=20
+BUFFERS=10
+LASTDRIVE=E
+
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY COMMAND.COM X.COM
+        1 個のファイルをコピーしました
+
+A:\>MD SUB
+
+A:\>COPY X.COM SUB
+        1 個のファイルをコピーしました
+
+A:\>COPY README.TXT SUB
+        1 個のファイルをコピーしました
+
+A:\>
+=====
+A:\>COPY COMMAND.COM X.COM
+        1 個のファイルをコピーしました
+
+A:\>MD SUB
+
+A:\>COPY X.COM SUB
+        1 個のファイルをコピーしました
+
+A:\>COPY README.TXT SUB
+        1 個のファイルをコピーしました
+
+A:\>DIR SUB
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+ ディレクトリ: A:\SUB
+
+.            <DIR>     26-11-23    8:16
+..           <DIR>     26-11-23    8:16
+X        COM     38023 88-06-17    0:00
+README   TXT      1525 88-06-17    0:00
+        4 個のファイル     691200 バイトの空き
+
+A:\>
+=====
+
+A:\>MD SUB
+
+A:\>COPY X.COM SUB
+        1 個のファイルをコピーしました
+
+A:\>COPY README.TXT SUB
+        1 個のファイルをコピーしました
+
+A:\>DIR SUB
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+ ディレクトリ: A:\SUB
+
+.            <DIR>     26-11-23    8:16
+..           <DIR>     26-11-23    8:16
+X        COM     38023 88-06-17    0:00
+README   TXT      1525 88-06-17    0:00
+        4 個のファイル     691200 バイトの空き
+
+A:\>ECHO HELLO> X.COM
+
+A:\>
+=====
+A:\>COPY X.COM SUB
+        1 個のファイルをコピーしました
+
+A:\>COPY README.TXT SUB
+        1 個のファイルをコピーしました
+
+A:\>DIR SUB
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+ ディレクトリ: A:\SUB
+
+.            <DIR>     26-11-23    8:16
+..           <DIR>     26-11-23    8:16
+X        COM     38023 88-06-17    0:00
+README   TXT      1525 88-06-17    0:00
+        4 個のファイル     691200 バイトの空き
+
+A:\>ECHO HELLO> X.COM
+
+A:\>TYPE X.COM
+HELLO
+
+A:\>
+=====
+A:\>ECHO HELLO> X.COM
+
+A:\>TYPE X.COM
+HELLO
+
+A:\>CHKDSK
+
+ボリューム MSDOS4-VA   の作成日時: 1988-06-17 0:00
+ボリューム番号は 1988-0617 です
+
+   1299456 バイトのディスク総容量
+     68608 バイト (3 個の隠しファイル)
+      1024 バイト (1 個のディレクトリ)
+    500736 バイト (40 個のユーザーファイル)
+    729088 バイトのディスク空き領域
+
+      1024 バイトの割り当て単位
+      1269 個の総割り当て単位
+       712 個の空き割り当て単位
+
+    655360 バイトの総メモリ
+    513632 バイトの空き
+
+A:\>

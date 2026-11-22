@@ -445,6 +445,11 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   controller reports it; VA2 accepts it; PC-98H54 is not in the VA drive
   list) — no code change; JFP keeps `JFPUSER.DIC` on the DOS boot drive
   (INT 21h AX=3305h; A: fallback).
+- B2 M1 accepted 2026-11-23 (`docs/B2-dos40-bugs.md`): MS-DOS 4.01,
+  PD0255 and IBM IR80263 fixes imported unchanged from tsupplis/
+  msdos40-hacking (DEV, CTRLC, MKNODE, DISK3, FASTOPEN; FORMAT, MSINIT,
+  GRAPHICS, ANSI not shipped on VA). Open: any look-ahead buffers
+  (`BUFFERS=n,m`) stop the VA boot after the sign-on (older than B2).
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
