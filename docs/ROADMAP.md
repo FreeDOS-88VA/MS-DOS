@@ -304,6 +304,15 @@ comparison is done.
   `JFP ON` no longer means the old file-requiring ROM selection.
   Open: external dictionary files and ROM learning (NOT RUN); NEC uses
   Ctrl+XFER/Space where the VA uses ZENKAKU/HENKAN (kept VA keys).
+- J3b.4 accepted 2026-11-22 (`docs/J3b.4-user-dictionary.md`, VA 640 KiB,
+  VA2 256/640 KiB): `JFP ADD/DEL/LIST` edit the project-owned
+  `A:\JFPUSER.DIC` (`JFPUD` v1, 8 records) in the foreground; `JFP ON`
+  loads it into VAIO; whole-reading user matches come before the BIOS
+  candidates; 0 nested DOS calls over the whole CON read. Firmware
+  `AddWd`/`DelWd` deliberately unused. Cost +1,418 B resident in every
+  mode. Open: capacity of 8 words fixed in VAIO (move the table to a
+  block JFP.COM keeps resident and raise the limit); boot drive fixed
+  to A: (revisit with D4 HDD boot); reload needs `JFP ON` after edits.
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
