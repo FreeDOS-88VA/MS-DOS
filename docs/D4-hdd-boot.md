@@ -83,8 +83,10 @@ exact one it would install. It refuses the current and boot drives.
 and retains the D3 confirmation and mounted-drive quarantine. The same
 warning is shown before confirmation when FORMAT would replace a foreign
 or older IPL. FORMAT stages the source files before making changes, then
-writes their data, both FATs and the root through the SASI BIOS. Both
-commands publish the new IPL last. Neither command is transactional on
+writes their data, both FATs and the root through the SASI BIOS.
+[F1](F1-small-fixes.md#1-system-file-dates) preserves the source
+last-write dates and times in both commands, on SASI and floppy.
+Both commands publish the new IPL last. Neither command is transactional on
 error. `/H1 /S` can install on the second target, but to boot it in vaeg,
 attach the resulting disk as target 0. Reboot after FORMAT. Neither
 command installs CONFIG.SYS or AUTOEXEC.BAT; place them on the hard disk

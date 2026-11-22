@@ -195,11 +195,13 @@ PUTBO2: POP     DI
         POP     CX
         RET
 
-; System files: name offsets, attributes, sizes and load segments.
+; System files: name offsets, attributes, sizes, timestamps and load segments.
 NSYS    EQU     3
 SYSNAME DW      N_IO,N_DOS,N_CMD
 SYSATTR DW      07H,07H,0
 SYSSIZE DW      0,0,0
+SYSTIME DW      0,0,0
+SYSDATE DW      0,0,0
 SYSSEG  DW      0,0,0
 N_IO    DB      'X:\IO.SYS',0
 N_DOS   DB      'X:\MSDOS.SYS',0
@@ -225,6 +227,13 @@ LOADS1: MOV     BX,[SYSIDX]
 LOADOPEN:
         MOV     [HANDLE],AX
         MOV     BX,AX
+        MOV     AX,5700H        ;Capture the source last-write timestamp.
+        INT     21H
+        JC      LOADSIZEERR
+        MOV     SI,[SYSIDX]
+        MOV     [SYSTIME+SI],CX
+        MOV     [SYSDATE+SI],DX
+        MOV     BX,[HANDLE]
         MOV     AX,4202H        ;Measure before checking the staging space.
         XOR     CX,CX
         XOR     DX,DX
@@ -289,7 +298,7 @@ LOADS8: PUSH    DX
         MOV     AH,3EH
         INT     21H
         POP     DX
-LOADS9: STC
+        STC
         RET
 
 ; Write the first CX loaded system files to drive letter AL.  Existing
@@ -315,7 +324,7 @@ SAVES1: MOV     BX,[SYSIDX]
         MOV     AH,3CH
         INT     21H
         MOV     DX,OFFSET S_NOROOM
-        JC      LOADS9
+        JC      SAVECLOSED
         MOV     [HANDLE],AX
         MOV     CX,[SYSSIZE+BX]
         PUSH    DS
@@ -327,19 +336,33 @@ SAVES1: MOV     BX,[SYSIDX]
         INT     21H
         POP     DS
         MOV     DX,OFFSET S_NOROOM
-        JC      LOADS8
+        JC      SAVEOPENERR
         MOV     BX,[SYSIDX]
         CMP     AX,[SYSSIZE+BX]
-        JNE     LOADS8
+        JNE     SAVEOPENERR
+        MOV     CX,[SYSTIME+BX]
+        MOV     DX,[SYSDATE+BX]
+        MOV     BX,[HANDLE]
+        MOV     AX,5701H        ;After the write, before closing the file.
+        INT     21H
+        MOV     DX,OFFSET S_NOROOM
+        JC      SAVEOPENERR
         MOV     BX,[HANDLE]
         MOV     AH,3EH
         INT     21H
         MOV     DX,OFFSET S_NOROOM
-        JC      LOADS9
+        JC      SAVECLOSED
         ADD     [SYSIDX],2
         DEC     [SYSCNT]
-        JNZ     SAVES1
+        JZ      SAVEDONE
+        JMP     SAVES1
+SAVEDONE:
         CLC
+        RET
+SAVEOPENERR:
+        JMP     LOADS8
+SAVECLOSED:
+        STC
         RET
 
 SYSLTR  DB      0

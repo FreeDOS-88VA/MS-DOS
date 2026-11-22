@@ -433,8 +433,9 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   COMMAND.COM; FORMAT /S fits 256 KiB). Builder patch
   `docs/D4/build-hdd-boot.patch` (after the D1 patch). NOT RUN: real
   hardware, physical boot switches, write-protect/interrupted writes.
-  Follow-up: SASI `FORMAT /S` writes COMMAND.COM with a zero date/time
-  (80-01-01 0:00) instead of the source file's.
+  [F1](F1-small-fixes.md#1-system-file-dates) preserves the source
+  timestamps of all three system files in SASI and floppy `FORMAT /S`
+  and in `SYS`.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
