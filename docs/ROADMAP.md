@@ -438,6 +438,14 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   timestamps of all three system files in SASI and floppy `FORMAT /S`
   and in `SYS`.
 
+## Follow-ups
+- F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and
+  floppy) and SYS keep the source files' date/time; a 40 MB second SASI
+  disk is a VA BIOS limit (VA SENSE rejects target 1 type 3 although the
+  controller reports it; VA2 accepts it; PC-98H54 is not in the VA drive
+  list) — no code change; JFP keeps `JFPUSER.DIC` on the DOS boot drive
+  (INT 21h AX=3305h; A: fallback).
+
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
 - A1 accepted 2026-11-23 (`docs/A1-aux-prn.md`, vaeg M163 = vaeg PR #86,
