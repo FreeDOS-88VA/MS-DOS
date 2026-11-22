@@ -438,7 +438,7 @@ KEYINT  PROC    FAR
         JE      KIENTER
         CMP     CL,0F0H         ;Private VA JFP mode handshake, not NEC KEY.
         JNE     KINOP
-        CMP     AX,4A46H
+        CMP     AX,4A47H
         JNE     KINOP
         JMP     JFPINT
 KINOP:  IRET
@@ -584,11 +584,14 @@ ROMKEY: PUSH    DS
         POP     DS
         RET
 
-; INT DC / CL=F0h, AX=4A46h. Reply AX=464Ah, BX=current mode.
-; BX request: 0=query, 1=reserve for ROM, 2=commit ROM, 3=release,
+; INT DC / CL=F0h, AX=4A47h. Reply AX=474Ah, BX=current mode.
+; BX request: 0=query, 1=reserve for ROM, 2=commit ROM, 3=release
+; (returns detached dictionary segment in BX, or 0).
 ; 4=commit master-disabled project FEP from reservation. Reply 3=project.
-; 5=replace project dictionary (ES:SI validated records, DX byte size).
-;    AX=554Ah on successful copy; BX still reports mode.
+; 5=replace table from ES:SI (validated v2 payload), DX bytes. DI=0
+; tries reuse; otherwise DI is a new DOS block of at least ceil(DX/16)
+; paragraphs. DX=0 detaches. AX=554Ah returns old segment to free in BX
+; (0 for reuse/no old block); AX=4E4Ah asks for a larger block.
 ; Only JFP.COM calls the transition operations. No DOS or JFP reset here.
 JFPINT: PUSH    CX
         PUSH    DX
@@ -630,13 +633,17 @@ JFPREL: CMP     [JFPMODE],3
         JNE     JFPOFF
         JMP     JFPACK
 JFPENDP:CALL    FEPFLUSH
-        MOV     [FEPUEND],OFFSET FEPUDATA
+        CLI
+        CALL    JFPDETACH
+        PUSH    BX
         MOV     [FEPWIDE],0
         MOV     [JFPMODE],0
         MOV     AL,[JFPLABEL]
         MOV     AH,2FH
         CALL    LABELMODE
-        JMP     JFPACK
+        POP     BX
+        MOV     AX,474AH
+        JMP     JFPEXIT
 JFPOFF: MOV     [JFPMODE],0
         MOV     [JFPSEEN],1
         CALL    JFPCLEAR
@@ -680,10 +687,10 @@ JFPCOMMIT:
         CALL    JFPCLEAR
         MOV     CS:[JFPDIRTY],1
         CALL    JFPREFRESH
-JFPACK: MOV     AX,464AH
+JFPACK: MOV     AX,474AH
 JFPACKAX:XOR    BX,BX
         MOV     BL,CS:[JFPMODE]
-        POP     ES
+JFPEXIT:POP     ES
         POP     DS
         POP     BP
         POP     DI
@@ -696,28 +703,53 @@ JFPLOAD:CMP     [JFPMODE],3
         JNE     JFPACK
         CMP     [FEPCHOICE],0   ;Never invalidate a live candidate cursor.
         JNE     JFPACK
-        CMP     DX,FEPUCAP
+        CMP     DX,UDMAX
         JA      JFPACK
         MOV     AX,SI
         ADD     AX,DX
         JC      JFPACK
-        MOV     CX,DX
-JFPLOADN:JCXZ   JFPLOADC
-        SUB     CX,FEPUREC
-        JNC     JFPLOADN
-        JMP     SHORT JFPACK
-JFPLOADC:
-        PUSH    ES              ;Source ES:SI, destination CS:DI.
-        PUSH    DS
-        POP     ES
+        CLI
+        OR      DX,DX
+        JZ      JFPLOADEMPTY
+        MOV     BX,DI
+        OR      BX,BX
+        JNZ     JFPLOADNEW
+        CMP     DX,[FEPUCAP]
+        JA      JFPLOADMORE
+        MOV     AX,[FEPUSEG]
+        JMP     SHORT JFPLOADCOPY
+JFPLOADNEW:
+        MOV     AX,DX
+        ADD     AX,15
+        AND     AX,0FFF0H
+        MOV     [FEPUCAP],AX
+        MOV     AX,BX
+        XCHG    AX,[FEPUSEG]
+        XCHG    AX,BX           ;AX=new segment; BX=detached segment.
+JFPLOADCOPY:
+        PUSH    ES              ;Source ES:SI -> block AX:0.
         POP     DS
+        MOV     ES,AX
+        XOR     DI,DI
         CLD
-        MOV     DI,OFFSET FEPUDATA
         MOV     CX,DX
         REP     MOVSB
-        MOV     CS:[FEPUEND],DI ;Publish only once the whole copy is resident.
+        MOV     CS:[FEPUEND],DX
+        JMP     SHORT JFPLOADOK
+JFPLOADEMPTY:
+        CALL    JFPDETACH
+JFPLOADOK:
         MOV     AX,554AH
+        JMP     SHORT JFPEXIT
+JFPLOADMORE:
+        MOV     AX,4E4AH
         JMP     SHORT JFPACKAX
+JFPDETACH:
+        XOR     BX,BX
+        XCHG    BX,[FEPUSEG]
+        MOV     [FEPUCAP],0
+        MOV     [FEPUEND],0
+        RET
 
 JFPROW: MOV     AL,[LABELON]
         MOV     [JFPLABEL],AL

@@ -20,16 +20,14 @@ FEPVISIBLE EQU  72              ;Leave room for prefix, focus and cursor.
 FEPPFX  DB      '[H] '
 FEPBUF  DB      FEPVISIBLE+1 DUP (0) ;Unmarked candidate or editable reading.
 FEPCVIEW DB     '[C] ',FEPVISIBLE+3 DUP (0) ;Candidate display with focus.
-; Same fixed record layout as VAJFP's version-1 file, without the header.
-FEPUFIELD EQU   60
-FEPUREC EQU     2+2*FEPUFIELD
-FEPUCAP EQU     8*FEPUREC
-FEPUEND DW      OFFSET FEPUDATA
+        INCLUDE VAUDICT.INC
+FEPUSEG DW      0               ;DOS block segment; implicit offset zero.
+FEPUEND DW      0               ;Used bytes.
+FEPUCAP DW      0               ;Allocated bytes, paragraph rounded.
 FEPUSLOT DW     0               ;Current/last matching user-record offset.
 FEPUBRIDGE DB   0               ;Can return from BIOS to the user prefix.
 FEPUFOCUS DW    0
 FEPUFIRST DB    FEPVISIBLE+1 DUP (0) ;Initial BIOS result for reverse crossing.
-FEPUDATA DB     FEPUCAP DUP (0)
 
 ; Pump only after a primitive get. CF=0 returns the original AX for the
 ; ordinary VAIO decoder; CF=1 means project consumed the physical key.
@@ -254,8 +252,8 @@ FEPIN2: MOV     [DI],AH
         LOOP    FEPIN1
         MOV     BYTE PTR [DI],0
         MOV     [FEPUBRIDGE],0
-        MOV     BX,OFFSET FEPUDATA
-        MOV     DX,FEPUREC
+        XOR     BX,BX
+        XOR     DX,DX           ;Forward from offset zero.
         CALL    FEPUFIND
         JNC     FEPSTARTBIOS
         JMP     FEPUAPPLY
@@ -284,8 +282,12 @@ FEPBIOSPREV:CMP [FEPUBRIDGE],0
         JMP     FEPSUG
 
 FEPUNEXT:MOV    BX,[FEPUSLOT]
-        ADD     BX,FEPUREC
-        MOV     DX,FEPUREC
+        PUSH    ES
+        MOV     ES,[FEPUSEG]
+        CALL    FEPUSIZE        ;Advance past the current validated record.
+        POP     ES
+        ADD     BX,AX
+        XOR     DX,DX
         CALL    FEPUFIND
         JC      FEPUAPPLY
         MOV     [FEPCHOICE],0   ;Even an invalid BIOS result needs QuitJFP.
@@ -329,56 +331,93 @@ FEPVISLEN:XOR   CH,CH
         RET
 
 FEPUPREV:MOV    BX,[FEPUSLOT]
-        SUB     BX,FEPUREC
-        MOV     DX,-FEPUREC
+        MOV     DX,1            ;Walk back from the current boundary.
         CALL    FEPUFIND
         JNC     FEPURET
 FEPUAPPLY:
         MOV     [FEPUSLOT],BX
-        LEA     SI,[BX+2+FEPUFIELD]
-        MOV     DI,OFFSET FEPBUF
+        PUSH    ES
+        MOV     ES,[FEPUSEG]
+        XOR     AX,AX
+        MOV     AL,ES:[BX]
+        LEA     SI,[BX+2]
+        ADD     SI,AX
         XOR     CH,CH
-        MOV     CL,[BX+1]
+        MOV     CL,ES:[BX+1]
         MOV     AX,CX
         SHR     AX,1
         MOV     [FEPCOUNT],AL
         MOV     [FEPFOCUS],AX   ;Highlight the whole user word.
+        MOV     DI,OFFSET FEPBUF
+        PUSH    DS
+        PUSH    ES
         PUSH    DS
         POP     ES
+        POP     DS
         REP     MOVSB
+        POP     DS
+        POP     ES
         MOV     BYTE PTR [DI],0
         MOV     [FEPCHOICE],2
         RET
 
-; BX points at the first slot to test; DX is the signed slot stride.
+; BX is a record boundary; DX=0 scans forward, otherwise backward.
 ; Return CF=1 with BX at a match. No DOS and no firmware calls.
 FEPUFIND:
-        PUSH    DS
-        POP     ES
-FEPUSCAN:CMP    BX,OFFSET FEPUDATA
+        PUSH    ES
+        MOV     ES,[FEPUSEG]
+FEPUSCAN:OR     DX,DX
+        JZ      FEPUCHECK
+        OR      BX,BX
+        JZ      FEPUNONE
+        XOR     AX,AX
+        MOV     AL,ES:[BX-1]
+        CMP     AL,7
         JB      FEPUNONE
-        CMP     BX,[FEPUEND]
-        JAE     FEPUNONE
-        MOV     AX,[FEPLEN]
-        CMP     AL,[BX]
+        SUB     BX,AX
+        JC      FEPUNONE
+FEPUCHECK:
+        LEA     DI,[BX+7]
+        CMP     DI,[FEPUEND]
+        JA      FEPUNONE
+        CALL    FEPUSIZE
+        LEA     DI,[BX]
+        ADD     DI,AX
+        CMP     DI,[FEPUEND]
+        JA      FEPUNONE
+        MOV     CX,[FEPLEN]
+        CMP     CL,ES:[BX]
         JNE     FEPUSKIP
-        MOV     AL,[BX+1]       ;Defend the copy bound even for a bad caller.
-        CMP     AL,2
+        MOV     CL,ES:[BX+1]    ;Defend the delivery buffer's bound.
+        CMP     CL,2
         JB      FEPUSKIP
-        CMP     AL,FEPUFIELD
+        CMP     CL,UDFIELD
         JA      FEPUSKIP
-        TEST    AL,1
+        TEST    CL,1
         JNZ     FEPUSKIP
         MOV     SI,OFFSET FEPINPUT
         LEA     DI,[BX+2]
         MOV     CX,[FEPLEN]
         REPE    CMPSB
         JE      FEPUFOUND
-FEPUSKIP:ADD    BX,DX
+FEPUSKIP:OR     DX,DX
+        JNZ     FEPUSCAN
+        ADD     BX,AX
         JMP     SHORT FEPUSCAN
 FEPUNONE:CLC
+        POP     ES
         RET
 FEPUFOUND:STC
+        POP     ES
+        RET
+
+; ES:BX points to a record header.
+FEPUSIZE:XOR    AX,AX
+        MOV     AL,ES:[BX]
+        XOR     CH,CH
+        MOV     CL,ES:[BX+1]
+        ADD     AX,CX
+        ADD     AX,3
         RET
 
 FEPSUG: MOV     SI,OFFSET FEPINPUT

@@ -4,7 +4,15 @@ CODE    SEGMENT BYTE PUBLIC 'CODE'
         ASSUME  CS:CODE,DS:CODE,ES:CODE,SS:CODE
         ORG     100H
 
-START:  CLD
+START:  MOV     AX,[2]          ;PSP end segment (exclusive).
+        MOV     BX,CS
+        SUB     AX,BX
+        CMP     AX,COMPARAS
+        JAE     STARTOK
+        MOV     DX,OFFSET UPLOADMSG
+        JMP     FAIL
+STARTOK:MOV     SP,OFFSET STACKTOP
+        CLD
         MOV     SI,81H
         XOR     CX,CX
         MOV     CL,BYTE PTR DS:[80H]
@@ -81,10 +89,8 @@ USAGE:  MOV     DX,OFFSET HELPMSG
 
 PROJECT:MOV     [HEADLESS],1
         JMP     SHORT ENABLE
-BUSY:   MOV     DX,OFFSET BUSYMSG
-        JMP     FAIL
-
 DISABLE:
+        CALL    SETUPIO
         CALL    QUERY
         OR      BX,BX
         JZ      DISABLED
@@ -93,14 +99,18 @@ DISABLE:
         CALL    ROMOFF
 RELEASE:MOV     BX,3
         CALL    VAIO
+        CALL    FREEBLOCK
+        JNC     DISABLED
+        JMP     FEPUPLOADERR
 DISABLED:
         MOV     DX,OFFSET OFFMSG
         JMP     SUCCESS
 
 ENABLE: CALL    QUERY
         OR      BX,BX
-        JZ      RESERVE
-        CMP     [HEADLESS],0
+        JNZ     CHECKMODE
+        JMP     RESERVE
+CHECKMODE:CMP   [HEADLESS],0
         JE      CHECKROM
         CMP     BX,3
         JNE     BUSY
@@ -108,6 +118,8 @@ ENABLE: CALL    QUERY
 CHECKROM:CMP    BX,1
         JNE     BUSY
         JMP     ENABLED
+BUSY:   MOV     DX,OFFSET BUSYMSG
+        JMP     FAIL
 FEPENABLED:
         CALL    SETUPIO
         CALL    LOADDICT
@@ -116,17 +128,42 @@ FEPENABLED:
         INT     21H
         MOV     [DICTEND],OFFSET RECORDS
 FEPLOADOK:
-        MOV     SI,OFFSET RECORDS
-        MOV     DX,[DICTEND]
-        SUB     DX,SI
+        XOR     DI,DI           ;Try reuse (or detach for an empty table).
+        CALL    INSTALLDICT
+        CMP     AX,554AH
+        JE      FEPFREEOLD
+        CMP     AX,4E4AH        ;Larger block needed, old table untouched.
+        JNE     FEPUPLOADERR
         PUSH    DS
         POP     ES
-        MOV     BX,5
-        CALL    VAIO
+        MOV     BX,COMPARAS
+        MOV     AH,4AH          ;Return unused COM arena before allocating.
+        INT     21H
+        JC      FEPUPLOADERR
+        MOV     BX,[DICTEND]
+        SUB     BX,OFFSET RECORDS-15
+        MOV     CL,4
+        SHR     BX,CL
+        MOV     AH,48H
+        INT     21H
+        JC      FEPUPLOADERR
+        PUSH    AX
+        MOV     DI,AX
+        DEC     AX
+        MOV     ES,AX
+        MOV     WORD PTR ES:[1],8 ;DOS system owner, not our transient PSP.
+        CALL    INSTALLDICT
+        POP     DX
         CMP     AX,554AH
-        JE      FEPMESSAGE
+        JE      FEPFREEOLD
+        MOV     BX,DX           ;New block was never published.
+        CALL    FREEBLOCK
+FEPUPLOADERR:
         MOV     DX,OFFSET UPLOADMSG
         JMP     FAIL
+FEPFREEOLD:
+        CALL    FREEBLOCK
+        JC      FEPUPLOADERR
 FEPMESSAGE:
         MOV     DX,OFFSET FEPMSG
         JMP     SUCCESS
@@ -223,14 +260,30 @@ ROLLBACK:
         CALL    VAIO
         JMP     FAIL
 
+INSTALLDICT:
+        MOV     SI,OFFSET RECORDS
+        MOV     DX,[DICTEND]
+        SUB     DX,SI
+        PUSH    DS
+        POP     ES
+        MOV     BX,5
+        JMP     SHORT VAIO
+FREEBLOCK:
+        OR      BX,BX           ;Also clears carry on the no-block path.
+        JZ      FREEEND
+        MOV     ES,BX
+        MOV     AH,49H
+        INT     21H
+FREEEND:RET
+
 QUERY:  XOR     BX,BX
         CALL    VAIO
-        CMP     AX,464AH
+        CMP     AX,474AH
         JE      QUERYOK
         MOV     DX,OFFSET NODRV
         JMP     FAIL
 QUERYOK:RET
-VAIO:   MOV     AX,4A46H
+VAIO:   MOV     AX,4A47H
         MOV     CL,0F0H
         INT     0DCH
         RET
@@ -299,18 +352,17 @@ OPENRET:POP     BP
 OPENHOOK ENDP
 
 ; Project user dictionary. All of these entry points are foreground only.
-UDFIELD EQU     60
-UDREC   EQU     2+2*UDFIELD
-UDMAX   EQU     8*UDREC
-UDHEAD  EQU     6
+        INCLUDE VAUDICT.INC
 
 ADDWORD:
 DELWORD:MOV     DI,OFFSET PAIR+2
         CALL    TOKEN
         MOV     [PAIR],AL
-        MOV     DI,OFFSET PAIR+2+UDFIELD
         CALL    TOKEN
         MOV     [PAIR+1],AL
+        MOV     AX,DI
+        SUB     AX,OFFSET PAIR-1
+        MOV     [DI],AL
         CALL    SKIPSPACE
         JNC     BADPAIR
         MOV     SI,OFFSET PAIR
@@ -323,17 +375,19 @@ DELWORD:MOV     DI,OFFSET PAIR+2
         JNE     REMOVEWORD
         CMP     DI,[DICTEND]
         JNE     DUPWORD
-        CMP     DI,OFFSET RECORDS+UDMAX
-        JE      FULLDICT
+        CMP     [DICTCOUNT],UDLIMIT
+        JAE     FULLDICT
         MOV     SI,BX
-        MOV     CX,UDREC
+        CALL    PAIRSIZE
         REP     MOVSB
         MOV     [DICTEND],DI
         JMP     SHORT SAVEWORD
 REMOVEWORD:
         CMP     DI,[DICTEND]
         JE      NOWORD
-        LEA     SI,[DI+UDREC]
+        MOV     SI,DI
+        CALL    PAIRSIZE
+        ADD     SI,CX
         MOV     CX,[DICTEND]
         SUB     CX,SI
         REP     MOVSB
@@ -395,13 +449,17 @@ LISTNEXT:XOR    CX,CX
         MOV     DX,OFFSET LISTSEP
         MOV     CX,3
         CALL    STDOUT
+        XOR     DX,DX
+        MOV     DL,[SI]
+        ADD     DX,SI
+        ADD     DX,2
         MOV     CL,[SI+1]
-        LEA     DX,[SI+2+UDFIELD]
         CALL    STDOUT
         MOV     DX,OFFSET LISTCR
         MOV     CX,2
         CALL    STDOUT
-        ADD     SI,UDREC
+        CALL    PAIRSIZE
+        ADD     SI,CX
         CMP     SI,[DICTEND]
         JB      LISTNEXT
         MOV     AX,4C00H
@@ -429,7 +487,11 @@ LDIOERR:MOV     DX,OFFSET IOMSG
         STC
         RET
 LOADDICT:
+        PUSH    DS
+        POP     ES
+        CLD
         MOV     [HADFILE],0
+        MOV     [DICTCOUNT],0
         MOV     [DICTEND],OFFSET RECORDS
         ; VABOOT and VAIO's SYSINIT handoff boot A: (also when CWD differs).
         MOV     DX,OFFSET DICTORIG
@@ -445,7 +507,7 @@ LOADDICT:
         RET
 LDREAD: MOV     [HADFILE],1
         MOV     BX,AX
-        MOV     DX,OFFSET FILEBUF
+        MOV     DX,OFFSET READBUF
         MOV     CX,UDHEAD+UDMAX+1
         MOV     AH,3FH
         INT     21H
@@ -454,42 +516,121 @@ LDREAD: MOV     [HADFILE],1
         MOV     AH,3EH
         INT     21H
         POP     BP
-        JC      LDCLOSEERR
+        JNC     LDCLOSED
         POPF
-        JC      LDIOERR
-        CMP     BP,UDHEAD
+        JMP     LDIOERR
+LDCLOSED:POPF
+        JNC     LDSIZE
+        JMP     LDIOERR
+LDSIZE: CMP     BP,UDHEAD
         JB      LDBAD
         CMP     BP,UDHEAD+UDMAX
         JA      LDBAD
-        ADD     BP,OFFSET FILEBUF
+        ADD     BP,OFFSET READBUF
         CLD
         PUSH    DS
         POP     ES
-        MOV     SI,OFFSET FILEBUF
-        MOV     DI,OFFSET MAGIC
-        MOV     CX,UDHEAD/2
-        REPE    CMPSW
+        MOV     SI,OFFSET READBUF
+        MOV     DI,OFFSET FILEBUF
+        MOV     CX,UDHEAD-1
+        REPE    CMPSB
         JNE     LDBAD
-LDRECORD:MOV    BX,[DICTEND]
-        CMP     BX,BP
-        JE      LDOK
-        LEA     AX,[BX+UDREC]
-        CMP     AX,BP
-        JA      LDBAD
-        MOV     SI,BX
-        CALL    VALIDPAIR
-        JC      LDBAD
-        CALL    FINDPAIR
-        CMP     DI,BX
+        LODSB
+        CMP     AL,2
+        JE      LDRECORD
+        CMP     AL,1
         JNE     LDBAD
-        ADD     [DICTEND],UDREC
-        JMP     SHORT LDRECORD
-LDOK:   CLC
-        RET
-LDCLOSEERR:POPF
-        JMP     LDIOERR
+        CMP     BP,OFFSET READBUF+UDHEAD+8*UDV1REC
+        JBE     LDRECORD
 LDBAD:  MOV     DX,OFFSET BADDICTMSG
         STC
+        RET
+LDRECORD:CMP    SI,BP
+        JNE     LDMORE
+        CLC
+        RET
+LDMORE: CMP     [DICTCOUNT],UDLIMIT
+        JAE     LDBAD
+        MOV     DI,[DICTEND]
+        CMP     BYTE PTR [READBUF+5],1
+        JE      LDV1
+        LEA     AX,[SI+5]       ;Minimum v2 record, including its trailer.
+        CMP     AX,BP
+        JA      LDBAD
+        CMP     BYTE PTR [SI],UDFIELD
+        JA      LDBAD
+        CMP     BYTE PTR [SI+1],UDFIELD
+        JA      LDBAD
+        CALL    PAIRSIZE
+        MOV     AX,SI
+        ADD     AX,CX
+        CMP     AX,BP
+        JA      LDBAD
+        MOV     BX,AX
+        CMP     [BX-1],CL
+        JNE     LDBAD
+        REP     MOVSB
+        JMP     SHORT LDVALID
+LDV1:   LEA     AX,[SI+UDV1REC]
+        CMP     AX,BP
+        JA      LDBAD
+        MOVSW
+        XOR     AX,AX
+        MOV     AL,[DI-2]
+        CALL    V1FIELD
+        JC      LDBAD
+        MOV     BX,[DICTEND]
+        MOV     AL,[BX+1]
+        CALL    V1FIELD
+        JC      LDBAD
+        MOV     AX,DI
+        SUB     AX,[DICTEND]
+        INC     AX
+        STOSB
+LDVALID:PUSH    SI              ;Next source record.
+        PUSH    DI              ;End of normalized record.
+        MOV     BX,[DICTEND]
+        MOV     SI,BX
+        CALL    VALIDPAIR
+        JC      LDINVALID
+        CALL    FINDPAIR
+        CMP     DI,BX
+        JNE     LDINVALID
+        POP     [DICTEND]
+        POP     SI
+        INC     [DICTCOUNT]
+        JMP     LDRECORD
+LDINVALID:
+        POP     DI
+        POP     SI
+        JMP     LDBAD
+
+V1FIELD:CMP     AL,UDFIELD
+        JA      V1BAD
+        MOV     CX,AX
+        REP     MOVSB
+        MOV     CX,UDFIELD
+        SUB     CX,AX
+        JCXZ    V1DONE
+V1PAD:  CMP     BYTE PTR [SI],0
+        JNE     V1BAD
+        INC     SI
+        LOOP    V1PAD
+V1DONE: CLC
+        RET
+V1BAD:  STC
+        RET
+
+; DS:SI -> compact record, return byte count in CX. Preserve AX.
+PAIRSIZE:
+        PUSH    AX
+        XOR     AX,AX
+        MOV     AL,[SI]
+        MOV     CX,AX
+        MOV     AL,[SI+1]
+        ADD     CX,AX
+        ADD     CX,3
+        POP     AX
         RET
 
 ; Find an exact, canonical record at DS:BX; ES=DS. Return DI or DICTEND.
@@ -497,11 +638,17 @@ FINDPAIR:MOV    DX,OFFSET RECORDS
 FINDNEXT:MOV    DI,DX
         CMP     DI,[DICTEND]
         JE      FINDEND
+        MOV     SI,DI
+        CALL    PAIRSIZE
+        MOV     AX,[SI]
+        CMP     AX,[BX]
+        JNE     FINDSKIP
         MOV     SI,BX
-        MOV     CX,UDREC/2
-        REPE    CMPSW
+        REPE    CMPSB
         JE      FINDFOUND
-        ADD     DX,UDREC
+        MOV     SI,DX
+        CALL    PAIRSIZE
+FINDSKIP:ADD    DX,CX
         JMP     SHORT FINDNEXT
 FINDFOUND:MOV   DI,DX
 FINDEND:RET
@@ -522,7 +669,6 @@ VALIDFIELD:
         JA      VDBAD
         TEST    CL,1
         JNZ     VDBAD
-        PUSH    CX
 VDCELL: LODSW
         XCHG    AL,AH
         OR      DL,DL
@@ -550,17 +696,9 @@ VDTRAIL:CMP     AL,40H
         JA      VDCELLBAD
 VDNEXT: SUB     CX,2
         JNZ     VDCELL
-        POP     AX
-        MOV     CX,UDFIELD
-        SUB     CX,AX
-        JCXZ    VDDONE
-VDPAD:  LODSB
-        OR      AL,AL
-        JNZ     VDBAD
-        LOOP    VDPAD
-VDDONE: CLC
+        CLC
         RET
-VDCELLBAD:POP   AX
+VDCELLBAD:
 VDBAD:  STC
         RET
 
@@ -656,7 +794,7 @@ INITMSG DB      'Cannot initialize JFP; plain CON input.',13,10,'$'
 NODRV   DB      'VAIO JFP interface not installed.',13,10,'$'
 PAIRMSG DB      'Expected a full-width hiragana reading and full-width word (1-30 cells each).',13,10,'$'
 DUPMSG  DB      'Dictionary pair already registered.',13,10,'$'
-FULLMSG DB      'User dictionary full (8 pairs).',13,10,'$'
+FULLMSG DB      'User dictionary full (64 pairs).',13,10,'$'
 NOMATCHMSG DB   'Dictionary pair not found.',13,10,'$'
 EMPTYMSG DB     'User dictionary empty.',13,10,'$'
 SAVEDMSG DB     'User dictionary saved.',13,10,'$'
@@ -671,10 +809,14 @@ DICTTEMP DB     'A:\JFPUSER.TMP',0
 DICTBAK DB      'A:\JFPUSER.BAK',0
 HADFILE DB      0
 DICTEND DW      0
-MAGIC   DB      'JFPUD',1
-PAIR    DB      UDREC DUP (0)
-FILEBUF DB      'JFPUD',1
-RECORDS DB      UDMAX+1 DUP (0)  ;Extra byte detects oversized files.
+DICTCOUNT DB    0
+FILEBUF DB      'JFPUD',2
+; Scratch space above the COM image, supplied by DOS's COM arena.
+RECORDS LABEL   BYTE
+PAIR    EQU     RECORDS+UDMAX
+READBUF EQU     PAIR+UDV1REC+1
+STACKTOP EQU    READBUF+UDHEAD+UDMAX+1+2048
+COMPARAS EQU    (STACKTOP-START+100H+15)/16
 
 CODE    ENDS
         END     START
