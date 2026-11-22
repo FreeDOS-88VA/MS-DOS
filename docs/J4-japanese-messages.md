@@ -33,7 +33,7 @@ The scratch builder uses `docs/D4/build-hdd-boot.patch` and `docs/J4/build-messa
 
 ## M3: utilities and VA commands
 
-Use Japanese (`--messages ja`) for the 日本語MS-DOS distribution recipe. Keeping `--messages en` as the generic builder's default preserves existing English invocations. The [builder patch](J4/build-messages.patch) now includes the VA DISKCOPY and SPEED build steps from D1 and A1, so do not apply their standalone patches as well. Apply the D4 HDD-boot patch first, then J4, to a scratch copy of the builder. Update the lock to the J4 source revision. For example, from that copy:
+Use Japanese (`--messages ja`) for the 日本語MS-DOS distribution recipe. This patch keeps `--messages en` as its default; the FreeDOS-88VA builder (PR #20) makes `ja` the default by maintainer decision (2026-11-23) and records the choice in `build-record.json`. The [builder patch](J4/build-messages.patch) now includes the VA DISKCOPY and SPEED build steps from D1 and A1, so do not apply their standalone patches as well. Apply the D4 HDD-boot patch first, then J4, to a scratch copy of the builder. Update the lock to the J4 source revision. For example, from that copy:
 
 ```sh
 python3 -B experiments/msdos4-va/build.py --messages ja --output "$SCRATCH/ja"
