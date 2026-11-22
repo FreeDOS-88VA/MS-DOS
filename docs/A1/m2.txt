@@ -1,0 +1,16 @@
+M2, vaeg m153 and scratch MASM 5.10 / LINK build
+
+MASM VAIO: 0 warnings, 0 severe errors.
+IO.SYS: 28,202 -> 28,730 bytes. Floppy resident boundary +234 bytes
+before paragraph rounding, +240 bytes rounded.
+Baseline CHKDSK on VA and VA2: 655,360 total, 524,800 free.
+M2 CHKDSK: misses return-to-prompt gate on VA and VA2. VA screenshot at
+frame 1790 shows the volume header but no report. A diagnostic build
+with unchanged baseline driver code and +234 bytes before RESEND also
+misses the CHKDSK gate on both models. Padding the baseline IO.SYS file
+to the M2 file size without moving RESEND does not reproduce it. This
+isolates a resident-layout-sensitive regression, not its root cause.
+PRNMCK: misses return-to-prompt gate on both models (no PASS claim).
+VA ECHO to PRN reached DOS 'Not ready writing ...' via real INT 89h;
+vaeg cannot capture printer bytes. Subsequent commands in that run
+were affected by the critical error prompt, so no pass is claimed.

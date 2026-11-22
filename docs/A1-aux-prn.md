@@ -60,3 +60,24 @@ replies if no printer backend exists. M3 gate: build and test similarly;
 mark actual serial capture/injection and terminal use NOT RUN without a
 backend. In both cases boot VA and VA2 where possible; real peripherals
 are NOT RUN.
+
+## M2: PRN and LPT1
+
+The built-in headers share a pair parser. Command 16 checks readiness
+before each byte and reports the accepted prefix on busy. An already
+started ROM character may still wait up to the BIOS timeout, and the
+BIOS does not report partial physical output inside a JIS character.
+Command 11 drops an unmatched lead. A DOS Retry after partial physical
+output can repeat bytes. No independent paper-out mapping is possible.
+
+| Gate | VA | VA2 |
+|---|---|---|
+| Boot from 2HD | Prompt reached | Prompt reached |
+| Synthetic BIOS fixture | FAIL: no completion | FAIL: no completion |
+| CHKDSK | FAIL: no completion | FAIL: no completion |
+| Physical printer / byte capture | NOT RUN | NOT RUN |
+
+See [M2 evidence](A1/m2.txt). `PRINT` source inspection found that its
+resident code recognizes PRN/LPT1 as IBM INT 17h devices and uses IBM
+interrupt hooks; command 16 alone does not establish compatibility.
+`PRINT.COM` was not executed or added to the builder.

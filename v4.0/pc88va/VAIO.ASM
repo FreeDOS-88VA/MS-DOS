@@ -61,11 +61,17 @@ AUXDEV: DW      PRNDEV,BIOSSEG
         DW      AUX_INT
         DB      'AUX     '
 
-PRNDEV: DW      TIMDEV,BIOSSEG
-        DW      8000H
+PRNDEV: DW      LPTDEV,BIOSSEG
+        DW      0A000H          ;Character device, output until busy.
         DW      STRATEGY
         DW      PRN_INT
         DB      'PRN     '
+
+LPTDEV: DW      TIMDEV,BIOSSEG
+        DW      0A000H
+        DW      STRATEGY
+        DW      PRN_INT
+        DB      'LPT1    '
 
 TIMDEV: DW      DSKDEV,BIOSSEG
         DW      8008H           ;Character device, clock.
@@ -148,10 +154,10 @@ PRNTBL: DW      EXIT            ;0
         DW      BUS_EXIT        ;5
         DW      EXIT            ;6
         DW      EXIT            ;7
-        DW      EXIT            ;8  - Write: discarded.
-        DW      EXIT            ;9
-        DW      EXIT            ;10
-        DW      EXIT            ;11
+        DW      PRN_WRITE       ;8  - Write.
+        DW      PRN_WRITE       ;9  - Write with verify.
+        DW      PRN_STATUS      ;10 - Output status.
+        DW      PRN_FLUSH       ;11 - Output flush.
         DW      EXIT            ;12
 
         SUBTTL  Strategy and interrupt routines.
@@ -259,10 +265,17 @@ ENTRY:  MOV     CS:[SAVESP],SP
         POP     DS
         JMP     WORD PTR [SI]
 
-; Commands above 12 exist only for the disk: 19 generic IOCTL and
-; 23/24 get/set logical drive map. Only the linked HDDDEV can enter
-; with HDTABLE; the optional tail is not called on a floppy-only boot.
-HICMD:  CMP     SI,OFFSET HDTABLE
+; PRN/LPT1 support command 16. The disk drivers additionally support
+; 19 generic IOCTL and 23/24 get/set logical drive map.
+HICMD:  CMP     SI,OFFSET PRNTBL
+        JNE     HIDISK
+        CMP     AL,16
+        JNE     CMDERR
+        LES     DI,[BX.TRANS]
+        PUSH    CS
+        POP     DS
+        JMP     PRN_BUSYWRITE
+HIDISK: CMP     SI,OFFSET HDTABLE
         JNE     HIFLOP
         XCHG    AX,DI           ;AL = unit, DI = command.
         PUSH    CS
@@ -2156,8 +2169,136 @@ ROWSLABEL:
 ROWSOK: CLC
 ROWSRET:RET
 
-        SUBTTL  AUX and clock.
+        SUBTTL  Printer, AUX and clock.
         PAGE
+
+; The ROM interface specifies AX/DX results. Keep DOS buffer pointers,
+; loop counters and flags (except CF); BIOS waits need hardware IRQs.
+CHARBIOS MACRO  VECTOR
+        LOCAL   FAILED, RESTORE
+        PUSH    BX
+        PUSH    CX
+        PUSH    SI
+        PUSH    DI
+        PUSH    BP
+        PUSH    DS
+        PUSH    ES
+        PUSHF
+        STI
+        INT     VECTOR
+        JC      FAILED
+        POPF
+        CLC
+        JMP     SHORT RESTORE
+FAILED: POPF
+        STC
+RESTORE:POP     ES
+        POP     DS
+        POP     BP
+        POP     DI
+        POP     SI
+        POP     CX
+        POP     BX
+        RET
+        ENDM
+
+PRN_BIOS:
+        CHARBIOS 89H
+
+PRN_LEAD DB     0               ;Shared by PRN and LPT1 across requests.
+
+PRN_STATUS:
+        XOR     AX,AX
+        CALL    PRN_BIOS
+        OR      AL,AL
+        JZ      CHAR_OK
+        JMP     BUS_EXIT
+
+PRN_FLUSH:
+        MOV     [PRN_LEAD],0    ;Discard an incomplete character.
+CHAR_OK:
+        XOR     AX,AX
+        JMP     EXIT
+
+PRN_WRITE:
+        XOR     SI,SI           ;Ordinary writes may wait in the ROM.
+        JMP     SHORT PRN_NEXT
+PRN_BUSYWRITE:
+        MOV     SI,1            ;Spooler: check before each character.
+PRN_NEXT:
+        JCXZ    CHAR_OK
+        OR      SI,SI
+        JZ      PRN_BYTE
+        XOR     AX,AX
+        CALL    PRN_BIOS
+        OR      AL,AL
+        JNZ     PRN_SHORT
+PRN_BYTE:
+        MOV     DL,ES:[DI]
+        MOV     DH,[PRN_LEAD]
+        OR      DH,DH
+        JZ      PRN_SINGLE
+        CMP     DL,40H
+        JB      PRN_BADTRAIL
+        CMP     DL,7FH
+        JE      PRN_BADTRAIL
+        CMP     DL,0FCH
+        JA      PRN_BADTRAIL
+        MOV     AH,1            ;ROM handles JIS and printer framing.
+        CALL    PRN_BIOS
+        JC      PRN_PAIRERR
+        MOV     [PRN_LEAD],0
+        JMP     SHORT PRN_SENT
+PRN_BADTRAIL:
+        MOV     [PRN_LEAD],0    ;Do not swallow a control after a stray lead.
+PRN_SINGLE:
+        CMP     DL,81H
+        JB      PRN_RAW
+        CMP     DL,9FH
+        JBE     PRN_HOLD
+        CMP     DL,0E0H
+        JB      PRN_RAW
+        CMP     DL,0FCH
+        JA      PRN_RAW
+PRN_HOLD:
+        MOV     [PRN_LEAD],DL
+        JMP     SHORT PRN_SENT
+PRN_RAW:
+        MOV     AH,3
+        CALL    PRN_BIOS
+        JC      PRN_RAWERR
+PRN_SENT:
+        INC     DI
+        DEC     CX
+        JMP     SHORT PRN_NEXT
+
+PRN_PAIRERR:
+        CMP     AL,3            ;Known timeout.
+        JE      CHAR_NOTREADY
+        JMP     SHORT CHAR_WRFAULT
+PRN_RAWERR:
+        XOR     AX,AX           ;03h does not distinguish STOP from timeout.
+        CALL    PRN_BIOS
+        OR      AL,AL
+        JNZ     CHAR_NOTREADY
+CHAR_WRFAULT:
+        MOV     AL,0AH
+        JMP     SHORT CHAR_IOERR
+CHAR_NOTREADY:
+        MOV     AL,2
+CHAR_IOERR:
+        CALL    CHAR_COUNT
+        JMP     ERR_EXIT
+PRN_SHORT:
+        CALL    CHAR_COUNT
+        XOR     AX,AX
+        JMP     EXIT
+
+; CX = bytes not transferred. Do not change AX (caller may have an error).
+CHAR_COUNT:
+        LDS     BX,CS:[PTRSAV]
+        SUB     [BX.COUNT],CX
+        RET
 
 AUX_READ:
         JCXZ    AUX_REA9
@@ -2388,6 +2529,9 @@ HWFLPY: XOR     AX,AX
         MOV     WORD PTR CS:[OLD33+2],AX
         PUSH    DX              ;Keep the loaded kernel segment.
         CALL    INITTEXT
+        MOV     AH,8            ;Printer BIOS timeout (seconds).
+        MOV     DX,1
+        CALL    PRN_BIOS
         CLD
         CALL    MEMSIZE         ;AX = memory size in paragraphs.
         PUSH    CS
