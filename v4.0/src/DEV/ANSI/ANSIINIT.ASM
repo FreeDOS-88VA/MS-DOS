@@ -86,11 +86,8 @@ CONT_INIT:			       ; WGR						 ;AN000;
 	  MOV	  EXT_16,ON	       ; WGR extended INT16 available, set flag 	 ;AN000;
 	.ENDIF			       ; WGR						 ;AN000;
 	CALL	DET_HDWR	       ; WGR procedure to determine video hardware status;AN000;
-	.IF <HDWR_FLAG GE MCGA_ACTIVE> ; WGR if we have EGA or better then..		 ;AN000;
-	  MOV	  AH,ALT_SELECT        ; WGR issue select alternate print..		 ;AN000;
-	  MOV	  BL,ALT_PRT_SC        ; WGR screen routine call..			 ;AN000;
-	  INT	  10H		       ; WGR						 ;AN000;
-	.ENDIF
+; IR80263: the INT 10h AH=12h BL=20h (alternate print screen) call that was here is
+; now made from ALT_PRTSC in ioctl.asm, only once more than 25 rows are requested.
 	CALL	LOAD_INT10	       ; WGR load interrupt 10h handler 		 ;AN000;
 	CALL	LOAD_INT2F	       ; WGR load interrupt 2Fh handler 		 ;AN000;
 	int	11h
