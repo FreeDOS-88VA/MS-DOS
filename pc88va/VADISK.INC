@@ -220,16 +220,46 @@ LOADS1: MOV     BX,[SYSIDX]
         MOV     AX,3D00H
         INT     21H
         MOV     DX,OFFSET S_NOSYS
-        JC      LOADS9
+        JNC     LOADOPEN
+        RET                     ;Open failed with carry set.
+LOADOPEN:
         MOV     [HANDLE],AX
-        MOV     AX,[NEXTSEG]
-        MOV     [SYSSEG+BX],AX
-        ADD     AX,1000H        ;Room for up to 64 KB below the memory top?
+        MOV     BX,AX
+        MOV     AX,4202H        ;Measure before checking the staging space.
+        XOR     CX,CX
+        XOR     DX,DX
+        INT     21H
+        JC      LOADSIZEERR
+        OR      DX,DX
+        JNZ     LOADSIZEERR
+        OR      AX,AX
+        JZ      LOADSIZEERR
+        CMP     AX,0FFF0H       ;Keep the read within one segment.
+        JB      LOADSIZEOK
+LOADSIZEERR:
+        JMP     LOADBAD
+LOADSIZEOK:
+        MOV     BX,[SYSIDX]
+        MOV     [SYSSIZE+BX],AX
+        ADD     AX,15
+        MOV     CL,4
+        SHR     AX,CL
+        MOV     CX,[NEXTSEG]
+        MOV     [SYSSEG+BX],CX
         MOV     DX,OFFSET S_NOMEM
+        ADD     AX,CX
+        JC      LOADS8
         CMP     AX,DS:[2]
         JA      LOADS8
+        MOV     [NEXTSEG],AX
+        MOV     BX,[HANDLE]
+        MOV     AX,4200H
+        XOR     CX,CX
+        XOR     DX,DX
+        INT     21H
+        JC      LOADBAD
         MOV     BX,[SYSIDX]
-        MOV     CX,0FFF0H
+        MOV     CX,[SYSSIZE+BX]
         PUSH    DS
         MOV     AX,[SYSSEG+BX]
         MOV     BX,[HANDLE]
@@ -240,24 +270,20 @@ LOADS1: MOV     BX,[SYSIDX]
         POP     DS
         MOV     DX,OFFSET S_NOSYS
         JC      LOADS8
-        OR      AX,AX
-        JZ      LOADS8
-        CMP     AX,0FFF0H       ;Do not silently install a truncated file.
-        JAE     LOADS8
         MOV     BX,[SYSIDX]
-        MOV     [SYSSIZE+BX],AX
-        ADD     AX,15
-        MOV     CL,4
-        SHR     AX,CL
-        ADD     [NEXTSEG],AX
+        CMP     AX,[SYSSIZE+BX]
+        JNE     LOADS8
         MOV     BX,[HANDLE]
         MOV     AH,3EH
         INT     21H
         ADD     [SYSIDX],2
         DEC     [SYSCNT]
-        JNZ     LOADS1
+        JZ      LOADSDONE
+        JMP     LOADS1
+LOADSDONE:
         CLC
         RET
+LOADBAD:MOV     DX,OFFSET S_NOSYS
 LOADS8: PUSH    DX
         MOV     BX,[HANDLE]
         MOV     AH,3EH
