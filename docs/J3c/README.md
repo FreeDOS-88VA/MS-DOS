@@ -1,5 +1,9 @@
 # J3c comparison gate
 
+Start with the [comparison and default-switch gate](../J3c-comparison.md).
+Detailed evidence: [M2 quality](quality.md), [M3 speed and memory](measure.md),
+[M4 keys and applications](keys.md), and [M5 safety](safety.md).
+
 ## M1 — Shared VA/VA2 runner
 
 Gate: run every scenario under `JFP ROM` and `JFP FEP` at VA 640 KiB,

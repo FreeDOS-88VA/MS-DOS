@@ -186,7 +186,7 @@ def run_case(args, case):
         subprocess.run([args.vaeg, '--model', model, '--roms', args.roms, '--cfg', 'run.ini',
                         '--no-bkupmem', '--nowait', '--fdd1', 'disk.d88', '--debug-script',
                         'run.debug', '--debug-output-dir', '.', *options], cwd=work, env=env, stdout=log,
-                       stderr=subprocess.STDOUT, timeout=240, check=True)
+                       stderr=subprocess.STDOUT, timeout=args.wall_timeout, check=True)
     with (work / 'events.tsv').open(newline='', encoding='ascii') as stream:
         events = list(csv.DictReader(stream, delimiter='\t'))
     if not events or events[-1]['event'] != 'exit':
@@ -218,6 +218,7 @@ def main(programs=scenarios, modes=MODES):
     parser.add_argument('--mode', action='append', choices=modes, help='run only this selector (repeatable)')
     parser.add_argument('--screens', action='store_true', help='also save screen BMPs in scratch')
     parser.add_argument('--jobs', type=int, default=6)
+    parser.add_argument('--wall-timeout', type=int, default=240, help='host seconds allowed per vaeg process')
     args = parser.parse_args()
     if args.output.is_relative_to(ROOT):
         parser.error('output must be outside the repository')
@@ -225,8 +226,8 @@ def main(programs=scenarios, modes=MODES):
         parser.error('output must be a new directory')
     if not re.fullmatch(r'[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}', args.cistat):
         parser.error('--cistat must be a hexadecimal segment:offset')
-    if args.jobs < 1:
-        parser.error('--jobs must be positive')
+    if args.jobs < 1 or args.wall_timeout < 1:
+        parser.error('--jobs and --wall-timeout must be positive')
     plans = dict(programs(args.cistat, args.screens))
     unknown = set(args.case or ()) - plans.keys()
     if unknown:
