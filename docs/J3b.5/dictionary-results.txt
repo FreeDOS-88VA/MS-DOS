@@ -1,0 +1,44 @@
+va-640	PASS	ADD/DEL/LIST, validation, exact v2 bytes, padded v1 migration
+va-640	PASS	full-size 64 records; slots 1/33/64; ADD 65 rejected
+va-640	PASS	CHKDSK plain/empty/8/64 fresh/64 grown/ROM 524800/524800/523776/516896/515872/524800; reuse, five reloads and five ON/OFF cycles
+va2-256	PASS	ADD/DEL/LIST, validation, exact v2 bytes, padded v1 migration
+va2-256	PASS	full-size 64 records; slots 1/33/64; ADD 65 rejected
+va2-256	PASS	CHKDSK plain/empty/8/64 fresh/64 grown/ROM 131584/131584/130560/123680/122656/131584; reuse, five reloads and five ON/OFF cycles
+va2-640	PASS	ADD/DEL/LIST, validation, exact v2 bytes, padded v1 migration
+va2-640	PASS	full-size 64 records; slots 1/33/64; ADD 65 rejected
+va2-640	PASS	CHKDSK plain/empty/8/64 fresh/64 grown/ROM 524800/524800/523776/516896/515872/524800; reuse, five reloads and five ON/OFF cycles
+va-640	PASS	MEM /DEBUG enumerated the grown 7,872-byte payload
+va2-256	PASS	MEM /DEBUG enumerated the grown 7,872-byte payload
+va2-640	PASS	MEM /DEBUG enumerated the grown 7,872-byte payload
+va-640: PASS registration/reload, user↔BIOS order, confirm, built-in miss, corrupt fallback
+va2-256: PASS registration/reload, user↔BIOS order, confirm, built-in miss, corrupt fallback
+va2-640: PASS registration/reload, user↔BIOS order, confirm, built-in miss, corrupt fallback
+va-640	user-only	PASS	ROM calls 0 0 0 0 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va-640	user-bridge	PASS	ROM calls 1 1 1 1 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va-640	COPY CON / EDLIN	PASS	exact FAT bytes and TYPE
+va2-256	user-only	PASS	ROM calls 0 0 0 0 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-256	user-bridge	PASS	ROM calls 1 1 1 1 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-256	COPY CON / EDLIN	PASS	exact FAT bytes and TYPE
+va2-640	user-only	PASS	ROM calls 0 0 0 0 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-640	user-bridge	PASS	ROM calls 1 1 1 1 0 0 0 0; firmware nested DOS/text 0/0; whole CON read nested DOS 0; disk unchanged
+va2-640	COPY CON / EDLIN	PASS	exact FAT bytes and TYPE
+va-640	0 elapsed frame ticks	64 records, 60 bytes compared per record; scan entry to BIOS entry
+
+Full distribution capacity rerun:
+va-640	PASS	full-size 64 records; slots 1/33/64; ADD 65 rejected
+va2-256	PASS	full-size 64 records; slots 1/33/64; ADD 65 rejected
+va2-640	PASS	full-size 64 records; slots 1/33/64; ADD 65 rejected
+
+Full distribution corrupt-v2 and selector reruns:
+va-640	PASS	truncated v2 rejected on reload and cold load
+va2-256	PASS	truncated v2 rejected on reload and cold load
+va2-640	PASS	truncated v2 rejected on reload and cold load
+va-640	PASS	full distribution JFP ON, candidate keys and confirm
+va-640	PASS	full distribution JFP FEP, candidate keys and confirm
+va-640	PASS	full distribution JFP ROM, candidate keys and confirm
+va2-256	PASS	full distribution JFP ON, candidate keys and confirm
+va2-256	PASS	full distribution JFP FEP, candidate keys and confirm
+va2-256	PASS	full distribution JFP ROM, candidate keys and confirm
+va2-640	PASS	full distribution JFP ON, candidate keys and confirm
+va2-640	PASS	full distribution JFP FEP, candidate keys and confirm
+va2-640	PASS	full distribution JFP ROM, candidate keys and confirm

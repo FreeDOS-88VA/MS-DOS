@@ -1,0 +1,192 @@
+va-640 plain	PASS	J0.3/1 DIR/F3
+va-640 plain	PASS	J0.3/5,9 eof-1
+va-640 plain	PASS	J0.3/5,9 eof-2
+va-640 plain	PASS	J0.3/5,9 eof-3
+va-640 plain	PASS	J0.3/5,9 extra-eof-1
+va-640 plain	PASS	J0.3/5,9 extra-eof-2
+va-640 plain	PASS	J0.3/5,9 ctrl-z
+va-640 plain	PASS	J0.3/9 editor baseline
+va-640 plain	PASS	J0.3/9 Ctrl-X
+va-640 plain	PASS	J0.3/9 Ctrl-C
+va-640 plain	PASS	J0.4 boot labels + 24 rows
+va-640 plain	PASS	J0.4 Shift and release
+va-640 plain	PASS	J0.4 DIR/scroll and TYPE
+va-640 plain	PASS	J0.4 CLS
+va-640 plain	PASS	J0.4 redirected CLS
+va-640 plain	PASS	J0.4 clear + home
+va-640 plain	PASS	J0.4 hide/show block
+va-640 plain	PASS	J0.4 hide/show byte
+va-640 plain	PASS	J0.4 hide preserves text
+va-640 plain	PASS	J0.4 row 25 scroll / show
+va-640 plain	PASS	Plain boot and revised JFP usage
+va-640 plain	TOTAL	21/21
+va-640 ON (FEP)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va-640 ON (FEP)	PASS	J3a/6 reading BS
+va-640 ON (FEP)	PASS	J3a/6 pending F1
+va-640 ON (FEP)	PASS	J3a/6 ESC
+va-640 ON (FEP)	PASS	J3a/6 pending and idle Ctrl-C
+va-640 ON (FEP)	PASS	J3a/6 F1/F3 template
+va-640 ON (FEP)	PASS	J3a/6 DBCS BS
+va-640 ON (FEP)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va-640 ON (FEP)	PASS	J3b.3/5 monitor-line: nested DOS/text 0/0
+va-640 ON (FEP)	PASS	J3b.3/5 monitor-api: nested DOS/text 0/0
+va-640 ON (FEP)	PASS	J3b.3/8 Return (reading)
+va-640 ON (FEP)	PASS	J3b.3/8 Return (candidate)
+va-640 ON (FEP)	PASS	JFP OFF / no active input
+va-640 ON (FEP)	TOTAL	13/13
+va-640 ROM (ROM)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va-640 ROM (ROM)	PASS	J3a/6 reading BS
+va-640 ROM (ROM)	PASS	J3a/6 pending F1
+va-640 ROM (ROM)	PASS	J3a/6 ESC
+va-640 ROM (ROM)	PASS	J3a/6 pending and idle Ctrl-C
+va-640 ROM (ROM)	PASS	J3a/6 F1/F3 template
+va-640 ROM (ROM)	PASS	J3a/6 DBCS BS
+va-640 ROM (ROM)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va-640 ROM (ROM)	DIFF	J3b.3/5 monitor-line: nested DOS/text 0/10
+va-640 ROM (ROM)	DIFF	J3b.3/5 monitor-api: nested DOS/text 0/18
+va-640 ROM (ROM)	PASS	J3b.3/8 Return (reading)
+va-640 ROM (ROM)	PASS	J3b.3/8 Return (candidate)
+va-640 ROM (ROM)	PASS	JFP OFF / no active input
+va-640 ROM (ROM)	TOTAL	11/13
+va-640 FEP (FEP)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va-640 FEP (FEP)	PASS	J3a/6 reading BS
+va-640 FEP (FEP)	PASS	J3a/6 pending F1
+va-640 FEP (FEP)	PASS	J3a/6 ESC
+va-640 FEP (FEP)	PASS	J3a/6 pending and idle Ctrl-C
+va-640 FEP (FEP)	PASS	J3a/6 F1/F3 template
+va-640 FEP (FEP)	PASS	J3a/6 DBCS BS
+va-640 FEP (FEP)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va-640 FEP (FEP)	PASS	J3b.3/5 monitor-line: nested DOS/text 0/0
+va-640 FEP (FEP)	PASS	J3b.3/5 monitor-api: nested DOS/text 0/0
+va-640 FEP (FEP)	PASS	J3b.3/8 Return (reading)
+va-640 FEP (FEP)	PASS	J3b.3/8 Return (candidate)
+va-640 FEP (FEP)	PASS	JFP OFF / no active input
+va-640 FEP (FEP)	TOTAL	13/13
+va2-256 plain	PASS	J0.3/1 DIR/F3
+va2-256 plain	PASS	J0.3/5,9 eof-1
+va2-256 plain	PASS	J0.3/5,9 eof-2
+va2-256 plain	PASS	J0.3/5,9 eof-3
+va2-256 plain	PASS	J0.3/5,9 extra-eof-1
+va2-256 plain	PASS	J0.3/5,9 extra-eof-2
+va2-256 plain	PASS	J0.3/5,9 ctrl-z
+va2-256 plain	PASS	J0.3/9 editor baseline
+va2-256 plain	PASS	J0.3/9 Ctrl-X
+va2-256 plain	PASS	J0.3/9 Ctrl-C
+va2-256 plain	PASS	J0.4 boot labels + 24 rows
+va2-256 plain	PASS	J0.4 Shift and release
+va2-256 plain	PASS	J0.4 DIR/scroll and TYPE
+va2-256 plain	PASS	J0.4 CLS
+va2-256 plain	PASS	J0.4 redirected CLS
+va2-256 plain	PASS	J0.4 clear + home
+va2-256 plain	PASS	J0.4 hide/show block
+va2-256 plain	PASS	J0.4 hide/show byte
+va2-256 plain	PASS	J0.4 hide preserves text
+va2-256 plain	PASS	J0.4 row 25 scroll / show
+va2-256 plain	PASS	Plain boot and revised JFP usage
+va2-256 plain	TOTAL	21/21
+va2-256 ON (FEP)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va2-256 ON (FEP)	PASS	J3a/6 reading BS
+va2-256 ON (FEP)	PASS	J3a/6 pending F1
+va2-256 ON (FEP)	PASS	J3a/6 ESC
+va2-256 ON (FEP)	PASS	J3a/6 pending and idle Ctrl-C
+va2-256 ON (FEP)	PASS	J3a/6 F1/F3 template
+va2-256 ON (FEP)	PASS	J3a/6 DBCS BS
+va2-256 ON (FEP)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va2-256 ON (FEP)	PASS	J3b.3/5 monitor-line: nested DOS/text 0/0
+va2-256 ON (FEP)	PASS	J3b.3/5 monitor-api: nested DOS/text 0/0
+va2-256 ON (FEP)	PASS	J3b.3/8 Return (reading)
+va2-256 ON (FEP)	PASS	J3b.3/8 Return (candidate)
+va2-256 ON (FEP)	PASS	JFP OFF / no active input
+va2-256 ON (FEP)	TOTAL	13/13
+va2-256 ROM (ROM)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va2-256 ROM (ROM)	PASS	J3a/6 reading BS
+va2-256 ROM (ROM)	PASS	J3a/6 pending F1
+va2-256 ROM (ROM)	PASS	J3a/6 ESC
+va2-256 ROM (ROM)	PASS	J3a/6 pending and idle Ctrl-C
+va2-256 ROM (ROM)	PASS	J3a/6 F1/F3 template
+va2-256 ROM (ROM)	PASS	J3a/6 DBCS BS
+va2-256 ROM (ROM)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va2-256 ROM (ROM)	DIFF	J3b.3/5 monitor-line: nested DOS/text 0/47
+va2-256 ROM (ROM)	DIFF	J3b.3/5 monitor-api: nested DOS/text 0/106
+va2-256 ROM (ROM)	PASS	J3b.3/8 Return (reading)
+va2-256 ROM (ROM)	PASS	J3b.3/8 Return (candidate)
+va2-256 ROM (ROM)	PASS	JFP OFF / no active input
+va2-256 ROM (ROM)	TOTAL	11/13
+va2-256 FEP (FEP)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va2-256 FEP (FEP)	PASS	J3a/6 reading BS
+va2-256 FEP (FEP)	PASS	J3a/6 pending F1
+va2-256 FEP (FEP)	PASS	J3a/6 ESC
+va2-256 FEP (FEP)	PASS	J3a/6 pending and idle Ctrl-C
+va2-256 FEP (FEP)	PASS	J3a/6 F1/F3 template
+va2-256 FEP (FEP)	PASS	J3a/6 DBCS BS
+va2-256 FEP (FEP)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va2-256 FEP (FEP)	PASS	J3b.3/5 monitor-line: nested DOS/text 0/0
+va2-256 FEP (FEP)	PASS	J3b.3/5 monitor-api: nested DOS/text 0/0
+va2-256 FEP (FEP)	PASS	J3b.3/8 Return (reading)
+va2-256 FEP (FEP)	PASS	J3b.3/8 Return (candidate)
+va2-256 FEP (FEP)	PASS	JFP OFF / no active input
+va2-256 FEP (FEP)	TOTAL	13/13
+va2-640 plain	PASS	J0.3/1 DIR/F3
+va2-640 plain	PASS	J0.3/5,9 eof-1
+va2-640 plain	PASS	J0.3/5,9 eof-2
+va2-640 plain	PASS	J0.3/5,9 eof-3
+va2-640 plain	PASS	J0.3/5,9 extra-eof-1
+va2-640 plain	PASS	J0.3/5,9 extra-eof-2
+va2-640 plain	PASS	J0.3/5,9 ctrl-z
+va2-640 plain	PASS	J0.3/9 editor baseline
+va2-640 plain	PASS	J0.3/9 Ctrl-X
+va2-640 plain	PASS	J0.3/9 Ctrl-C
+va2-640 plain	PASS	J0.4 boot labels + 24 rows
+va2-640 plain	PASS	J0.4 Shift and release
+va2-640 plain	PASS	J0.4 DIR/scroll and TYPE
+va2-640 plain	PASS	J0.4 CLS
+va2-640 plain	PASS	J0.4 redirected CLS
+va2-640 plain	PASS	J0.4 clear + home
+va2-640 plain	PASS	J0.4 hide/show block
+va2-640 plain	PASS	J0.4 hide/show byte
+va2-640 plain	PASS	J0.4 hide preserves text
+va2-640 plain	PASS	J0.4 row 25 scroll / show
+va2-640 plain	PASS	Plain boot and revised JFP usage
+va2-640 plain	TOTAL	21/21
+va2-640 ON (FEP)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va2-640 ON (FEP)	PASS	J3a/6 reading BS
+va2-640 ON (FEP)	PASS	J3a/6 pending F1
+va2-640 ON (FEP)	PASS	J3a/6 ESC
+va2-640 ON (FEP)	PASS	J3a/6 pending and idle Ctrl-C
+va2-640 ON (FEP)	PASS	J3a/6 F1/F3 template
+va2-640 ON (FEP)	PASS	J3a/6 DBCS BS
+va2-640 ON (FEP)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va2-640 ON (FEP)	PASS	J3b.3/5 monitor-line: nested DOS/text 0/0
+va2-640 ON (FEP)	PASS	J3b.3/5 monitor-api: nested DOS/text 0/0
+va2-640 ON (FEP)	PASS	J3b.3/8 Return (reading)
+va2-640 ON (FEP)	PASS	J3b.3/8 Return (candidate)
+va2-640 ON (FEP)	PASS	JFP OFF / no active input
+va2-640 ON (FEP)	TOTAL	13/13
+va2-640 ROM (ROM)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va2-640 ROM (ROM)	PASS	J3a/6 reading BS
+va2-640 ROM (ROM)	PASS	J3a/6 pending F1
+va2-640 ROM (ROM)	PASS	J3a/6 ESC
+va2-640 ROM (ROM)	PASS	J3a/6 pending and idle Ctrl-C
+va2-640 ROM (ROM)	PASS	J3a/6 F1/F3 template
+va2-640 ROM (ROM)	PASS	J3a/6 DBCS BS
+va2-640 ROM (ROM)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va2-640 ROM (ROM)	DIFF	J3b.3/5 monitor-line: nested DOS/text 0/47
+va2-640 ROM (ROM)	DIFF	J3b.3/5 monitor-api: nested DOS/text 0/106
+va2-640 ROM (ROM)	PASS	J3b.3/8 Return (reading)
+va2-640 ROM (ROM)	PASS	J3b.3/8 Return (candidate)
+va2-640 ROM (ROM)	PASS	JFP OFF / no active input
+va2-640 ROM (ROM)	TOTAL	11/13
+va2-640 FEP (FEP)	PASS	J3a/2 日本 candidate, confirm and ECHO
+va2-640 FEP (FEP)	PASS	J3a/6 reading BS
+va2-640 FEP (FEP)	PASS	J3a/6 pending F1
+va2-640 FEP (FEP)	PASS	J3a/6 ESC
+va2-640 FEP (FEP)	PASS	J3a/6 pending and idle Ctrl-C
+va2-640 FEP (FEP)	PASS	J3a/6 F1/F3 template
+va2-640 FEP (FEP)	PASS	J3a/6 DBCS BS
+va2-640 FEP (FEP)	PASS	J3b.3/2 日本語, next/previous, KETTEI + Return
+va2-640 FEP (FEP)	PASS	J3b.3/5 monitor-line: nested DOS/text 0/0
+va2-640 FEP (FEP)	PASS	J3b.3/5 monitor-api: nested DOS/text 0/0
+va2-640 FEP (FEP)	PASS	J3b.3/8 Return (reading)
+va2-640 FEP (FEP)	PASS	J3b.3/8 Return (candidate)
+va2-640 FEP (FEP)	PASS	JFP OFF / no active input
+va2-640 FEP (FEP)	TOTAL	13/13
