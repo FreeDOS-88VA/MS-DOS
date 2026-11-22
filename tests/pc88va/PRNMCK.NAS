@@ -55,7 +55,7 @@ cpu 186
 %endif
     cmp word [last],0041h
     jne done
-    cmp byte [function],3
+    cmp byte [function],1        ; ANK uses the ROM's text mode
     jne done
 
     inc byte [stage]
@@ -134,8 +134,9 @@ cpu 186
     jne done
 
     inc byte [stage]
-    mov byte [cmd],8              ; raw failure while busy => not ready
-    mov word [count],3
+    mov byte [cmd],8              ; raw TAB failure while busy => not ready
+    mov word [xfer],controls+2
+    mov word [count],1
     mov byte [fail],1
     call request
     cmp word [status],8102h
@@ -143,7 +144,7 @@ cpu 186
     cmp word [count],0
     jne done
     mov byte [busy],0             ; raw failure without busy => write fault
-    mov word [count],3
+    mov word [count],1
     call request
     cmp word [status],810ah
     jne done

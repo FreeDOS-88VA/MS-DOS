@@ -2253,11 +2253,12 @@ PRN_BYTE:
         JA      PRN_BADTRAIL
         MOV     AH,1            ;ROM handles JIS and printer framing.
         CALL    PRN_BIOS
-        JC      PRN_PAIRERR
+        JC      PRN_TEXTERR
         MOV     [PRN_LEAD],0
         JMP     SHORT PRN_SENT
 PRN_BADTRAIL:
         MOV     [PRN_LEAD],0    ;Do not swallow a control after a stray lead.
+        XOR     DH,DH
 PRN_SINGLE:
         CMP     DL,81H
         JB      PRN_RAW
@@ -2271,7 +2272,16 @@ PRN_HOLD:
         MOV     [PRN_LEAD],DL
         JMP     SHORT PRN_SENT
 PRN_RAW:
-        MOV     AH,3
+        CMP     DL,9
+        JE      PRN_TAB
+        ; Let the ROM leave kanji mode before sending an ANK character.
+        ; Function 03h would send the byte without changing that mode.
+        MOV     AH,1            ;DH = 0 for a single byte.
+        CALL    PRN_BIOS
+        JC      PRN_TEXTERR
+        JMP     SHORT PRN_SENT
+PRN_TAB:
+        MOV     AH,3            ;Keep TAB literal (01h expands it).
         CALL    PRN_BIOS
         JC      PRN_RAWERR
 PRN_SENT:
@@ -2279,7 +2289,7 @@ PRN_SENT:
         DEC     CX
         JMP     SHORT PRN_NEXT
 
-PRN_PAIRERR:
+PRN_TEXTERR:
         CMP     AL,3            ;Known timeout.
         JE      CHAR_NOTREADY
         JMP     SHORT CHAR_WRFAULT
