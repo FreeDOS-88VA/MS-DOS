@@ -102,3 +102,51 @@ track 0 alone does not distinguish the media modes.
 Real hardware, FORMAT/WRITE DATA, CRC data handling, media swap,
 deleted-data copying, and protection schemes beyond the listed layouts:
 **NOT RUN in M1**.
+
+## M2 — Read-only track analysis
+
+`pc88va/VADCOPY.ASM` builds as `DISKCOPY.COM` with MASM and LINK and
+stripping the MZ header and 100h origin. `DISKCOPY B: /T` reads B:; keep
+redirected output on a different drive. Preferred 2HD mode is tried
+first if selected; the low-density probes check cylinder 1 in 2DD
+mode to avoid mistaking an accessible 2D cylinder 0 for 2DD. This is
+an inference, not physical media identification. Media with blank
+initial cylinders can defeat auto-detection. Both MFM and FM are
+tried on each track, assuming one encoding per track.
+
+A track ends when the first full C/H/R/N identity repeats; an
+out-of-order repeat or more than 40 distinct tuples is an error.
+READ ID does not determine the original angular index or reliably
+distinguish identical IDs. The conventional-memory buffer holds one
+track, with each DMA slot physically 1 KiB aligned, so a single
+128–1024-byte sector cannot cross a 64 KiB page. READ DATA uses a
+single sector per call, IDR for independent C/H, and USERPARM for
+non-standard R and N. The sector slot is cleared first; on Ignore,
+any bytes actually DMA'd are retained. A failed layout scan is
+reported and skipped after Ignore. An absent tail (77 vs 80
+cylinders) looks like any other absent track and prompts too.
+
+### M2 gate: PASS (VA, vaeg m153)
+
+[`read_gate.py`](D1/read_gate.py) checks the complete diagnostic output
+against the fixture: track count, density, ID sequence up to rotation,
+ROM read status and a rolling 16-bit payload checksum per sector. The
+read-only gate did not write the fixture image.
+
+| Image | Tracks scanned | Sectors checked | Result |
+|---|---:|---:|---|
+| hd77 | 160 | 1,232 | PASS, ignored six absent tracks |
+| hd80 | 160 | 1,280 | PASS |
+| hc | 160 | 2,400 | PASS |
+| dd9 | 160 | 1,440 | PASS |
+| dd8 | 160 | 1,280 | PASS |
+| d16 | 80 | 1,280 | PASS |
+| hd-fm | 160 | 4,160 | PASS including FM/N=0 |
+| exotic | 160 | 1,272 | PASS including mixed N, high R and independent C/H; ignored one absent track |
+| exotic, Abort | 2 before error | 16 | PASS, returned to DOS after the track 02h prompt |
+
+In `exotic`, the CRC-marked sector returned ordinary data and success
+on m153. The actual CRC-error Ignore path and VA2 `/T` were **NOT RUN**.
+The FDC trace on `hd80`, `hd-fm`, `d16` and `exotic` showed no READ DATA
+DMA range crossing a 64 KiB page; the tested allocations did not span
+multiple pages.
