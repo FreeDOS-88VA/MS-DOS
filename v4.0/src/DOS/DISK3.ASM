@@ -130,12 +130,12 @@ WRITE_OK:
 
 	CALL	DIV32			;F.C. perform 32 bit divide		;AN000;
 	MOV	BX,AX			; Save last full sector
+	PUSH	[HIGH_SECTOR]		;PD0255 save before the zero-base decrement
 	OR	DX,DX
 	JNZ	CALCLUS
 	SUB	AX,1			; AX must be zero base indexed		;AC000;
 	SBB	[HIGH_SECTOR],0 	;F.C. >32mb				;AN000;
 CALCLUS:
-	PUSH	[HIGH_SECTOR]		;F.C. >32mb				;AN000;
 	CALL	SHR32			;F.C. >32mb				;AN000;
 	POP	[HIGH_SECTOR]		;F.C. >32mb				;AN000;
 
@@ -160,13 +160,13 @@ CALCLUS:
 
 	DIV	ES:[BP.dpb_sector_size]
 	MOV	CX,AX		; Save last full sector of current file
+	MOV	DI,[HIGH_SECTOR_TEMP]	;PD0255 round up in DI, leave HIGH_SECTOR_TEMP alone
 	OR	DX,DX
 	JZ	NORNDUP
 	ADD	AX,1		; Round up if any remainder			;AC000;
-	ADC	[HIGH_SECTOR_TEMP],0	;F.C. >32mb				;AN000;
+	ADC	DI,0			;PD0255
 NORNDUP:
-	PUSH	[HIGH_SECTOR_TEMP]	;F.C. >32mb				;AN000;
-	POP	WORD PTR [VALSEC+2]	;F.C. >32mb				;AN000;
+	MOV	WORD PTR [VALSEC+2],DI	;PD0255
 	MOV	WORD PTR [VALSEC],AX  ;Number of sectors that have been written
 	XOR	AX,AX
 	MOV	WORD PTR [GROWCNT],AX

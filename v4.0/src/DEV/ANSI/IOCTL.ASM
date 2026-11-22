@@ -144,6 +144,7 @@ GRAPHICS_FLAG    DB    TEXT_MODE               ; flag for graphics mode         
 ERROR_FLAG       DB    OFF                     ; flag for error conditions                         ;AN000;
 Display_Loaded_Before_Me db     0              ;AN008;flag
 ANSI_SetMode_Call_Flag   db     0              ;AN008;Ansi is issuing INT10,AH=0.
+ALT_PRTSC_DONE   DB    OFF                     ; IR80263 alternate print screen already selected
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
@@ -303,6 +304,7 @@ SET_IOCTL PROC  NEAR                                                            
            .IF <ERROR_FLAG EQ OFF>             ; if we had no errors then..                        ;AN000;
               POP    AX                        ; discard saved text length                         ;AN000;
               call   DO_ROWS                   ;AN004;
+              call   ALT_PRTSC                 ; IR80263
              .IF <HDWR_FLAG GE E5151_ACTIVE>   ; does hardware support gt 25 lines?                ;AN000;
                 CALL   SET_CURSOR_EMUL         ; yes..ensure cursor emulation is..                 ;AN000;
              .ENDIF                            ; set accordingly.                                  ;AN000;
@@ -443,6 +445,26 @@ DO_ROWS         proc    near                            ;AN004;
        .ENDIF                                           ;AN004;
         ret                                             ;AN004;
 DO_ROWS         endp                                    ;AN004;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Procedure name: ALT_PRTSC                                       IR80263
+; Function:
+;  Select the BIOS alternate print screen routine (INT 10h AH=12h BL=20h),
+;  but only once, only when more than 25 rows were requested, and only on
+;  an MCGA or better. 4.00 did this unconditionally at install time.
+;  ES:[DI] = request packet.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ALT_PRTSC       proc    near                                    ;IR80263
+       .IF <ALT_PRTSC_DONE EQ OFF> AND                          ;IR80263
+       .IF <ES:[DI].RP_ROWS GT DEFAULT_LENGTH> AND              ;IR80263
+       .IF <HDWR_FLAG GE MCGA_ACTIVE>                           ;IR80263
+           MOV    AH,ALT_SELECT                                 ;IR80263
+           MOV    BL,ALT_PRT_SC                                 ;IR80263
+           INT    10H                                           ;IR80263
+           MOV    ALT_PRTSC_DONE,0FFH                           ;IR80263
+       .ENDIF                                                   ;IR80263
+        ret                                                     ;IR80263
+ALT_PRTSC       endp                                            ;IR80263
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;

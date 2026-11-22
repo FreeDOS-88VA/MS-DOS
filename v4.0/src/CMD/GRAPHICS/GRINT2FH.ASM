@@ -105,7 +105,7 @@ INCLUDE GRCPSD.EXT								;AN000;
 										;AN000;
 INT_2FH_DRIVER	PROC  NEAR							;AN000;
 	JMP	INT_2FH 							;AN000;
-PRT_SCR_2FH_NUMBER EQU		15H	; 2FH Multiplex interrupt number	;AN000;
+PRT_SCR_2FH_NUMBER EQU		0ACH	; 2FH Multiplex interrupt number (PD0255: was 15H, clashed with MSCDEX)	;AN000;
 					;  assigned to Print Screen.		;AN000;
 OLD_INT_2FH	DD    ? 		; Pointer to next 2FH interrupt handler ;AN000;
 RESIDENT_CODE_SEG	DW   ?	; Segment for installed stuff			;AN000;

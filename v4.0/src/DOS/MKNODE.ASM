@@ -177,7 +177,8 @@ EVENZ:
 yesdirty:
         POP     ES
         POP     CX
-        INC     DX
+        ADD     DX,1                                    ;PD0255 carry into high word
+        ADC     [HIGH_SECTOR],0                         ;PD0255 (INC DX lost it)
         LOOP    ZERODIR
         MOV     AX,[LASTENT]
         INC     AX

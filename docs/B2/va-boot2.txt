@@ -1,0 +1,299 @@
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>FC /B Z.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>FC /B Z.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>FC /B SUB\X.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>
+
+
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>FC /B Z.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>FC /B SUB\X.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>DEL SUB\X.COM
+
+A:\>
+
+
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>FC /B Z.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>FC /B SUB\X.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>DEL SUB\X.COM
+
+A:\>DEL SUB\README.TXT
+
+A:\>
+
+
+
+=====
+日本語MS-DOS version 4.00 Release 20261123 (main, 42f6da93)
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>FC /B Z.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>FC /B SUB\X.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>DEL SUB\X.COM
+
+A:\>DEL SUB\README.TXT
+
+A:\>RD SUB
+
+A:\>
+
+=====
+for NEC PC-88VA Series Personal Computer
+Ported by Nakata Maho
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>FC /B Z.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>FC /B SUB\X.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>DEL SUB\X.COM
+
+A:\>DEL SUB\README.TXT
+
+A:\>RD SUB
+
+A:\>DEL Z.COM
+
+A:\>
+=====
+A:\>FASTOPEN A:
+
+FASTOPEN を組み込みました
+
+A:\>COPY SUB\X.COM Z.COM
+        1 個のファイルをコピーしました
+
+A:\>FC /B Z.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>FC /B SUB\X.COM COMMAND.COM
+fc: ファイルは一致しました
+
+A:\>DEL SUB\X.COM
+
+A:\>DEL SUB\README.TXT
+
+A:\>RD SUB
+
+A:\>DEL Z.COM
+
+A:\>DEL X.COM
+
+A:\>
+=====
+
+A:\>RD SUB
+
+A:\>DEL Z.COM
+
+A:\>DEL X.COM
+
+A:\>DIR /W
+
+ ドライブ A のボリュームラベルは MSDOS4-VA   です
+ ボリューム番号は 1988-0617 です
+ ディレクトリ: A:\
+
+COMMAND  COM    AUTOEXEC BAT    CONFIG   SYS    LICENSE  TXT    README   TXT
+APPEND   EXE    ASSIGN   COM    ATTRIB   EXE    BACKUP   COM    CHKDSK   COM
+COMP     COM    COUNTRY  SYS    DEBUG    COM    DISKCOPY COM    EDLIN    COM
+EXE2BIN  EXE    FASTOPEN EXE    FC       EXE    FIND     EXE    FORMAT   COM
+JFP      COM    JOIN     EXE    KEY      COM    LABEL    COM    MEM      EXE
+MORE     COM    NLSFUNC  EXE    RECOVER  COM    REPLACE  EXE    RESTORE  COM
+SHARE    EXE    SORT     EXE    SPEED    COM    SUBST    EXE    SYS      COM
+TREE     COM    XCOPY    EXE
+       37 個のファイル     772096 バイトの空き
+
+A:\>
+=====
+JFP      COM    JOIN     EXE    KEY      COM    LABEL    COM    MEM      EXE
+MORE     COM    NLSFUNC  EXE    RECOVER  COM    REPLACE  EXE    RESTORE  COM
+SHARE    EXE    SORT     EXE    SPEED    COM    SUBST    EXE    SYS      COM
+TREE     COM    XCOPY    EXE
+       37 個のファイル     772096 バイトの空き
+
+A:\>CHKDSK
+
+ボリューム MSDOS4-VA   の作成日時: 1988-06-17 0:00
+ボリューム番号は 1988-0617 です
+
+   1299456 バイトのディスク総容量
+     68608 バイト (3 個の隠しファイル)
+    458752 バイト (37 個のユーザーファイル)
+    772096 バイトのディスク空き領域
+
+      1024 バイトの割り当て単位
+      1269 個の総割り当て単位
+       754 個の空き割り当て単位
+
+    655360 バイトの総メモリ
+    513632 バイトの空き
+
+A:\>
