@@ -23,9 +23,12 @@ scratch only. No NEC execution or byte capture was performed.
 - **PRN policy:** use documented VA printer conversion for Shift-JIS
   pairs, with printer type/framing owned by ROM SETUP, not hardcoded
   PC-PR201 codes. Follow J2a's split-request lead collection, but use the
-  printer BIOS, not console glyph substitution. Send standalone bytes
-  unchanged via 03h, including CR, LF and TAB. This is a VA policy, not
-  proven NEC byte parity. Use a one-second firmware timeout; map an
+  printer BIOS, not console glyph substitution. M2 sent standalone bytes
+  via 03h. Fix 2 uses 01h for standalone text bytes so the ROM can restore
+  ANK mode after kanji, and keeps TAB on 03h to avoid expansion. CR, LF and
+  TAB stay literal in the capture; ROM shift sequences are additional
+  framing. This is a VA policy, not proven NEC byte parity. Use a one-second
+  firmware timeout; map an
   ambiguous busy/timeout to not ready where distinguishable, otherwise
   write fault; never fabricate a paper-out code from busy alone.
 - **Serial:** INT 8Ah/00h initializes the 8251 (DH mode, DL command),
@@ -75,7 +78,7 @@ output can repeat bytes. No independent paper-out mapping is possible.
 | Boot from 2HD | Prompt reached | Prompt reached |
 | Initial synthetic BIOS fixture | FAIL: invalid fixture opcode | FAIL: invalid fixture opcode |
 | Initial CHKDSK | FAIL: no completion | FAIL: no completion |
-| Physical printer / byte capture | NOT RUN | NOT RUN |
+| ROM-driven printer byte capture on M163 | PASS (Fix 2) | PASS (Fix 2) |
 
 See [M2 evidence](A1/m2.txt). `PRINT` source inspection found that its
 resident code recognizes PRN/LPT1 as IBM INT 17h devices and uses IBM
@@ -123,11 +126,97 @@ DOS `CISTAT` entry points in the MASM listings. The cases `prn-mock` and
 with the rebuilt IO.SYS in the NASM working directory instead builds
 isolated fixtures runnable in emu2, omitting DOS standard-handle tests.
 
-Actual captures/injection, real devices, NEC execution, PRINT, physical
-2HD/2D, and drive/terminal scenarios requiring a live serial peer
-(`COPY` both ways, `CTTY AUX` prompt and command): **NOT RUN**. The UART
-mock checks the DOS interface, not the actual UART, IRQ handler or baud.
-See [M3 evidence](A1/m3.txt).
+The original M3 UART mock checks the DOS interface, not the UART, IRQ
+handler or baud; see [M3 evidence](A1/m3.txt). Fix 2 exercises the ROM,
+emulated UART and printer ports with file backends. Physical peripherals,
+a live serial peer, NEC execution, PRINT and physical 2HD/2D are still
+**NOT RUN**.
+
+## Fix 2: printer and serial file backends
+
+Rebuilt VAIO and VASPEED from `4462b61` with MASM/LINK and the same
+SYSINIT/kernel/COMMAND fixture as Fix 1, then rebuilt with the printer
+fix. MASM reported zero warnings and errors. Tested vaeg M163, PR #86
+`5fe2006d`, Linux binary SHA-256
+`eba65eb9b616c9ccf41bc55f1368267579800f5c340ad00398e5502f96e5f5fd`.
+Each case used a cold boot and fresh capture files; the 256 KiB basic
+cases ran together on VA2 (`Main_RAM=256`, `Main_RAM_Auto=true`, verified
+by CHKDSK's `262144 total bytes memory`). Both 640 KiB models reported
+`655360 total bytes memory` in the regression.
+
+| Gate | VA 640 KiB | VA2 640 KiB | VA2 256 KiB |
+|---|---|---|---|
+| `ECHO abc > PRN`, `COPY TEST.TXT PRN`, `TYPE TEST.TXT > PRN` | PASS | PASS | PASS |
+| Mixed Shift-JIS kanji and half-width kana | PASS after fix | PASS after fix | — |
+| Ctrl-P echo from keyboard | PASS | PASS | — |
+| Printer busy: critical error, Retry, Abort | PASS | PASS | — |
+| `COPY AUX OUT.TXT` through Ctrl-Z | PASS | PASS | PASS |
+| `COPY TEST.TXT AUX` byte-for-byte | PASS | PASS | PASS |
+| `CTTY AUX`: VER, DIR, CTTY CON and keyboard | PASS | PASS | — |
+| `SPEED 2400`: TX bytes and RX timing | PASS | PASS | — |
+| AUX IOCTL 4406h: empty, ready, drained | PASS | PASS | — |
+
+### Printer capture
+
+- The boot-only `--printer-out` control captured `1F` on VA and nothing on
+  VA2. After that startup prefix, the first text write emits `1B 48`
+  (`ESC H`, select ANK). Each isolated ASCII case then emits exactly its
+  payload: `abc \r\n` (COMMAND keeps the space before `>`), or
+  `Alpha\r\nBeta\t123\r\n` for both COPY and TYPE. In the combined VA2
+  256 KiB run, `ESC H` occurs once, before the three concatenated payloads.
+- `TYPE SJIS.TXT > PRN` with `A漢字ｶﾅZ\r\n` (PC code page 932) captured
+  on both models, excluding the boot-only prefix:
+  `1B 48 41 1B 4B 34 41 3B 7A 1B 48 B6 C5 5A 0D 0A`.
+  `ESC K` enters kanji mode, `34 41 3B 7A` is JIS for `漢字`, and `ESC H`
+  returns to ANK for the unchanged half-width kana, `Z`, and CR/LF. The
+  `4462b61` control instead produced `41 1B 4B 34 41 3B 7A B6 C5 5A 0D 0A`:
+  raw BIOS function 03h left the printer in kanji mode. The fix uses 01h
+  with DH=0 for standalone text, preserving 03h for a literal TAB, and
+  clears DH when reprocessing an invalid trail. The updated PRN BIOS
+  mock also passed on both models.
+- Holding Ctrl while tapping P, then typing `ECHO CTRLPMARK`, captured
+  `ECHO CTRLPMARK\r\r\nCTRLPMARK\r\n\r\nA:\>` after the startup/ANK
+  prefix. The two CRs after the command are input echo plus COMMAND's CR/LF.
+- With `--printer-busy-frames 650`, the command was entered at frame 430;
+  by frame 625 DOS displayed `Not ready writing device PRN` followed by
+  `Abort, Retry, Ignore, Fail`. Retry at frame 690 printed `retry\r\n`
+  once, after the startup/ANK prefix, and returned to the prompt. On a
+  separate boot, Abort at frame 605 returned to the prompt without
+  adding any bytes to the boot-only capture.
+
+### Serial transfer and timing
+
+- `--serial-in` supplied `From serial\r\nSecond line\r\n` plus `1A`.
+  The extracted `OUT.TXT` contained exactly the text without `1A`.
+  `--serial-out` for `COPY TEST.TXT AUX` matched all 17 bytes of TEST.TXT
+  both at the boot default and after `SPEED 2400`.
+- With serial input `VER\rDIR\rCTTY CON\r`, the capture held the AUX
+  prompt, the echoed commands, `MS-DOS Version 4.00`, and the directory
+  listing (including TEST.TXT). The earlier boot banner stays on CON.
+  After `CTTY CON`, keyboard-entered `ECHO KEYBOARDOK` printed on CON and
+  did not leak to serial.
+- Assemble [AUXSTAT.NAS](../tests/pc88va/AUXSTAT.NAS) as `ASTAT.COM`.
+  DOS `4406h` returned `00` with no input; with the COPY fixture pending it
+  returned `FF`, COPY still retrieved the entire text, and the next poll
+  returned `00`.
+- TX is unpaced in M163. To measure paced RX, assemble
+  [AUXTIME.NAS](../tests/pc88va/AUXTIME.NAS) as `RXTIM.COM` and attach an
+  input file of 32,768 `x` bytes. Enter `SPEED 9600` or `SPEED 2400` at
+  frame 430, then `RXTIM` at frame 510. Measure from the first `AUX_READ`
+  hit to the next `CISTAT` hit (MASM listing offsets `1559h` and `0A73h`
+  in segment `1000h` for the Fix 2 build). Both models verified all 4,096
+  bytes read: frames **561–789 (228)** at 9600, **561–1466 (905)** at 2400.
+  The interval includes initial queued bytes and return to command input;
+  it is a relative timing check, not a physical wire-rate measurement.
+
+### Regression spot checks
+
+After committing the driver change, `CHKDSK A:` with `n=0,234,1024`
+bytes before `RESEND` reached its memory summary and returned to the
+prompt in all six M163 runs (VA and VA2, floppy-only). The J0.4 boot
+screen check passed on both: 24 main text rows, A:\> prompt, and the
+bottom 16 guest pixel rows exactly matched both the `4462b61` control
+and the historical J0.4 boot screenshots.
 
 ## CHKDSK hang root cause
 
