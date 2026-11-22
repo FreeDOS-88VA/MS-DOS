@@ -1315,13 +1315,10 @@ OUTGLYPH:
 OUTEDGEPAIR:
         ; Reproduce the ROM's special space before a pre-wrapped pair.
         PUSH    AX
-        PUSH    DX
+        MOV     BX,DX
         MOV     AX,0100H
         MOV     DX,00FEH
-        INT     83H
-        POP     DX
-        MOV     AH,08H         ;Undo the filler write's ROM cursor advance.
-        INT     83H
+        CALL    OUTAT
         POP     AX
 OUTGLINE:
         PUSH    AX
@@ -1336,16 +1333,14 @@ OUTSPACE:
         OR      AH,AH
         JZ      OUTGEND
         ; A two-cell glyph starts at column 79. ROM wrap must be enabled
-        ; for Chuput to draw both halves, but auto-scroll is disabled.
+        ; for Chuput to draw both halves.
 OUTEDGE:MOV     [OUTWRAP],1
-        MOV     DH,79
         MOV     BX,DX
         MOV     DX,AX
         POP     AX
-        PUSH    BX
-        CALL    OUTWRITE
-        POP     DX
-        MOV     AH,08H         ;Return the cursor to the cell just filled.
+        CALL    OUTAT
+        MOV     DH,79
+        MOV     AH,08H         ;A pair began at 79 but leaves the cursor at 80.
         INT     83H
         JMP     SHORT OUTOK
 OUTGEND:MOV     DX,AX
@@ -1362,6 +1357,56 @@ OUTREGS:POP     ES
         POP     BX
         POP     AX
 OUTCH9: RET
+
+; Write at BX (row in BL), then return there. Only bottom-row edge
+; writes need VSCL suppressed. Spltscn resets cursor and current attr;
+; restore both before writing and again when returning to the live layout.
+OUTAT:  PUSH    BX
+        CALL    LASTROW
+        CMP     BL,CL
+        JNE     OUTATWRITE
+        CMP     [LABELON],-1
+        JE      OUTATWRITE
+        PUSH    AX
+        PUSH    DX
+        MOV     AX,2700H       ;Askatr: read current attribute code.
+        XOR     DX,DX
+        INT     83H
+        PUSH    DX
+        CALL    SPLITARGS
+        AND     BYTE PTR CS:[BP+5],0FBH
+        CALL    SETSPLIT
+        POP     DX
+        PUSH    DX
+        CALL    SETMAINAT
+        POP     CX             ;Attribute for the second split change.
+        POP     DX
+        POP     AX
+        PUSH    CX
+        CALL    OUTWRITE
+        CALL    SPLITARGS
+        OR      BYTE PTR CS:[BP+5],04H
+        CALL    SETSPLIT
+        POP     DX
+        POP     BX
+SETMAINAT:
+        PUSH    BX
+        MOV     AX,0500H        ;Setatr in existing mode.
+        INT     83H
+        JMP     SHORT OUTATPOS
+OUTATWRITE:
+        CALL    OUTWRITE
+OUTATPOS:
+        POP     DX
+        MOV     AH,08H
+        INT     83H
+        RET
+
+LASTROW:MOV     CL,23           ;Zero-based last main row.
+        CMP     [LABELON],0
+        JNE     LASTRET
+        INC     CL
+LASTRET:RET
 
 OUTWRITE:
         CMP     AH,02H
@@ -1908,8 +1953,8 @@ ESCCOLORS DB    0,2,4,6,1,3,5,7 ;NEC ANSI RGB order -> VA GRB bits.
 
 ; The two layouts share the main framebuffer. The system buffer starts
 ; after all 25 main rows, so the split can change without copying text.
-MAIN25  DB      00H,0,0,0,25,11H,07H,0
-MAIN24  DB      00H,0,0,0,24,11H,07H,0  ;Mode 1, word wrap, no auto-scroll.
+MAIN25  DB      00H,0,0,0,25,15H,07H,0
+MAIN24  DB      00H,0,0,0,24,15H,07H,0  ;Mode 1, word wrap, auto-scroll.
         DB      41H,0,0,0,1,10H,07H,0   ;System line, attribute mode 1.
 
 ; AL = requested label count (0 or 10). Caller saves all registers.
@@ -2019,8 +2064,17 @@ GRAPHFAIL:
         POP     DX
         RET
 
-SPLIT24:MOV     BP,OFFSET MAIN24
+SPLITARGS:
+        MOV     BP,OFFSET MAIN25
+        MOV     CX,1
+        CMP     [LABELON],0
+        JE      SPLITRET
+SPLIT24ARGS:
+        MOV     BP,OFFSET MAIN24
         MOV     CX,2
+SPLITRET:RET
+
+SPLIT24:CALL    SPLIT24ARGS
 SETSPLIT:
         PUSH    CS
         POP     ES
