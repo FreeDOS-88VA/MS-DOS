@@ -156,7 +156,8 @@ multiple pages.
 The gate is a verified two-drive copy and D88 comparison for **each**
 fixture, plus a copied MS-DOS disk that boots. `D1/copy_gate.py` checks
 track presence, cyclic ID order, density, N and full sector bytes.
-It ignores D88 header fields unrelated to layout and data. Debug
+It ignores D88 status, write-protect and other metadata outside the
+comparison (including the CRC and deleted-data flags). Debug
 `mount-fdd` worked when the script waited for DOS to load the program
 and for the emulator's delayed insertion before sending Enter.
 
@@ -190,8 +191,9 @@ target. The blank images had no tracks and the appropriate D88 type.
 
 VA2 on m153: `hd80`, `dd9`, `d16` and `boot` passed `/V` and the
 D88 comparison; `boot` also reached the DOS prompt on the copy.
-Real hardware, a CRC data failure, deleted-data copying, and copy
-protection beyond the listed layouts: **NOT RUN**.
+Real hardware, a CRC data failure, deleted-data copying, recovery
+by choosing Retry after inserting writable media, and copy protection
+beyond the listed layouts: **NOT RUN**.
 
 ### vaeg FM format fix
 
@@ -202,6 +204,37 @@ The m153 comparison failed at track 00h; on the fixed SDL2 build,
 `hd-fm` passed `/V` and matched on both a formatted and a blank
 D88 target. No emulator changes were pushed.
 
-## M4/M5
+## M4 — One drive
 
-Not yet run at the M3 commit.
+`DISKCOPY A: A: /V` reads a batch before prompting for the target.
+Each record contains an encoding flag, a sector count, the data
+segment and a packed ID table. Uniform sectors are aligned to their
+own size (a power of two that divides 64 KiB); a format/verify slot
+is reserved separately. The batch fills the available DOS allocation
+up to the PSP's end segment, without splitting a track. The next track
+that will not fit is read after the next SOURCE prompt. The two-drive
+and `/T` paths still use one track of fixed 1 KiB slots.
+
+The swap count excludes initial source insertion and restoration of
+the DOS diskette. After answering N (or aborting), restore the system
+disk before pressing Enter: a large copy can overwrite the transient
+part of COMMAND.COM, which DOS then reloads. Always follow the SOURCE
+and TARGET prompts; the BIOS cannot reliably identify two diskettes
+of the same media mode. The fixed vaeg build's debug script can mount
+images, but must leave time for delayed insertion and for `/V` to
+finish before ejecting the target. `D1/swap_gate.py` checks the D88
+layout and bytes after `/V`, checks the source was untouched, confirms
+the configured RAM from the emulator log, and checks the return to
+DOS after restoring the boot disk. It uses a blank target.
+
+| Fixture | VA2 256 KiB | VA2 640 KiB |
+|---|---:|---:|
+| `d16` (2D) | PASS, 5 swaps | PASS, 1 swap |
+| `dd9` (2DD) | PASS, 13 swaps | PASS, 3 swaps |
+| `hd80` (2HD) | PASS, 25 swaps | PASS, 5 swaps |
+
+[Gate output](D1/m4-results.txt). These six checks used the fixed SDL2
+build (`64e55e11`). The other fixtures were not gated in one-drive mode
+on the final build. The two-drive Y/N loop ran on m153 (two successful
+copies, then N, then boot of the copied disk); `/T` also passed its
+`exotic` and `hd-fm` comparisons on m153 with the final M4 binary.

@@ -1,0 +1,13 @@
+VA2 256 KiB d16: PASS (5 swaps after initial source insertion)
+VA2 256 KiB dd9: PASS (13 swaps after initial source insertion)
+VA2 256 KiB hd80: PASS (25 swaps after initial source insertion)
+VA2 640 KiB d16: PASS (1 swaps after initial source insertion)
+VA2 640 KiB dd9: PASS (3 swaps after initial source insertion)
+VA2 640 KiB hd80: PASS (5 swaps after initial source insertion)
+
+Final /T regression on m153:
+va exotic 160 PASS
+va hd-fm 160 PASS
+
+Two-drive Y/N loop on m153 (before the same-drive DOS restore prompt):
+va boot PASS

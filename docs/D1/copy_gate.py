@@ -67,15 +67,21 @@ def screen(path):
 
 
 def run_gate(a):
-    from probe import ROOT, pack_va
+    from probe import ROOT, pack_va, raw_image, read_file
     from mkd88 import GEOMETRY, make
 
     if a.scratch.is_relative_to(ROOT):
         raise SystemExit('scratch must be outside the repository')
     a.scratch.mkdir()
     boot = a.scratch / 'probe.d88'
-    pack_va(a.base, boot, [('DISKCOPY.COM', a.com.read_bytes()),
-                          ('AUTOEXEC.BAT', b'@ECHO OFF\r\n')])
+    if a.packaged:
+        image = a.base.read_bytes()
+        if read_file(raw_image(image), 'DISKCOPY.COM') != a.com.read_bytes():
+            raise SystemExit('packaged DISKCOPY.COM differs from the specified executable')
+        boot.write_bytes(image)
+    else:
+        pack_va(a.base, boot, [('DISKCOPY.COM', a.com.read_bytes()),
+                              ('AUTOEXEC.BAT', b'@ECHO OFF\r\n')])
     env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy',
                TMPDIR=str(a.scratch))
 
@@ -127,7 +133,11 @@ def run_gate(a):
                            'wait-frame 2900', 'key-tap I 3'))
         if case in ('protect', 'not-ready'):
             script.extend(('wait-frame 2600', 'key-tap A 3'))
-        script.append(f'wait-frame {a.frames}')
+        if a.repeat:
+            script.extend(('wait-frame 3400', 'key-tap Y 3',
+                           'wait-frame 3800', 'key-tap RETURN 3',
+                           'wait-frame 4300', 'key-tap RETURN 3'))
+        script.extend((f'wait-frame {a.frames-25}', 'key-tap N 3', f'wait-frame {a.frames}'))
         text = emulate(work, 'copy', 'boot.d88', 'none' if case == 'not-ready' else 'target.d88', script)
         source_path = work / ('boot.d88' if use_boot_source else 'source.d88')
         assert source_path.read_bytes() == original, 'source was modified'
@@ -143,6 +153,8 @@ def run_gate(a):
                                   'Copy incomplete.', '\n00 02\n')}.get(kind, ('Copy complete.',))
             if not error and kind == 'exotic' and next(tracks(copied)) != next(tracks(baseline)):
                 error = 'mixed-size track was modified'
+            if a.repeat and text.count('Copy complete.') != 2:
+                error = error or 'expected two successful copies'
             for marker in markers:
                 if not error and marker not in text:
                     error = f'expected output missing ({marker!r})'
@@ -170,9 +182,13 @@ def main():
     run.add_argument('--model', choices=('va', 'va2'), default='va')
     run.add_argument('--frames', type=int, default=4800)
     run.add_argument('--trace', action='store_true')
+    run.add_argument('--packaged', action='store_true', help='boot the distribution image unchanged')
+    run.add_argument('--repeat', action='store_true', help='accept another copy (boot case only)')
     run.add_argument('cases', nargs='*', metavar='CASE')
     a = p.parse_args()
     if a.action == 'run':
+        if a.repeat and a.cases != ['boot']:
+            p.error('--repeat requires the boot case only')
         raise SystemExit(not run_gate(a))
     error = compare(a.source.read_bytes(), a.target.read_bytes())
     if error:

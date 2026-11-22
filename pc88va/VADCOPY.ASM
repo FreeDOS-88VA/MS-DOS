@@ -15,8 +15,9 @@ START:  MOV     SP,OFFSET STACKTOP
         CLD
         MOV     SI,81H
         CALL    GETDRV
-        JC      USAGE
-        MOV     [SOURCE],AL
+        JNC     ARG1OK
+        JMP     USAGE
+ARG1OK: MOV     [SOURCE],AL
         MOV     [DRIVE],AL
         CALL    SPACE
         CMP     BYTE PTR [SI],'/'
@@ -29,8 +30,6 @@ START:  MOV     SP,OFFSET STACKTOP
         JMP     SHORT ARGEND
 ARG2:   CALL    GETDRV
         JC      USAGE
-        CMP     AL,[SOURCE]
-        JE      USAGE
         MOV     [TARGET],AL
         CALL    SPACE
         CMP     BYTE PTR [SI],13
@@ -43,8 +42,8 @@ ARG2:   CALL    GETDRV
 ARGEND: CALL    SPACE
         CMP     BYTE PTR [SI],13
         JNE     USAGE
-        ; Round the first free paragraph up to a physical 1K boundary.
-        ; Allocate a 1K slot per ID, so no transfer crosses a DMA page.
+        ; Place the 1 KiB format/verify slot on a physical 1 KiB boundary.
+        ; The remaining allocation holds either fixed slots or packed tracks.
         MOV     AX,OFFSET STACKTOP+15
         MOV     CL,4
         SHR     AX,CL
@@ -52,10 +51,18 @@ ARGEND: CALL    SPACE
         ADD     AX,DX
         ADD     AX,63
         AND     AX,0FFC0H
-        MOV     [BUFSEG],AX
-        ADD     AX,NIDMAX*64
         MOV     [STAGESEG],AX
         ADD     AX,64
+        MOV     [BASESEG],AX
+        MOV     [BUFSEG],AX
+        CMP     BYTE PTR [DIAG],0
+        JNE     FIXEDBUF
+        MOV     DL,[SOURCE]
+        CMP     DL,[TARGET]
+        JE      CHECKMEM
+FIXEDBUF:
+        ADD     AX,NIDMAX*64
+CHECKMEM:
         CMP     AX,DS:[2]
         JBE     INIT
         MOV     DX,OFFSET NOMEN
@@ -81,10 +88,17 @@ INIT:   MOV     AH,0DH          ;GET BOOK
         MOV     [SAVPARM+4],AL
         MOV     AX,ES:[SI+DISKMODE]
         MOV     WORD PTR [SAVMODES],AX
+NEWCOPY:MOV     WORD PTR [SWAPS],-1 ;Do not count initial source insertion.
+        MOV     BYTE PTR [IGNORED],0
+        PUSH    DS
+        POP     ES
+        MOV     DI,OFFSET MISSED
+        MOV     CX,160
+        XOR     AX,AX
+        REP     STOSB
         CMP     BYTE PTR [DIAG],0
         JNE     STARTSRC
-        MOV     DX,OFFSET SOURCEQ
-        CALL    INSERT
+        CALL    INSERTSOURCE
 STARTSRC:
         CALL    DETECT
         JNC     SOURCEMODE
@@ -95,9 +109,11 @@ SOURCEMODE:
         CMP     BYTE PTR [DIAG],0
         JNE     SCAN0
         MOV     AL,[TARGET]
-        MOV     [DRIVE],AL
-        MOV     DX,OFFSET TARGETQ
-        CALL    INSERT
+        CMP     AL,[SOURCE]
+        JNE     TWODRIVES
+        JMP     SINGLE
+TWODRIVES:
+        CALL    INSERTTARGET
         CALL    CHECKTARGET
 SCAN0:  MOV     BYTE PTR [TRACK],0
         JMP     SHORT SCAN
@@ -131,7 +147,7 @@ SCANNEXT:
         MOV     AL,[TRACK]
         CMP     AL,[LIMIT]
         JB      SCAN
-        CALL    RESTORE
+FINISH: CALL    RESTORE
         CMP     BYTE PTR [DIAG],0
         JE      COPYDONE
         MOV     DX,OFFSET DONE
@@ -145,8 +161,33 @@ COPYDONE:
         MOV     DX,OFFSET INCOMPLETE
         CALL    MESSAGE
         CALL    SUMMARY
-        JMP     SHORT BADEND
+        JMP     SHORT ANOTHER
 COPYOK: CALL    MESSAGE
+ANOTHER:MOV     AL,[SOURCE]
+        CMP     AL,[TARGET]
+        JNE     AGAIN0
+        PUSH    DS
+        POP     ES
+        MOV     DI,OFFSET SWAPNUM
+        MOV     AL,BYTE PTR [SWAPS+1]
+        CALL    HEX
+        MOV     AL,BYTE PTR [SWAPS]
+        CALL    HEX
+        MOV     DX,OFFSET SWAPMSG
+        CALL    MESSAGE
+AGAIN0: MOV     DX,OFFSET AGAINQ
+        CALL    MESSAGE
+AGAIN1: MOV     AH,07H
+        INT     21H
+        AND     AL,0DFH
+        CMP     AL,'Y'
+        JNE     AGAIN2
+        JMP     NEWCOPY
+AGAIN2: CMP     AL,'N'
+        JNE     AGAIN1
+        CALL    RETURNMEDIA
+        CMP     BYTE PTR [IGNORED],0
+        JNE     BADEND
 SUCCESS:MOV     AX,4C00H
         INT     21H
 CANTMODE:
@@ -154,8 +195,149 @@ CANTMODE:
 COPYFAIL:
         CALL    MESSAGE
 ABORT:  CALL    RESTORE
+        CALL    RETURNMEDIA
 BADEND: MOV     AX,4C01H
         INT     21H
+
+; COMMAND.COM may need to reload its transient from the DOS disk after
+; a same-drive copy. Give the operator a chance to put that disk back.
+RETURNMEDIA:
+        CMP     BYTE PTR [DIAG],0
+        JNE     RETURNOK
+        MOV     AL,[SOURCE]
+        CMP     AL,[TARGET]
+        JNE     RETURNOK
+        MOV     DX,OFFSET SYSTEMQ
+        CALL    MESSAGE
+RETURNKEY:
+        MOV     AH,07H
+        INT     21H
+        CMP     AL,13
+        JNE     RETURNKEY
+RETURNOK:
+        RET
+
+; One drive: use a consecutive batch of tracks, keeping a compact record
+; for each readable/reproducible track. Flush only when the next track
+; will not fit, or the disk ends. Non-reproduced tracks consume no buffer.
+SINGLE: MOV     BYTE PTR [TRACK],0
+BATCH:  MOV     AL,[TRACK]
+        MOV     [BATCHFIRST],AL
+        MOV     AX,[BASESEG]
+        MOV     [NEXTSEG],AX
+        CALL    USESOURCE
+GETTRK: CALL    RECORDINDEX
+        MOV     WORD PTR [RECORDS+BX],0
+        CALL    COLLECT
+        JNC     GOTIDS
+        CALL    ASKERROR
+        JMP     SHORT NEXTTRK
+GOTIDS: CALL    UNIFORM
+        JNC     FITTRK
+        CALL    MIXED
+        JMP     SHORT NEXTTRK
+FITTRK: ; Record header: FM, count, data segment, followed by CHRN.
+        XOR     AX,AX
+        MOV     AL,[NUMIDS]
+        ADD     AX,4            ;Ceil((4 + 4*count) / 16).
+        SHR     AX,1
+        SHR     AX,1
+        ADD     AX,[NEXTSEG]
+        CALL    TRACKSTEP
+        DEC     BX
+        ADD     AX,BX
+        NOT     BX
+        AND     AX,BX           ;Align data to its sector size.
+        MOV     [BUFSEG],AX
+        XOR     AX,AX
+        MOV     AL,[NUMIDS]
+        MUL     WORD PTR [STEP]
+        ADD     AX,[BUFSEG]
+        CMP     AX,DS:[2]
+        JA      FULL
+        PUSH    AX
+        CALL    RECORDINDEX
+        MOV     AX,[NEXTSEG]
+        MOV     [RECORDS+BX],AX
+        MOV     ES,AX
+        XOR     DI,DI
+        MOV     AL,[FM]
+        MOV     AH,[NUMIDS]
+        STOSW
+        MOV     AX,[BUFSEG]
+        STOSW
+        CALL    IDSWORDS
+        MOV     SI,OFFSET IDS
+        REP     MOVSW
+        CALL    READTRACK
+        POP     [NEXTSEG]
+NEXTTRK:INC     [TRACK]
+        MOV     AL,[TRACK]
+        CMP     AL,[LIMIT]
+        JAE     FLUSH
+        JMP     GETTRK
+FULL:   MOV     AX,[NEXTSEG]
+        CMP     AX,[BASESEG]
+        JNE     FLUSH
+        MOV     DX,OFFSET NOMEN
+        JMP     COPYFAIL
+FLUSH:  MOV     AX,[NEXTSEG]
+        CMP     AX,[BASESEG]
+        JE      SINGLEDONE     ;Only skipped tracks in this batch.
+        MOV     AL,[TRACK]
+        MOV     [BATCHEND],AL
+        CALL    INSERTTARGET
+        CALL    CHECKTARGET
+        MOV     AL,[BATCHFIRST]
+        MOV     [TRACK],AL
+PUTTRK: CALL    RECORDINDEX
+        MOV     AX,[RECORDS+BX]
+        OR      AX,AX
+        JZ      PUTNEXT
+        PUSH    DS
+        PUSH    CS
+        POP     ES
+        MOV     DS,AX
+        XOR     SI,SI
+        LODSW
+        MOV     ES:[FM],AL
+        MOV     ES:[NUMIDS],AH
+        LODSW
+        MOV     ES:[BUFSEG],AX
+        XOR     CX,CX
+        MOV     CL,ES:[NUMIDS]
+        SHL     CX,1
+        MOV     DI,OFFSET IDS
+        REP     MOVSW
+        POP     DS
+        CALL    TRACKSTEP
+        CALL    WRITETRACK
+PUTNEXT:INC     [TRACK]
+        MOV     AL,[TRACK]
+        CMP     AL,[BATCHEND]
+        JB      PUTTRK
+        CMP     AL,[LIMIT]
+        JAE     SINGLEDONE
+        CALL    INSERTSOURCE
+        JMP     BATCH
+SINGLEDONE:
+        JMP     FINISH
+RECORDINDEX:
+        XOR     BX,BX
+        MOV     BL,[TRACK]
+        SHL     BX,1
+        RET
+TRACKSTEP:
+        MOV     CL,[IDS+3]
+        MOV     BX,8
+        SHL     BX,CL
+        MOV     [STEP],BX
+        RET
+IDSWORDS:
+        XOR     CX,CX
+        MOV     CL,[NUMIDS]
+        SHL     CX,1
+        RET
 
 GETDRV: CALL    SPACE
         LODSB
@@ -247,6 +429,8 @@ RESTORE:
         CMP     BYTE PTR [DIAG],0
         JNE     REST9
         MOV     AL,[TARGET]
+        CMP     AL,[SOURCE]
+        JE      REST9
         MOV     [DRIVE],AL
 RESTMODE:
         CALL    SAVEDMODE
@@ -355,7 +539,8 @@ HASH1:  ROL     AX,1
         MOV     DI,SI
         SHL     DI,1
         MOV     [SUMS+DI],AX
-        ADD     WORD PTR [SLOTSEG],64
+        MOV     AX,[STEP]
+        ADD     [SLOTSEG],AX
         INC     SI
         JMP     RD1
 
@@ -406,12 +591,10 @@ COPYTRACK:
         XOR     CX,CX
         MOV     CL,[NUMIDS]
         JCXZ    COPYRET
-        MOV     SI,OFFSET IDS+3
-        MOV     AL,[SI]
-CKSIZE: CMP     AL,[SI]
-        JNE     MIXED
-        ADD     SI,4
-        LOOP    CKSIZE
+        CALL    UNIFORM
+        JNC     WRITETRACK
+        JMP     MIXED
+WRITETRACK:
         CALL    USETARGET
         CALL    FORMAT
         XOR     SI,SI
@@ -447,12 +630,26 @@ WRITE2: CMP     BYTE PTR [VERIFY],0
         POP     SI
         POP     DS
         JNE     VERIFYFAIL
-WRITE4: ADD     WORD PTR [SLOTSEG],64
+WRITE4: MOV     AX,[STEP]
+        ADD     [SLOTSEG],AX
         INC     SI
         MOV     AX,SI
         CMP     AL,[NUMIDS]
         JB      WRITE1
 COPYRET:RET
+UNIFORM:XOR     CX,CX
+        MOV     CL,[NUMIDS]
+        MOV     SI,OFFSET IDS+3
+        MOV     AL,[SI]
+CKSIZE: CMP     AL,[SI]
+        JNE     CKSIZEBAD
+        ADD     SI,4
+        LOOP    CKSIZE
+        CLC
+        RET
+CKSIZEBAD:
+        STC
+        RET
 MIXED:  PUSH    DS
         POP     ES
         MOV     DI,OFFSET MIXEDTRK
@@ -491,8 +688,9 @@ FMTGAP: MOV     [PARM+3],AL
         MOV     AX,83E5H
         CALL    RAW
         CALL    STATUS
-        JNC     COPYRET
-        CALL    WRITEERROR
+        JC      FMTFAIL
+        RET
+FMTFAIL:CALL    WRITEERROR
         JMP     FORMAT
 
 ; Ready and write-protect errors are tested before touching the target.
@@ -538,8 +736,14 @@ WRKEY1: CMP     AL,'R'
         POP     SI
         RET
 
-; DX points at a prompt with a drive letter just before the colon.
-INSERT: PUSH    DX
+INSERTSOURCE:
+        MOV     AL,[SOURCE]
+        MOV     DX,OFFSET SOURCEQ
+        JMP     SHORT INSERT
+INSERTTARGET:
+        MOV     AL,[TARGET]
+        MOV     DX,OFFSET TARGETQ
+INSERT: MOV     [DRIVE],AL
         CALL    MESSAGE
         MOV     AL,[DRIVE]
         ADD     AL,'A'
@@ -553,7 +757,7 @@ INSKEY: MOV     AH,07H
         JMP     ABORT
 INSKEY1:CMP     AL,13
         JNE     INSKEY
-        POP     DX
+        INC     WORD PTR [SWAPS]
         RET
 
 ; RAW uses scoped BIOS work changes so subsequent DOS requests are not
@@ -769,6 +973,10 @@ NOTREADY DB     'Target not ready. Retry or Abort (R/A)?',13,10,'$'
 PROTECT DB      'Target is write protected. Retry or Abort (R/A)?',13,10,'$'
 COPIED  DB      'Copy complete.',13,10,'$'
 INCOMPLETE DB   'Copy incomplete. Tracks not fully reproduced (hex):',13,10,'$'
+SWAPMSG DB      'Disk swaps after initial source insertion: '
+SWAPNUM DB      '0000h',13,10,'$'
+AGAINQ  DB      'Copy another diskette (Y/N)? ',13,10,'$'
+SYSTEMQ DB      'Restore the DOS system diskette and press ENTER.',13,10,'$'
 OUTERR  DB      'Cannot write diagnostic output.',13,10,'$'
 BADREAD DB      'Read error on track '
 BADTRK  DB      '00h (BIOS '
@@ -800,6 +1008,13 @@ READGAPS DB     07H,0EH,2AH,35H
 FMGAPS   DB     07H,0EH,1BH,35H
 FORMATGAPS DB   1BH,36H,50H,74H
 FMFMTGAPS DB    1BH,2AH,3AH,74H
+BASESEG DW      0
+NEXTSEG DW      0
+BATCHFIRST DB   0
+BATCHEND DB     0
+RECORDS DW      160 DUP (?)
+SWAPS   DW      0
+STEP    DW      64              ;Fixed 1K slots for two drives or /T.
 BUFSEG  DW      0
 STAGESEG DW     0
 SLOTSEG DW      0
