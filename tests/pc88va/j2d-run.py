@@ -25,10 +25,32 @@ def scenarios():
         ])
 
 
+def row_scenario():
+    events = []
+    for arg, start in ((2, 600), (5, 7800)):
+        task = [(0, f'input-line ROWSMODE {arg}'), (600, 'shot pending'),
+                (660, 'key-tap SPACE 3'), (900, 'shot hidden'),
+                (960, 'key-tap SPACE 3'), (1200, 'shot clear'),
+                (1260, 'key-tap SPACE 3'), (1600, 'input-line TYPE MANY.TXT'),
+                (2900, 'shot type'), (2960, 'input-line DIR R*.BIN'),
+                (4200, 'shot dir'), (4260, 'input-line CLS'), (4570, 'shot cls'),
+                (4630, r'input-line KEY F1 echo KEY-OK\r'),
+                (5010, 'key-tap F1 3'), (5100, 'shot key'),
+                (5160, 'input-line JFP ON'), (5640, 'shot jfp')]
+        task += [(5700+40*i, f'key-tap {key} 3')
+                 for i, key in enumerate((*'ECHO', 'SPACE', 'ZENKAKU', *'NIHONGO'))]
+        task += [(6280, 'shot reading'), (6340, 'key-tap KETTEI 3'),
+                 (6400, 'key-tap RETURN 3'), (6460, 'key-tap ZENKAKU 3'),
+                 (6520, 'shot echo'), (6600, 'input-line JFP OFF'), (7000, 'shot off')]
+        events.extend((start+f, f'{cmd}-{arg}' if cmd.startswith('shot ') else cmd)
+                      for f, cmd in task)
+    return 'rows-mode', 'test', j04.plan(j04.AFTER_PC, events)
+
+
 if __name__ == '__main__':
     if Path(sys.argv[6]).resolve().is_relative_to(here.parents[1]):
         raise SystemExit('run output must be outside the repository')
     j04.BASE_PC = os.environ['BASE_CISTAT']
     j04.AFTER_PC = os.environ['AFTER_CISTAT']
-    j04.scenarios = scenarios
+    j04.scenarios = lambda: (*scenarios(), row_scenario())
     j04.main()

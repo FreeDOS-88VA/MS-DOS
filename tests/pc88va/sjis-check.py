@@ -9,14 +9,14 @@ from PIL import Image
 from readfile import raw_image, read_file
 
 
-def rows(path):
+def rows(path, expected_height=16):
     data = path.read_bytes()
     assert data[:8] == b'VAEGSCN1'
     off = 16 + struct.unpack_from('<I', data, 12)[0]
     frame, _, line_height, _, _, _, size = struct.unpack_from('<7I', data, off)
     text = data[off+28:off+28+size]
     start, height, width = struct.unpack_from('<IHH', text, frame+16)
-    assert line_height == 16 and width & 0x3ff == 640
+    assert line_height == expected_height and width & 0x3ff == 640
     return [struct.unpack_from('<80H', text, start+160*y)
             for y in range((height & 0x1fe)//line_height)]
 
