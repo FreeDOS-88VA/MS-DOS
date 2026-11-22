@@ -313,6 +313,11 @@ comparison is done.
   mode. Open: capacity of 8 words fixed in VAIO (move the table to a
   block JFP.COM keeps resident and raise the limit); boot drive fixed
   to A: (revisit with D4 HDD boot); reload needs `JFP ON` after edits.
+- J3b.5 — [DOS-owned user dictionary](J3b.5-user-dictionary-tsr.md):
+  compact v2 records, up to 64 pairs, with v1 read compatibility. `JFP ON`
+  loads/reuses the external table; `JFP OFF` detaches and frees it. No
+  table is allocated in plain or ROM mode. The `A:` path and explicit
+  reload after ADD/DEL are unchanged.
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
