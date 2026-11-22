@@ -46,14 +46,21 @@ VBR at block 4, with zero hidden sectors. That shares the reservation but
 is **different** from NEC, which has FAT data at block 4. M19 banked-memory
 notes, M19 and M20 reports do not establish native SASI compatibility.
 
-**Decision for D3/D4.** Default to NEC's single-volume layout for VA
-interchange. Also recognize the FreeDOS native-prefix profile so an
-unpartitioned FreeDOS image needs no conversion. For multiple volumes,
-propose the following opt-in extension to FreeDOS (not implemented by
-FreeDOS or any NEC software). All three reserve the first 1024 bytes; D4
-can install its IPL there without moving FATs or VBRs. D3 must distinguish
-physical initialization (FORMAT DRIVE) from creating one of these layouts.
-The IPL and HDD boot selection are outside D2.
+**Decision for D2–D4.** Default to NEC's single-volume layout for VA
+interchange; this is what D3 will write. Also recognize the FreeDOS
+native-prefix profile without conversion (512-byte logical sectors;
+power-of-two clusters up to 32 KiB). D4 can install the IPL within the
+first 1024 bytes without moving either the NEC FAT or the FreeDOS VBR.
+Physical initialization (FORMAT DRIVE) is separate from creating the
+filesystem. D2 does not install the IPL or select an HDD boot target.
+There is at most one volume per target: A/B floppy, then accepted SASI
+targets 0 and 1 in that order. DOS SYSINIT raises a smaller LASTDRIVE
+setting to at least the number of built-in units.
+
+### Proposal (not implemented)
+
+An opt-in `VASASI` table was considered for multiple volumes. It is not
+recognized by D2, not planned for D3, and neither FreeDOS nor NEC uses it.
 
 | Table offset in block 4 | Encoding |
 |---|---|
@@ -67,10 +74,8 @@ The IPL and HDD boot selection are outside D2.
 The table occupies blocks 4–5. Non-empty extents may not overlap or
 exceed the drive. Each supported extent contains a self-contained FAT
 with 512-byte sectors. Clusters are powers of two in sectors; fixture
-sizes follow the FAT12/FAT16 cluster-count split. No extended partitions,
-active flag, or PC-98 partition-table parsing. Unit order: A/B floppy,
-then SASI target 0 before 1 and table slot order within a target. Maximum
-four per target, eight total; a single native volume occupies one unit.
+sizes follow the FAT12/FAT16 cluster-count split. This proposal has no
+extended partitions, active flag, or PC-98 partition-table parsing.
 
 ## M1: BIOS probe (vaeg m153)
 
@@ -102,8 +107,41 @@ is a status observation only, not a cross-page payload check.
 See [probe records](D2/m1-probe.tsv). vaeg `fdd/sxsi.c` selects SASI
 by geometry and 256-byte blocks. Its type-2 VA geometry is 615×4×33
 (81180 blocks), not the manual's 308×8×33; CLI rejected a 308×8 HDI.
-Use the smaller capacity to bound requests. `cbus/sasiio.c` implements
+Use the smaller capacity to bound requests: 20,196 / 40,920 / 81,180 /
+162,360 blocks for SENSE types 0/1/2/3 respectively. The other three
+geometries agree (153×4×33, 310×4×33, 615×8×33). `cbus/sasiio.c` implements
 DMA through channel 0, controller commands and status/IRQ; do not assume
 it reproduces all physical format, seek or not-ready behavior.
 A distinct not-ready state, write-protected image and real hardware:
 **NOT RUN**.
+
+## M2: read-only integration
+
+`VAHDD.INC` probes SENSE before SYSINIT and only links the fixed disk
+header when at least one volume is accepted. First check block 4 for
+`D0h`–`D3h FFh FFh` and require the media byte to match the SENSE type.
+Use the fixed per-type NEC BPB, mapping logical sector 0 to block 0.
+Otherwise look for a FreeDOS-profile VBR (`EB xx 90` or `E9`, `55 AA`
+trailer, 512-byte BPB, F8h media, two FATs, aligned fixed root, zero
+hidden sectors, FAT12/16 cluster count and sufficient FAT capacity).
+The declared volume plus the four-block prefix must fit the SENSE
+capacity. An unreadable or unrecognized present target gets a boot
+message and no drive letter. Track geometry in get-device-parameters
+is logical; NEC uses 1 sector and 1 head, not physical CHS.
+
+The driver checks the end of the logical request before converting it
+to physical blocks (including DOS 4's long sector number). A valid
+logical range is within the capacity established at discovery. DMA is
+bounded by conventional memory and split at physical 64 KiB boundaries
+and the ROM's 255-block count limit. A single 256-byte block straddling
+a page uses a resident bounce buffer. Media check returns "not changed";
+command 15 reports fixed media.
+
+| vaeg m153 model | Attached image | Observed |
+|---|---|---|
+| VA and VA2 | 40 MB FreeDOS-profile FAT16 | DIR, TYPE marker, CHKDSK summary with no reported errors; COPY of 131,328 bytes to A: compared byte-for-byte |
+| VA and VA2 | None | A: boots and C: is invalid; no SASI message |
+| VA and VA2 | Blank/unrecognized 5 MB | Target 0 warning, no C: |
+| VA and VA2 | 40 MB NEC HDFORM | DIR sees empty C:; stock CHKDSK rejects the 3072-entry root (its limit is 512) |
+
+M2 did not test writes or real hardware. See M3 for NEC CHKDSK.

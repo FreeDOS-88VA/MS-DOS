@@ -73,12 +73,18 @@ TIMDEV: DW      DSKDEV,BIOSSEG
         DW      TIM_INT
         DB      'CLOCK$  '
 
-DSKDEV: DW      -1,-1           ;Last device.
+DSKDEV: DW      -1,-1           ;SASI discovery may append HDDDEV.
         DW      2040H           ;Block device, media byte from the BPB,
                                 ;generic IOCTL (DOS 3.2 driver).
         DW      STRATEGY
         DW      DSK_INT
         DB      NUNITS
+        DB      7 DUP (0)
+
+HDDDEV: DW      -1,-1
+        DW      2842H           ;FAT media byte, open/close, IOCTL, long LBA.
+        DW      STRATEGY,HDD_INT
+HDUNITS DB      0
         DB      7 DUP (0)
 
         SUBTTL  Dispatch tables.
@@ -214,6 +220,11 @@ TIM_INT:
 DSK_INT:
         PUSH    SI
         MOV     SI,OFFSET DSKTBL
+        JMP     SHORT ENTRY
+
+HDD_INT:
+        PUSH    SI
+        MOV     SI,OFFSET HDTABLE
 
 ; The DOS stack is shallow and the ROM services need more, so requests
 ; run on a private stack.  Mask IRQs explicitly: vaeg can deliver one
@@ -260,7 +271,13 @@ ENTRY:  MOV     CS:[SAVESP],SP
 
 ; Commands above 12 exist only for the disk: 19 generic IOCTL and
 ; 23/24 get/set logical drive map.
-HICMD:  CMP     SI,OFFSET DSKTBL
+HICMD:  CMP     SI,OFFSET HDTABLE
+        JNE     HIFLOP
+        XCHG    AX,DI           ;AL = unit, DI = command.
+        PUSH    CS
+        POP     DS
+        JMP     HDHIGH
+HIFLOP: CMP     SI,OFFSET DSKTBL
         JNE     CMDERR
         XCHG    AX,DI           ;AL = unit, DI = command.
         PUSH    CS
@@ -2190,6 +2207,8 @@ DSK_OWN:
 GUNIT   DB      0
 MIDCACHE DB     NUNITS*24 DUP (0) ;Per unit: valid flag, serial, label, type.
 
+        INCLUDE VAHDD.INC
+
         SUBTTL  Initialization (overlaid by MSDOS.SYS).
         PAGE
 
@@ -2207,10 +2226,14 @@ HWINIT: CLD
         MOV     WORD PTR CS:[OLD33+2],AX
         PUSH    DX              ;Keep the loaded kernel segment.
         CALL    INITTEXT
-        POP     BP
         CLD
         CALL    MEMSIZE         ;AX = memory size in paragraphs.
-        MOV     CX,AX
+        PUSH    CS
+        POP     DS
+        MOV     [HDMEM],AX
+        CALL    HDDISCOVER
+        POP     BP
+        MOV     CX,[HDMEM]
         MOV     AX,OFFSET RESEND
         ADD     AX,15
         PUSH    CX

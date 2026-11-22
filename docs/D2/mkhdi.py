@@ -11,7 +11,6 @@ LEGACY = {5: (4950, 608, 8, 1, 0xd0), 10: (9900, 992, 8, 2, 0xd1),
 HEADER = 4096
 BLOCK = 256
 TRACK = 33
-SIGNATURE = b'VASASI\x01\x00'
 
 
 def fat_volume(image, start, count, bits):
@@ -43,7 +42,7 @@ def fat_volume(image, start, count, bits):
         image.write(b'\xf8\xff\xff' + (b'\xff' if bits == 16 else b''))
 
 
-def make(path, size, layout='blank', types=(16,)):
+def make(path, size, layout='blank', bits=16):
     cylinders, heads = GEOMETRY[size]
     blocks = cylinders * heads * TRACK
     payload = blocks * BLOCK
@@ -57,27 +56,14 @@ def make(path, size, layout='blank', types=(16,)):
                 image.seek(HEADER + (1 + copy * spf) * 1024)
                 image.write(bytes((media, 255, 255)))
         elif layout == 'native':
-            fat_volume(image, 4, blocks - 4, types[0])
-        elif layout == 'table':
-            entries = bytearray(SIGNATURE)
-            start = 6
-            count = (blocks - start) // (2 * len(types)) * 2
-            for bits in types:
-                entries.extend(struct.pack('<BBHII', 1 if bits == 12 else 6,
-                                           0, 0, start, count))
-                fat_volume(image, start, count, bits)
-                start += count
-            image.seek(HEADER + 4 * BLOCK)
-            image.write(entries)
+            fat_volume(image, 4, blocks - 4, bits)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
     parser.add_argument('size', type=int, choices=GEOMETRY)
-    parser.add_argument('--layout', choices=('blank', 'nec', 'native', 'table'), default='blank')
-    parser.add_argument('--fat', type=int, choices=(12, 16), nargs='+', default=[16])
+    parser.add_argument('--layout', choices=('blank', 'nec', 'native'), default='blank')
+    parser.add_argument('--fat', type=int, choices=(12, 16), default=16)
     args = parser.parse_args()
-    if len(args.fat) > (4 if args.layout == 'table' else 1):
-        parser.error('expected at most four table entries or one native volume')
     make(args.output, args.size, args.layout, args.fat)
