@@ -59,3 +59,27 @@ secondary-cache path. It is a follow-up.
 - EMS (`BUFFERS /X`);
 - a FASTOPEN mid-extent truncation case;
 - real hardware.
+
+## M2: MORE [filename]
+
+Taken from the same project (commit `3a955fc`) unchanged. The patch
+applied with a 4-line offset after the VA INT 10h change. `MORE file`
+pages a file. With no argument, MORE still filters standard input. It
+adds three hard-coded messages; their Japanese texts are in
+`JPN-ASM.tsv`.
+
+vaeg m153, VA and VA2, Japanese and English images:
+- `MORE README.TXT` pages with the continue prompt;
+- `MORE NOSUCH.TXT` gives the open error;
+- `MORE A B` gives the usage message;
+- `TYPE CONFIG.SYS | MORE` and `MORE "CONFIG.SYS"` print the file.
+
+**NOT RUN:** files over 64 KiB; real hardware.
+
+## Not taken from the project
+
+| Commits | Change | Why not |
+|---|---|---|
+| `2e12b21`, `a04b174` | Kernel command-line editing and recall (LINEEDIT) | It replaces DOS buffered-input editing. On VA that editing is the NEC-style line editor (J0.2) and FEP input. Needs a design decision. |
+| `bba85ca` … `52b2055` | UMBs (`DOS=UMB`, LOADHIGH, DEVICEHIGH, SHELLHIGH, BUFFERS/FILES/FCBS/LASTDRIVE/STACKS/environment in UMB), MEM XMS/UMB report, `umbs.sys` | Needs an XMS provider or unused RAM above 640 KiB. Whether the VA has any free upper memory has not been checked. |
+| `2b29eb3` | `mbasic.com`, `vi.exe` binaries | Third-party binaries with no license for them in the project. |

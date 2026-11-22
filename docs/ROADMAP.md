@@ -450,6 +450,7 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   msdos40-hacking (DEV, CTRLC, MKNODE, DISK3, FASTOPEN; FORMAT, MSINIT,
   GRAPHICS, ANSI not shipped on VA). Open: any look-ahead buffers
   (`BUFFERS=n,m`) stop the VA boot after the sign-on (older than B2).
+  M2 accepted 2026-11-23: MORE [filename] from the same project.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
