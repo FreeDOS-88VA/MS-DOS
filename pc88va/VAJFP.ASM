@@ -41,7 +41,7 @@ TAILNEXT: LOOP  TAIL1
 SELECT: CMP     WORD PTR [ARG],'NO'
         JNE     NOTON
         CMP     DI,2
-        JE      ENABLE
+        JE      PROJECT         ;ON is the project FEP, like explicit FEP.
 NOTON:  CMP     WORD PTR [ARG],'OR'
         JNE     NOTROM
         CMP     [ARG+2],'M'
@@ -274,7 +274,8 @@ ROMOK   DB      0
 HEADLESS DB     0
 OPENED  DB      0
 HELPMSG DB      'Usage: JFP ON | ROM | FEP | OFF',13,10
-        DB      'ROM allows missing default files; FEP requires the built-in dictionary.',13,10,'$'
+        DB      'ON selects FEP (built-in dictionary only).',13,10
+        DB      'ROM allows missing default files.',13,10,'$'
 OFFMSG  DB      'JFP off; plain CON input.',13,10,'$'
 FEPMSG  DB      'Project FEP on. ZENKAKU: kana; F7: katakana; HENKAN: candidates.',13,10,'$'
 BUSYMSG DB      'Cannot select input mode. Use JFP OFF before switching.',13,10,'$'
