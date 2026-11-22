@@ -382,6 +382,16 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
 - Depends on D2. See [D3](D3-sasi-format.md) for syntax, safety checks,
   and the vaeg comparison and interchange gates.
 
+- D3 accepted 2026-11-22 (`docs/D3-sasi-format.md`, vaeg VA/VA2, 5/10/20/40
+  MB): `FORMAT C:` (mounted) or `FORMAT /H0|/H1` (raw target) writes the
+  NEC VA FAT12 layout byte-identical to PC-Engine HDFORM (which issues no
+  physical format; traced); IPL blocks 0-3 and data untouched; `/V`
+  label; Y confirmation; refuses current/boot drive, `/S`, absent or
+  mounted-via-/Hn targets. A reformatted mounted unit stays offline until
+  reboot. IO.SYS now reports A: as the one-based boot drive to SYSINIT.
+  NEC interchange (PC-Engine, MS-DOS 2.11) passed. NOT RUN: real
+  hardware, bad media (no surface scan, unlike HDFORM's read pass).
+
 ### D4 — HDD boot (later)
 - Boot sector and IPL for SASI.
 
