@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Check the pending-wrap VA/VA2 captures against WRAPTEST's NEC outcomes."""
 import importlib.util
-import struct
 import sys
 from pathlib import Path
 
@@ -10,13 +9,7 @@ esc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(esc)
 
 
-def cursor(path):
-    data = path.read_bytes()
-    off = 16 + struct.unpack_from('<I', data, 12)[0]
-    _, _, height, slot, sprites, _, _ = struct.unpack_from('<7I', data, off)
-    y, x = struct.unpack_from('<HH', data, off+28+sprites+8*slot)
-    # TSP cursor sprite coordinates in this non-interlaced 80x25 mode.
-    return (y & 0x1ff)//(height//2)+1, (x & 0x3ff)//8+1
+cursor = esc.cursor_cell
 
 
 def check(run, method):

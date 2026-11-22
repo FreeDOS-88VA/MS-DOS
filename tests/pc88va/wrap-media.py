@@ -14,6 +14,8 @@ for arg in ('image', 'output', 'wraptest'):
     ap.add_argument(arg, type=Path)
 ap.add_argument('--escape-probe', type=Path, help='add ESCPROBE.COM if not already present')
 ap.add_argument('--graph-probe', type=Path, help='add GRAPHROM.COM for the graph-mode check')
+ap.add_argument('--rom-write', type=Path, help='add J2d direct BIOS and long scrolling fixtures')
+ap.add_argument('--rows-mode', type=Path, help='add ROWSMODE.COM for DOS CRT mode interactions')
 args = ap.parse_args()
 output = args.output.resolve()
 if output.is_relative_to(ROOT):
@@ -25,4 +27,10 @@ if args.escape_probe:
     files.append(('ESCPROBE.COM', args.escape_probe.read_bytes()))
 if args.graph_probe:
     files.append(('GRAPHROM.COM', args.graph_probe.read_bytes()))
+if args.rom_write:
+    files.extend([('ROMWRITE.COM', args.rom_write.read_bytes()),
+                  ('MANY.TXT', b''.join(f'TYPE LINE {i:02}\r\n'.encode() for i in range(1, 41)))])
+    files.extend((f'R{i:07}.BIN', b'') for i in range(1, 41))
+if args.rows_mode:
+    files.append(('ROWSMODE.COM', args.rows_mode.read_bytes()))
 (pack_va if args.model == 'va' else pack_nec)(args.image, output, files)

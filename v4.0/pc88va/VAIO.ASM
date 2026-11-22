@@ -1315,13 +1315,10 @@ OUTGLYPH:
 OUTEDGEPAIR:
         ; Reproduce the ROM's special space before a pre-wrapped pair.
         PUSH    AX
-        PUSH    DX
+        MOV     BX,DX
         MOV     AX,0100H
         MOV     DX,00FEH
-        INT     83H
-        POP     DX
-        MOV     AH,08H         ;Undo the filler write's ROM cursor advance.
-        INT     83H
+        CALL    OUTAT
         POP     AX
 OUTGLINE:
         PUSH    AX
@@ -1336,16 +1333,14 @@ OUTSPACE:
         OR      AH,AH
         JZ      OUTGEND
         ; A two-cell glyph starts at column 79. ROM wrap must be enabled
-        ; for Chuput to draw both halves, but auto-scroll is disabled.
+        ; for Chuput to draw both halves.
 OUTEDGE:MOV     [OUTWRAP],1
-        MOV     DH,79
         MOV     BX,DX
         MOV     DX,AX
         POP     AX
-        PUSH    BX
-        CALL    OUTWRITE
-        POP     DX
-        MOV     AH,08H         ;Return the cursor to the cell just filled.
+        CALL    OUTAT
+        MOV     DH,79
+        MOV     AH,08H         ;A pair began at 79 but leaves the cursor at 80.
         INT     83H
         JMP     SHORT OUTOK
 OUTGEND:MOV     DX,AX
@@ -1362,6 +1357,57 @@ OUTREGS:POP     ES
         POP     BX
         POP     AX
 OUTCH9: RET
+
+; Write at BX (row in BL), then return there. Only bottom-row edge
+; writes need VSCL suppressed. Spltscn resets cursor and current attr;
+; restore both before writing and again when returning to the live layout.
+OUTAT:  PUSH    BX
+        CALL    LASTROW
+        CMP     BL,CL
+        JNE     OUTATWRITE
+        CMP     [LABELON],-1
+        JE      OUTATWRITE
+        PUSH    AX
+        PUSH    DX
+        MOV     AX,2700H       ;Askatr: read current attribute code.
+        XOR     DX,DX
+        INT     83H
+        PUSH    DX
+        CALL    SPLITARGS
+        AND     BYTE PTR CS:[BP+5],0FBH
+        CALL    SETSPLIT
+        POP     DX
+        PUSH    DX
+        CALL    SETMAINAT
+        POP     CX             ;Attribute for the second split change.
+        POP     DX
+        POP     AX
+        PUSH    CX
+        CALL    OUTWRITE
+        CALL    SPLITARGS
+        OR      BYTE PTR CS:[BP+5],04H
+        CALL    SETSPLIT
+        POP     DX
+        POP     BX
+SETMAINAT:
+        PUSH    BX
+        MOV     AX,0500H        ;Setatr in existing mode.
+        INT     83H
+        JMP     SHORT OUTATPOS
+OUTATWRITE:
+        CALL    OUTWRITE
+OUTATPOS:
+        POP     DX
+        MOV     AH,08H
+        INT     83H
+        RET
+
+LASTROW:MOV     CL,CS:[TEXTROWS]
+        SUB     CL,2            ;Zero-based last main row with labels.
+        CMP     CS:[LABELON],0
+        JNE     LASTRET
+        INC     CL
+LASTRET:RET
 
 OUTWRITE:
         CMP     AH,02H
@@ -1547,7 +1593,10 @@ ESCFINAL:
         MOV     AL,10
         JMP     SHORT ESCPRIVL
 ESCPRIVH:XOR    AL,AL
-ESCPRIVL:CMP    CL,1
+ESCPRIVL:CMP    CL,3
+        JNE     ESCPLABEL
+        JMP     ESCROWS
+ESCPLABEL:CMP   CL,1
         JNE     ESCCURSOR
         CMP     [JFPMODE],0
         JE      ESCLAYOUT
@@ -1567,7 +1616,8 @@ ESCCURSOR:
         OR      AL,AL
         JZ      ESCCUR0
         MOV     AL,3            ;Blinking block.
-ESCCUR0:MOV     AH,25H
+ESCCUR0:MOV     [TEXTCURSOR],AL
+        MOV     AH,25H
         JMP     ESCROM
 
 ESCSTANDARD:
@@ -1655,13 +1705,10 @@ ESCLOCATE:
         CMP     DH,79
         JBE     ESCLIMY
         MOV     DH,79
-ESCLIMY:MOV     AL,23
-        CMP     [LABELON],0
-        JNE     ESCLIM
-        INC     AL
-ESCLIM: CMP     DL,AL
+ESCLIMY:CALL    LASTROW
+        CMP     DL,CL
         JBE     ESCLOC
-        MOV     DL,AL
+        MOV     DL,CL
 ESCLOC: MOV     AH,08H
 ESCROM: INT     83H
         CLC
@@ -1694,12 +1741,8 @@ ESCEDGESUFFIX:
         JE      ESCEDGEDONE
         MOV     AH,26H
         INT     83H
-        MOV     AL,23
-        CMP     [LABELON],0
-        JNE     ESCEDGELIMIT
-        INC     AL
-ESCEDGELIMIT:
-        CMP     DL,AL
+        CALL    LASTROW
+        CMP     DL,CL
         JAE     ESCEDGEDONE
         PUSH    DX              ;J0: erase from the next row's first cell.
         INC     DL
@@ -1727,11 +1770,11 @@ ESCLINE0:
 ESCLINE1:
         MOV     AH,26H
         INT     83H
-        MOV     AL,24
-        CMP     [LABELON],0
-        JNE     ESCLINE2
-        INC     AL
-ESCLINE2:
+        MOV     CH,CL
+        CALL    LASTROW
+        MOV     AL,CL
+        INC     AL              ;Count includes the current row.
+        MOV     CL,CH
         SUB     AL,DL           ;At most the rows left in the main split.
         CMP     CL,AL
         JBE     ESCLINE3
@@ -1908,8 +1951,10 @@ ESCCOLORS DB    0,2,4,6,1,3,5,7 ;NEC ANSI RGB order -> VA GRB bits.
 
 ; The two layouts share the main framebuffer. The system buffer starts
 ; after all 25 main rows, so the split can change without copying text.
-MAIN25  DB      00H,0,0,0,25,11H,07H,0
-MAIN24  DB      00H,0,0,0,24,11H,07H,0  ;Mode 1, word wrap, no auto-scroll.
+TEXTROWS DB     25              ;Physical height including the system line.
+TEXTCURSOR DB   3               ;CON Csrctl state (blinking block by default).
+MAIN25  DB      00H,0,0,0,25,15H,07H,0
+MAIN24  DB      00H,0,0,0,24,15H,07H,0  ;Mode 1, word wrap, auto-scroll.
         DB      41H,0,0,0,1,10H,07H,0   ;System line, attribute mode 1.
 
 ; AL = requested label count (0 or 10). Caller saves all registers.
@@ -1927,9 +1972,10 @@ LABELPOS:
         INT     83H
         CMP     CS:[LABELON],0
         JNE     LABELEXP
-        CMP     DL,24
+        CALL    LASTROW
+        CMP     DL,CL
         JNE     LABELSHR
-        DEC     DL              ;When showing with cursor on row 25,
+        DEC     DL              ;When showing with cursor on the last row,
         PUSH    DX              ;scroll once to keep its text visible.
         MOV     AH,0DH          ;Index scrolls at the bottom margin.
         INT     83H
@@ -1948,8 +1994,10 @@ LABELEXP:
         MOV     CX,1
         CALL    SETSPLIT
         JC      LABELREC
-        MOV     DX,24           ;The old hidden row may contain stale
-        MOV     AH,08H          ;text. Clear it before restoring cursor.
+        XOR     DX,DX
+        MOV     DL,CS:[TEXTROWS]
+        DEC     DL              ;Clear stale text from the newly exposed row.
+        MOV     AH,08H
         INT     83H
         MOV     AX,1802H        ;Eralin: whole current line.
         INT     83H
@@ -2019,14 +2067,94 @@ GRAPHFAIL:
         POP     DX
         RET
 
-SPLIT24:MOV     BP,OFFSET MAIN24
+SPLITARGS:
+        MOV     BP,OFFSET MAIN25
+        MOV     CX,1
+        CMP     [LABELON],0
+        JE      SPLITRET
+SPLIT24ARGS:
+        MOV     BP,OFFSET MAIN24
         MOV     CX,2
+SPLITRET:RET
+
+SPLIT24:CALL    SPLIT24ARGS
 SETSPLIT:
+        MOV     AL,CS:[TEXTROWS]
+        CMP     CL,1
+        JE      SPLITHGT
+        DEC     AL              ;Reserve one row for the system split.
+SPLITHGT:MOV    CS:[BP+4],AL
         PUSH    CS
         POP     ES
         MOV     AX,1D00H        ;Spltscn: select main screen 0.
         INT     83H
         RET
+
+; >3h/l: install the new CRT geometry without reallocating either buffer.
+; No change to label visibility, key tables, or the saved ESC position.
+ESCROWS:
+        CMP     [LABELON],-1
+        JE      ROWSDONE
+        ADD     AL,40           ;0 -> 20, 10 -> 25.
+        SHR     AL,1
+        CMP     AL,[TEXTROWS]
+        JE      ROWSCLEAR
+        XCHG    AL,[TEXTROWS]
+        PUSH    AX              ;Old physical height, for rollback.
+        MOV     AH,26H
+        INT     83H
+        PUSH    DX              ;Old cursor, for rollback.
+        MOV     AX,2700H
+        XOR     DX,DX
+        INT     83H
+        PUSH    DX              ;Current SGR attribute.
+        CALL    ROWSINSTALL
+        JNC     ROWSNEW
+        POP     DX
+        POP     BX
+        POP     AX
+        MOV     [TEXTROWS],AL
+        PUSH    BX
+        PUSH    DX
+        CALL    ROWSINSTALL
+        POP     DX
+        POP     BX
+        CALL    SETMAINAT       ;Return to the old position/attribute.
+        JMP     SHORT ROWSDONE
+ROWSNEW:POP     DX
+        ADD     SP,4
+        XOR     BX,BX
+        CALL    SETMAINAT
+ROWSCLEAR:
+        JMP     ESCCLEAR
+ROWSDONE:CLC
+        RET
+
+ROWSINSTALL:
+        MOV     AX,2404H
+        CMP     CS:[TEXTROWS],25
+        JE      ROWSCRT
+        OR      AL,10H
+ROWSCRT:INT     83H             ;Crtctl, 80 columns, 25 or 20 rows.
+        CALL    SPLITARGS
+        CALL    SETSPLIT
+        JC      ROWSRET
+        MOV     AH,25H
+        MOV     AL,CS:[TEXTCURSOR]
+        INT     83H
+        CMP     CS:[LABELON],0
+        JE      ROWSOK
+        CMP     CS:[FEPDRAWN],0
+        JE      ROWSLABEL
+        CALL    FEPRENDER        ;Composition still owns the system row.
+        JMP     SHORT ROWSOK
+ROWSLABEL:
+        MOV     AX,2F0AH        ;Sfkctl: refresh the system split.
+        INT     83H
+        CALL    GRAPHMARK
+        MOV     CS:[JFPDIRTY],1
+ROWSOK: CLC
+ROWSRET:RET
 
         SUBTTL  AUX and clock.
         PAGE

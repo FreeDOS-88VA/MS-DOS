@@ -1,0 +1,100 @@
+Part 1
+va block: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va split: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va: TYPE exact 80-column break, DIR /W 5+5+1 without extra rows
+va2 block: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va2 split: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va2: TYPE exact 80-column break, DIR /W 5+5+1 without extra rows
+va block: page 10 underline, reverse/colored combinations, and both blink phases
+va split: page 10 underline, reverse/colored combinations, and both blink phases
+va2 block: page 10 underline, reverse/colored combinations, and both blink phases
+va2 split: page 10 underline, reverse/colored combinations, and both blink phases
+va block: J2b pages 13–14 restore kanji / display high-byte ANK
+va split: J2b pages 13–14 restore kanji / display high-byte ANK
+va: all 64 graph codes match direct ROM Litout; marker survives shift/hide/show and clears after )0
+va2 block: J2b pages 13–14 restore kanji / display high-byte ANK
+va2 split: J2b pages 13–14 restore kanji / display high-byte ANK
+va2: all 64 graph codes match direct ROM Litout; marker survives shift/hide/show and clears after )0
+va esc-block: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va esc-split: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va: 25/26 block vs. split character grids identical; control page differs as on NEC
+va2 esc-block: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va2 esc-split: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va2: 25/26 block vs. split character grids identical; control page differs as on NEC
+VA
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 9/10 legacy; ESC[2J now homes (NEC parity)
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 524800 -> 524688 free (-112 bytes)
+VA2
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 9/10 legacy; ESC[2J now homes (NEC parity)
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 524800 -> 524688 free (-112 bytes)
+va: Putstr/Chuput lines 10–32, long TYPE and DIR, labels unchanged
+va2: Putstr/Chuput lines 10–32, long TYPE and DIR, labels unchanged
+
+Part 2
+va block: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va split: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va: TYPE exact 80-column break, DIR /W 5+5+1 without extra rows
+va2 block: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va2 split: J2b page 01 cursor, WRAPTEST 6/6 + DONE
+va2: TYPE exact 80-column break, DIR /W 5+5+1 without extra rows
+va block: page 10 underline, reverse/colored combinations, and both blink phases
+va split: page 10 underline, reverse/colored combinations, and both blink phases
+va2 block: page 10 underline, reverse/colored combinations, and both blink phases
+va2 split: page 10 underline, reverse/colored combinations, and both blink phases
+va block: J2b pages 13–14 restore kanji / display high-byte ANK
+va split: J2b pages 13–14 restore kanji / display high-byte ANK
+va: all 64 graph codes match direct ROM Litout; marker survives shift/hide/show and clears after )0
+va2 block: J2b pages 13–14 restore kanji / display high-byte ANK
+va2 split: J2b pages 13–14 restore kanji / display high-byte ANK
+va2: all 64 graph codes match direct ROM Litout; marker survives shift/hide/show and clears after )0
+va esc-block: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va esc-split: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va: 25/26 block vs. split character grids identical; control page differs as on NEC
+va2 esc-block: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va2 esc-split: positions, reports, erase, color, cursor enable, scroll, C0, kanji boundaries, recovery, all label rows, and DONE checked
+va2: 25/26 block vs. split character grids identical; control page differs as on NEC
+VA
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 9/10 legacy; ESC[2J now homes (NEC parity)
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 524800 -> 524528 free (-272 bytes)
+VA2
+TYPE, FEh wrap + 表Z, split 02h / 40h, DIR seven names, and two-column erase
+Malformed bytes recover (NEC control behavior differs); lone trail, high ANK and escape replay
+Test-only EB9Fh gaiji: equal ROM/CON glyphs, original font restored
+J0.3 (1, 5, 9): 8/8
+J0.4 (1–5): 9/10 legacy; ESC[2J now homes (NEC parity)
+KEY: 31/31 default slots match (1 gate check)
+CHKDSK (2/2): 524800 -> 524528 free (-272 bytes)
+va: Putstr/Chuput lines 10–32, long TYPE and DIR, labels unchanged
+va: 20 rows, DSR at both bottom edges, wrap and red attr, labels/graph, erase/CLS, TYPE/DIR, KEY F1 and JFP ON
+va: 25 rows, DSR at both bottom edges, wrap and red attr, labels/graph, erase/CLS, TYPE/DIR, KEY F1 and JFP ON
+va2: Putstr/Chuput lines 10–32, long TYPE and DIR, labels unchanged
+va2: 20 rows, DSR at both bottom edges, wrap and red attr, labels/graph, erase/CLS, TYPE/DIR, KEY F1 and JFP ON
+va2: 25 rows, DSR at both bottom edges, wrap and red attr, labels/graph, erase/CLS, TYPE/DIR, KEY F1 and JFP ON
+
+va block: all 24 character grids outside pages 11–12 unchanged from part 1
+va block: page 11 cursor (4, 61), raster height 20
+va block: page 12 cursor (4, 61), raster height 16
+va split: all 24 character grids outside pages 11–12 unchanged from part 1
+va split: page 11 cursor (4, 61), raster height 20
+va split: page 12 cursor (4, 61), raster height 16
+va2 block: all 24 character grids outside pages 11–12 unchanged from part 1
+va2 block: page 11 cursor (4, 61), raster height 20
+va2 block: page 12 cursor (4, 61), raster height 16
+va2 split: all 24 character grids outside pages 11–12 unchanged from part 1
+va2 split: page 11 cursor (4, 61), raster height 20
+va2 split: page 12 cursor (4, 61), raster height 16

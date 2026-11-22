@@ -21,13 +21,23 @@ def screen(run, n, alt=''):
         return im.convert('RGB').crop((0, im.height-400, 640, im.height))
 
 
-def blink_enabled(run, n, alt=''):
-    data = tvram(run, n, alt).read_bytes()
+def cursor_blink(path):
+    data = path.read_bytes()
     return struct.unpack_from('<I', data, 16 + struct.unpack_from('<I', data, 12)[0] + 20)[0]
 
 
-def check(run, graph=False):
-    pages = {n: sjis.rows(tvram(run, n)) for n in range(1, 27)}
+def cursor_cell(path):
+    data = path.read_bytes()
+    off = 16 + struct.unpack_from('<I', data, 12)[0]
+    _, _, height, slot, sprites, _, _ = struct.unpack_from('<7I', data, off)
+    y, x = struct.unpack_from('<HH', data, off+28+sprites+8*slot)
+    # TSP cursor sprite coordinates in non-interlaced 80-column mode.
+    return (y & 0x1ff)//(height//2)+1, (x & 0x3ff)//8+1
+
+
+def check(run, graph=False, rows_mode=False):
+    pages = {n: sjis.rows(tvram(run, n), 20 if n == 11 and rows_mode else 16)
+             for n in range(1, 27)}
 
     def at(n, y, x, text):
         want = tuple(text.encode('ascii'))
@@ -76,8 +86,16 @@ def check(run, graph=False):
     assert not attr.crop((16*8, 11*16, 640, 12*16)).getbbox()  # erase with reverse
     assert attr.getpixel((39, 12*16)) == (255, 0, 0)  # AFTER remains reversed red
     assert attr.getpixel((40, 12*16)) == (0, 0, 0)    # erased area is normal black
+    if rows_mode:
+        for n, mark, height in ((11, 'H', 19), (12, 'L', 24)):
+            assert len(pages[n]) == height
+            assert cursor_cell(tvram(run, n)) == (4, 61)
+            for y in range(1, height+1):
+                row(n, y, mark if y == 1 else (' ' * 59 + 'R' if y == 4 else ''))
+        assert screen(run, 11).crop((0, 380, 640, 400)).getbbox()
     for suffix in ('', '-alt'):
-        assert blink_enabled(run, 13, suffix) == 1 and blink_enabled(run, 14, suffix) == 0
+        assert cursor_blink(tvram(run, 13, suffix)) == 1
+        assert cursor_blink(tvram(run, 14, suffix)) == 0
     assert screen(run, 13).crop((0, 144, 8, 160)).getbbox()
     assert not screen(run, 14).crop((0, 144, 8, 160)).getbbox()
     row(13, 8, 'EFGH')
@@ -122,6 +140,8 @@ def check(run, graph=False):
     row(26, 3, 'A:\\>')
     labels = screen(run, 26).crop((0, 384, 640, 400))
     for n in (*range(1, 24), 26):
+        if rows_mode and n == 11:
+            continue
         assert len(pages[n]) == 24
         row_image = screen(run, n).crop((0, 384, 640, 400))
         if graph and n in (13, 14):
@@ -138,9 +158,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('runs', type=Path)
     parser.add_argument('--graph', action='store_true', help='expect the J2c graph indicator')
+    parser.add_argument('--rows-mode', action='store_true', help='expect the J2d 20-row mode')
     args = parser.parse_args()
     for model in ('va', 'va2'):
-        block = check(args.runs/model/'esc-block', args.graph)
-        split = check(args.runs/model/'esc-split', args.graph)
+        block = check(args.runs/model/'esc-block', args.graph, args.rows_mode)
+        split = check(args.runs/model/'esc-split', args.graph, args.rows_mode)
         assert all(block[n] == split[n] for n in range(1, 27) if n != 19)
         print(f'{model}: 25/26 block vs. split character grids identical; control page differs as on NEC')
