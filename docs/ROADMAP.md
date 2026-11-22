@@ -363,6 +363,17 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   FAT12 is the default; the FreeDOS native-prefix FAT12/16 layout is also
   recognized. See [D2](D2-sasi-driver.md) for layouts and gates.
 
+- D2 accepted 2026-11-22 (`docs/D2-sasi-driver.md`, vaeg VA/VA2, 256/640
+  KiB): `v4.0/pc88va/VAHDD.INC` mounts NEC VA single-volume FAT12 (as
+  PC-Engine HDFORM writes it: IPL blocks 0-3, FAT at block 4, 1024-byte
+  sectors) and FreeDOS-88VA native-prefix FAT12/16; requests bounded
+  before the BIOS; 64 KiB DMA splits with a bounce block. Interchange
+  verified both ways with PC-Engine 1.0/1.1 and NEC MS-DOS 2.11. CHKDSK
+  accepts NEC media bytes D0h-D3h and 3072 root entries. Resident cost
+  +16 B without SASI, +1,216 B with one volume. Open: on VA two 40 MB
+  targets show only one (ROM SENSE reports target 1 absent; VA2 sees
+  both); not-ready/write-protect/hot removal and real hardware NOT RUN.
+
 ### D3 — SASI HDD format
 - Goal: FORMAT for SASI drives: physical format (BIOS FORMAT DRIVE)
   and creation of the NEC VA single-volume FAT12 layout. Keep the IPL
