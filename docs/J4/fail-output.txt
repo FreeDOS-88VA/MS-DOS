@@ -1,0 +1,61 @@
+vaeg m153, J4 M2 2HD images; A: boot disk, B: empty.
+Input: DIR B:, R, F, A, ECHO AFTER-A. Blank rows omitted.
+
+[en va; screen after F]
+A:\>DIR B:
+Not ready reading drive B
+Abort, Retry, Fail?r
+Not ready reading drive B
+Abort, Retry, Fail?f
+Volume in drive B has no label
+ Directory of  B:\
+Not ready reading drive B
+Abort, Retry, Fail
+[after A and ECHO AFTER-A]
+A:\>ECHO AFTER-A
+AFTER-A
+
+
+[en va2; screen after F]
+A:\>DIR B:
+Not ready reading drive B
+Abort, Retry, Fail?r
+Not ready reading drive B
+Abort, Retry, Fail?f
+Volume in drive B has no label
+ Directory of  B:\
+Not ready reading drive B
+Abort, Retry, Fail
+[after A and ECHO AFTER-A]
+A:\>ECHO AFTER-A
+AFTER-A
+
+
+[ja va; screen after F]
+A:\>DIR B:
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?r
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?f
+ドライブ B にボリュームラベルはありません
+ ディレクトリ: B:\
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)
+[after A and ECHO AFTER-A]
+A:\>ECHO AFTER-A
+AFTER-A
+
+
+[ja va2; screen after F]
+A:\>DIR B:
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?r
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)?f
+ドライブ B にボリュームラベルはありません
+ ディレクトリ: B:\
+準備ができていません (ドライブ B の 読み込み)
+中止(A), 再試行(R), 失敗(F)
+[after A and ECHO AFTER-A]
+A:\>ECHO AFTER-A
+AFTER-A
