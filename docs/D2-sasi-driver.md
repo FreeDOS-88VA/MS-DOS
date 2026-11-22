@@ -210,3 +210,57 @@ No HDD formatting, HDD boot, PC-98 partition-table handling or
 See the [interchange procedure and evidence](D2/m4-interop.md). PC-Engine,
 MS-DOS 4.0 VA and NEC MS-DOS 2.11 accessed the same HDFORM filesystem on
 40 MB and 10 MB disks in vaeg. No driver changes were needed.
+
+## Fix 1: resident cost
+
+`HWINIT` now probes SASI after text and memory initialization but before
+jumping to SYSINIT. `SYSINIT1.ASM` moves MSDOS.SYS down to
+`FINAL_DOS_LOCATION` before calling DOSINIT; that move overwrites
+`VAHDINIT.INC` (SENSE, classification, BPB construction, messages and
+its separate 512-byte probe buffer) along with the existing boot-only
+code. Floppy INIT no longer calls discovery.
+
+`RESEND` marks the unconditional end. With no accepted volume, the
+floppy header remains the last device and DOS also overwrites the SASI
+header, driver, bounce buffer and BPB table. With a mounted volume,
+`HWINIT` places DOS after the last accepted BPB record, rounded up to a
+paragraph. The runtime bounce buffer is one aligned 256-byte physical
+block. One accepted target uses one BPB record even when it is target 1.
+
+| VA2 configuration | VAIO end offset (hex) | Rounded end (hex) | Resident bytes vs. pre-D2 | CHKDSK free, 256 KiB | CHKDSK free, 640 KiB |
+|---|---:|---:|---:|---:|---:|
+| Pre-D2 `93caa4c`, floppy only | `265D` | `2660` | 0 | 136,720 | 519,504 |
+| Fix 1, no SASI | `2669` | `2670` | +16 | 136,704 | 519,488 |
+| Fix 1, one volume (FreeDOS 40 MB) | `2B20` | `2B20` | +1,216 | 135,472 | 518,256 |
+| Fix 1, two volumes (NEC 40 MB + FreeDOS 10 MB) | `2B3C` | `2B40` | +1,248 | 135,408 | 518,192 |
+
+End offsets are from the MASM listings and accepted record count;
+CHKDSK reports free bytes, using the same PC88VA CHKDSK binary and DOS
+kernel in all rows. CHKDSK ran on A: with no HDD and C: otherwise;
+free memory includes DOS buffers and drive structures, not just VAIO.
+Compared with M3's rounded `3020h` end, Fix 1 reclaims 2,480 bytes
+without SASI, 1,280 with one volume, and 1,248 with two.
+
+**Regression gate (vaeg m153):**
+
+- VA and VA2 at 256 and 640 KiB: mixed NEC 40 MB and FreeDOS 10 MB
+  mounted as C: and D:; guest and host binary/text readbacks matched,
+  both FAT copies agreed, and CHKDSK reported no errors. On the same
+  four model/RAM combinations, HDRANGE on a separate FreeDOS 40 MB disk
+  passed cross-page read/write and all range checks; the host verified
+  the final logical sector was restored.
+- VA2 / 40 MB: fresh HDFORM, PC-Engine write, DOS read/write with clean
+  CHKDSK before and after writing, then PC-Engine read. DOS and PC-Engine
+  recovered the expected text, 131,328-byte binary and subdirectory file
+  byte for byte. The host found equal FAT copies and no lost clusters;
+  free cluster counts were 2,455 before DOS writes and 2,443 after.
+- VA and VA2 at 640 KiB, no SASI: `FORMAT B: /V:D2FMT` reported
+  1,299,456 bytes available, and `DISKCOPY A: B: /V` completed. All
+  1,280 sectors matched and the copy booted to A:. Explicit no-SASI
+  boots rejected C: on both models at 640 KiB and on VA2 at 256 KiB.
+- VA2 at 256 KiB: a blank target 0 produced the unrecognized-volume
+  message and no C:, with the same free memory as no SASI. With a
+  recognized target 1 also attached, it mounted as C:, D: was invalid,
+  and free memory matched the one-volume row.
+
+Run artifacts stayed under the external `tmp/d2/fix1/` scratch tree.
