@@ -329,7 +329,8 @@ comparison is done.
   block with MCB owner 8 (system), allocated last-fit by JFP.COM; VAIO
   keeps 6 bytes of state and is 829 B smaller than J3b.4; 64 entries cost
   at most 7,904 B; no leak over 5 ON/OFF cycles; 0 nested DOS calls.
-  Open: `A:\JFPUSER.DIC` is still fixed to A: (HDD boot users: revisit).
+  [F1](F1-small-fixes.md#3-user-dictionary-on-the-boot-drive) removes the
+  fixed A: path: the dictionary now follows the DOS boot drive.
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.

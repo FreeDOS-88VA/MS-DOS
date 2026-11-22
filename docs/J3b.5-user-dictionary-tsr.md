@@ -9,10 +9,12 @@ KiB. Measure lookup-only worst-case miss latency on VA 640 KiB.
 
 ## Commands and file formats
 
-`JFP ADD reading word`, `JFP DEL reading word` and `JFP LIST` still use
-`A:\JFPUSER.DIC` regardless of the current directory. This is the
-existing floppy convention, **not** boot-drive discovery for HDD boots.
-Input and staged save/recovery rules are unchanged from
+`JFP ADD reading word`, `JFP DEL reading word`, `JFP LIST` and `JFP ON`
+use `\JFPUSER.DIC` on the DOS boot drive, regardless of the current
+working drive or directory ([F1](F1-small-fixes.md#3-user-dictionary-on-the-boot-drive);
+originally fixed to A:). JFP falls back to A: if DOS does not report a
+valid boot drive. Temporary `.TMP` and backup `.BAK` names use the same
+root. Input and staged save/recovery rules are unchanged from
 [J3b.4](J3b.4-user-dictionary.md#foreground-commands-and-format). In
 particular ADD and DEL only modify the file; run `JFP ON` again to reload.
 
@@ -150,9 +152,10 @@ and the basic conversion scenario through all three selectors on each
 configuration.
 
 **NOT RUN:** physical hardware, other models/RAM or ROM versions, 2D
-and HDD boot, IRQ stress, allocation-failure and save/rollback fault
-injection, exhaustive malformed inputs, other DOS implementations and a
-full stock M6 replay after the final MEM-header change.
+and HDD boot at J3b.5 (see F1 for boot-drive tests), IRQ stress,
+allocation-failure and save/rollback fault injection, exhaustive
+malformed inputs, other DOS implementations and a full stock M6 replay
+after the final MEM-header change at J3b.5.
 
 ## Reproduce
 

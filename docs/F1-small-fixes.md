@@ -73,3 +73,46 @@ probe ordering or HDI geometry problem. The two images do mount on
 VA2 with the same emulated controller. No DOS or vaeg code change;
 no geometry is guessed for target 1. **NOT RUN:** physical drives,
 real hardware, other firmware revisions.
+
+## 3. User dictionary on the boot drive
+
+JFP used three hard-coded `A:` paths. Before opening a user dictionary,
+JFP now queries INT 21h AX=3305h and uses the one-based drive in DL.
+The `.DIC`, `.TMP` and `.BAK` names all follow that drive and remain in
+its root directory. An unsupported query or an invalid drive number
+leaves the floppy-compatible `A:` default. No environment override was
+added, and no DOS call was added to the resident conversion path.
+
+On the Japanese distribution (vaeg m153, VA2, 640 KiB), the floppy boot
+reported DL=1, even after `C:` switched the working drive to the attached
+HDD. `JFP ADD`, `LIST` and `ON` created `A:\JFPUSER.DIC`, listed the
+registered `なかた : 飛翔`, and returned `飛翔` as the first candidate.
+KETTEI and Return produced `echo 飛翔` and its output. Host inspection
+matched the exact v2 record on the floppy and found no dictionary on C:.
+The 40 MB SASI installation then cold-booted without floppies, reported
+DL=3, and the same ADD/LIST/ON and confirmed conversion passed from `C>`.
+Host inspection matched the exact v2 file in the C: root and the exact
+Shift-JIS listing in both runs. Deleting the pair on a separate copy of
+that HDD left a valid empty v2 dictionary, no `.TMP` or `.BAK` file, and
+`JFP LIST` reported an empty dictionary.
+
+The J3b.5 dictionary checkers require English message text, so the
+regression replay used the separately built English distribution. On
+VA 640 KiB and VA2 256/640 KiB, the checkers passed ADD/DEL/LIST and
+validation, v1 lookup and migration, 64 entries and refusal of ADD 65,
+candidate ordering/return, reload, corrupt v1/v2 fallback, CHKDSK and
+MEM /DEBUG lifetime checks, user-hit monitors, COPY CON and EDLIN.
+Whole-CON nested DOS entries remained zero in the user monitors. The
+worst-work 64-record miss on VA 640 KiB crossed zero frame ticks from
+scan entry to BIOS fallback entry. The full-distribution prompt smoke
+passed through ON, FEP and ROM in all three RAM/model configurations.
+
+The stock M6 English replay reached exit in all 105 cases. The compact
+`toggle` script on VA2 640 KiB captured while `LABELCHK` was still being
+typed; two hide/show assertions failed. Replaying that one case with
+its original 700-frame waits passed all its assertions. The combined
+report passed on each configuration: plain 21/21, ON and FEP 13/13 each,
+ROM 11/13 plus the two known nested text-BIOS differences.
+
+**NOT RUN:** real hardware, invalid or unsupported boot-drive query
+injection, 2D boot, or IRQ/allocation/save fault injection.
