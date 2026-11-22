@@ -12,7 +12,7 @@ changes to the Microsoft sources stay under `v4.0/src`.
    pass/fail gate (build, boot on vaeg, a specific command's output).
    Hand pi one milestone at a time. Briefs live in `docs/tasks/`; run
    them with
-   `pi -p --model gpt-6.2-sol:medium @docs/tasks/<brief>.md`.
+   `pi -p --model openai-codex/gpt-6.2-sol:medium @docs/tasks/<brief>.md`.
 2. **Review: Opus 5.5, adversarial.** After each milestone, Opus 5.5
    reviews pi's diff and results adversarially. The review assumes the
    change is wrong until the code and the gate output show it is right,
