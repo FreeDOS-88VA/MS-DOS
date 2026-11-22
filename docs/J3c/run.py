@@ -36,6 +36,7 @@ class Plan(j3a.Plan):
         self.cistat = cistat
         self.targets = 'tvram screen' if screens else 'tvram'
         self.shots = []
+        self.screenshots = []            # Optional completed guest frames via vaeg's CLI.
 
     def shot(self, name):
         if name in self.shots:
@@ -179,10 +180,12 @@ def run_case(args, case):
     (work / 'run.ini').write_text(f'[NekoProjectII]\nMain_RAM={ram}\nMain_RAM_Auto=true\n',
                                  encoding='ascii')
     env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
+    scheduled = getattr(plan, 'screenshots', ())
+    options = [arg for frame, path in scheduled for arg in ('--screenshot', f'{frame}:{path}')]
     with (work / 'run.log').open('wb') as log:
         subprocess.run([args.vaeg, '--model', model, '--roms', args.roms, '--cfg', 'run.ini',
                         '--no-bkupmem', '--nowait', '--fdd1', 'disk.d88', '--debug-script',
-                        'run.debug', '--debug-output-dir', '.'], cwd=work, env=env, stdout=log,
+                        'run.debug', '--debug-output-dir', '.', *options], cwd=work, env=env, stdout=log,
                        stderr=subprocess.STDOUT, timeout=240, check=True)
     with (work / 'events.tsv').open(newline='', encoding='ascii') as stream:
         events = list(csv.DictReader(stream, delimiter='\t'))
@@ -199,16 +202,20 @@ def run_case(args, case):
             artifact = work / (shot + suffix)
             if not artifact.is_file() or not artifact.stat().st_size:
                 raise RuntimeError(f'{artifact}: missing or empty capture')
+    for _, path in scheduled:
+        if not (work / path).is_file() or not (work / path).stat().st_size:
+            raise RuntimeError(f'{work / path}: missing or empty scheduled screenshot')
     return len(recorded)
 
 
-def main():
+def main(programs=scenarios, modes=MODES):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('vaeg', 'roms', 'disk', 'output'):
         parser.add_argument(name, type=lambda value: Path(value).resolve())
     parser.add_argument('--cistat', required=True, help='VAIO CISTAT segment:offset from the tested build')
     parser.add_argument('--case', action='append', help='run only this scenario (repeatable)')
     parser.add_argument('--prefix', action='append', default=[], help='select scenario names by prefix')
+    parser.add_argument('--mode', action='append', choices=modes, help='run only this selector (repeatable)')
     parser.add_argument('--screens', action='store_true', help='also save screen BMPs in scratch')
     parser.add_argument('--jobs', type=int, default=6)
     args = parser.parse_args()
@@ -220,11 +227,11 @@ def main():
         parser.error('--cistat must be a hexadecimal segment:offset')
     if args.jobs < 1:
         parser.error('--jobs must be positive')
-    plans = dict(scenarios(args.cistat, args.screens))
+    plans = dict(programs(args.cistat, args.screens))
     unknown = set(args.case or ()) - plans.keys()
     if unknown:
         parser.error(f'unknown cases: {", ".join(sorted(unknown))}; available: {", ".join(plans)}')
-    cases = [(model, ram, mode, name, p) for model, ram in MATRIX for mode in MODES
+    cases = [(model, ram, mode, name, p) for model, ram in MATRIX for mode in (args.mode or modes)
              for name, p in plans.items()
              if not (args.case or args.prefix) or name in (args.case or ())
              or any(name.startswith(prefix) for prefix in args.prefix)]
