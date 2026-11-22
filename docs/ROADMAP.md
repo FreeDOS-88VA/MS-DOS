@@ -219,6 +219,13 @@ directly would not scroll at the bottom.
 - Keep ROM auto-scroll on except for the bottom-right edge write, or
   show that no direct INT 83h writers matter; test a direct-ROM writer.
 - ESC[>3h/l 20-row mode in CON (ROM switching verified in J2c).
+- J2d accepted 2026-11-22 (`docs/J2d-console.md`, VA/VA2): ROM
+  auto-scroll back on for direct INT 83h writers (CON turns it off only
+  for its own bottom-right edge write, keeping NEC pending wrap);
+  `CSI >3h/l` 20/25-row mode (19+1 / 24+1 rows) with labels, hide,
+  6n reports, scrolling, KEY and FEP checked in both. NEC parity 24/25
+  pages per DOS write method (page 23 malformed sequences stays a
+  deliberate difference). Cost 272 B.
 
 ### J3 — Japanese input through the ROM JFP
 - Goal: ROM kana-kanji conversion works at the prompt and in EDLIN. If
