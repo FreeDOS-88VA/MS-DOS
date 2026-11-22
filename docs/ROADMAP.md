@@ -457,5 +457,5 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   `docs/A1/build-speed.patch`). Also fixed a latent D2 bug: the ROM disk
   call flags (`CALLFL`) lay in the discarded SASI tail, so floppy-only
   boots read DOS memory as flags (DF=1 hung CHKDSK at some VAIO sizes).
-  PRINT.COM not shipped (IBM INT 17h hooks). NOT RUN: physical printers
+  PRINT.COM not shipped (IBM INT 17h hooks); deferred by the maintainer (2026-11-23). NOT RUN: physical printers
   and serial devices.
