@@ -292,6 +292,18 @@ comparison is done.
 - J3c — compare J3a and J3b (conversion quality, memory, speed, key
   feel, interaction with ESC/F-keys/labels) and choose the default; the
   other may stay selectable.
+- J3c accepted 2026-11-22 (`docs/J3c-comparison.md`, VA 640 KiB, VA2
+  256/640 KiB): both paths give the same candidates, ranks and
+  segmentation on a 22-reading corpus (the machine ROM matters, not the
+  front end), latency within one frame, no activation memory cost. FEP
+  has no nested INT 83h, no learning call and validates BIOS output; ROM
+  JFP enters INT 83h 10-106 times per trial and claims more pending keys
+  (F6/F8/F10, SHIFT+F9/F10, ZENKAKU). Decision: `JFP ON` selects the
+  project FEP; `JFP ROM` stays explicit; boot stays plain. Note: FEP's
+  guard refuses activation when default `.DIC`/`.DAT` files exist, so
+  `JFP ON` no longer means the old file-requiring ROM selection.
+  Open: external dictionary files and ROM learning (NOT RUN); NEC uses
+  Ctrl+XFER/Space where the VA uses ZENKAKU/HENKAN (kept VA keys).
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
