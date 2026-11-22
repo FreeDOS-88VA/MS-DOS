@@ -233,6 +233,7 @@ def main(programs=scenarios, modes=MODES):
         parser.error(f'unknown cases: {", ".join(sorted(unknown))}; available: {", ".join(plans)}')
     cases = [(model, ram, mode, name, p) for model, ram in MATRIX for mode in (args.mode or modes)
              for name, p in plans.items()
+             if mode in getattr(p, 'only_modes', modes)
              if not (args.case or args.prefix) or name in (args.case or ())
              or any(name.startswith(prefix) for prefix in args.prefix)]
     if not cases:

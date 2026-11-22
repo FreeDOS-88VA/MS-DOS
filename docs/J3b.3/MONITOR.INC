@@ -22,6 +22,9 @@ install:
     vector 21h,old21,hook21
     vector 83h,old83,hook83
     vector 8dh,old8d,hook8d
+%ifdef ROM_FRONTEND
+    vector 82h,old82,hook82
+%endif
     ; Positive control: both chains must see an interrupt in scope. The
     ; INT 21h request is harmless even if the hook failed to install.
     mov byte [active],1
@@ -49,8 +52,13 @@ install:
 check_off:
     xor cx,cx
     int 8dh                      ; GetJFP, outside the measured scope.
+%ifdef ROM_FRONTEND
+    test ax,8000h                ; ROM keyboard JFP must be master-enabled.
+    jnz .bad
+%else
     cmp ax,8f80h
     jne .bad
+%endif
     ret
 .bad:
     call uninstall
@@ -61,6 +69,9 @@ check_off:
     int 21h
 
 uninstall:
+%ifdef ROM_FRONTEND
+    restore 82h,old82
+%endif
     restore 8dh,old8d
     restore 83h,old83
     restore 21h,old21
@@ -103,6 +114,19 @@ hook8d:
     shl bx,1
     inc word [cs:calls+bx-6]
     pop bx
+%ifdef BAD_SUGGESTION
+    cmp cl,4
+    jne .real
+    cmp byte [cs:injected],0
+    jne .real
+    inc byte [cs:injected]
+    mov word [es:di],7f81h       ; Invalid Shift-JIS trail, bounded write.
+    mov byte [es:di+2],0
+    xor ax,ax
+    popf
+    iret
+.real:
+%endif
     inc byte [cs:active]
     popf
     ; Construct the interrupt frame for the old handler using the
@@ -121,12 +145,38 @@ hook8d:
     popf
     jmp far [cs:old8d]
 
+%ifdef ROM_FRONTEND
+hook82:
+    pushf
+    cmp ah,1                    ; Main SnsChar (1) or GetChar (0).
+    ja .chain
+    inc word [cs:kb_calls]
+    inc byte [cs:active]
+    popf
+    push bp
+    mov bp,sp
+    push word [ss:bp+6]
+    mov bp,[ss:bp]
+    call far [cs:old82]
+    pushf
+    dec byte [cs:active]
+    popf
+    pop bp
+    retf 2
+.chain:
+    popf
+    jmp far [cs:old82]
+%endif
+
 report:
     mov dx,summary
     mov ah,9
     int 21h
     mov si,calls
     mov cx,10
+%ifdef ROM_FRONTEND
+    inc cx
+%endif
     cld
 .word:
     lodsw
@@ -157,6 +207,14 @@ report:
     mov dx,newline
     mov ah,9
     int 21h
+%ifdef BAD_SUGGESTION
+    cmp byte [injected],0
+    je .reported
+    mov dx,faultmsg
+    mov ah,9
+    int 21h
+.reported:
+%endif
     ret
 
 old21 dd 0
@@ -166,7 +224,19 @@ active db 0
 calls times 8 dw 0
 dos dw 0
 text dw 0
+%ifdef ROM_FRONTEND
+kb_calls dw 0                 ; Extra word after the ordinary MON counters.
+old82 dd 0
+%endif
+%ifdef BAD_SUGGESTION
+injected db 0
+faultmsg db 'FAULT: injected invalid Shift-JIS trail',13,10,'$'
+%endif
 summary db 'MON: $'          ; 03..0A, nested INT 21h, nested INT 83h (hex words).
 newline db 13,10,'$'
 selftest db 'FAIL: monitor positive control',13,10,'$'
+%ifdef ROM_FRONTEND
+badmode db 'FAIL: ROM JFP not master-enabled',13,10,'$'
+%else
 badmode db 'FAIL: ROM JFP not master-disabled',13,10,'$'
+%endif

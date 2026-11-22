@@ -4,6 +4,9 @@
 ; FLUSHED: type/confirm A in the retained kana width.
 cpu 8086
 org 100h
+%ifdef MONITORED
+    call install
+%endif
     mov dx,first
     call print
     call empty
@@ -58,6 +61,11 @@ org 100h
     cmp al,0a0h
     jne fail
     call empty
+%ifdef MONITORED
+    call check_off
+    call uninstall
+    call report
+%endif
     mov dx,passed
     call print
     mov ax,4c00h
@@ -92,6 +100,10 @@ print:
     int 21h
     ret
 fail:
+%ifdef MONITORED
+    call uninstall
+    call report
+%endif
     mov dx,failed
     call print
     mov ax,4c01h
@@ -104,3 +116,6 @@ second db 'SECOND',13,10,'$'
 flushed db 'FLUSHED',13,10,'$'
 passed db 'PASS: CON status, bytes and flush',13,10,'$'
 failed db 'FAIL: CON byte test',13,10,'$'
+%ifdef MONITORED
+%include 'MONITOR.INC'
+%endif
