@@ -333,6 +333,16 @@ comparison is done.
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
+- J4 accepted 2026-11-23 (`docs/J4-japanese-messages.md`, vaeg VA/VA2):
+  project-written translations (no NEC text) in `v4.0/src/MESSAGES/JPN-MS.tsv`
+  (catalog overlay → Shift-JIS `JPN-MS.MSG` at build) and `JPN-ASM.tsv`
+  (hard-coded DB strings in FC, SHARE, VAIO and the VA commands); builder
+  `--messages ja|en` (patch `docs/J4/build-messages.patch`, includes the
+  D1/A1 steps). Kernel, SYSINIT, COMMAND, 25 utilities and 6 VA commands
+  checked on both models; answer keys stay ASCII (中止(A) 再試行(R) …);
+  English build unchanged. COMMAND resident +80 B. Fail on an empty drive
+  re-prompts in both languages (DOS behaviour). NOT RUN: real hardware,
+  unexercised error branches, boot-sector diagnostics (still English).
 
 ## Release identity
 
