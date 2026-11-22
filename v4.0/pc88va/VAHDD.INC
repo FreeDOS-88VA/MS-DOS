@@ -23,7 +23,6 @@ HDPREFIX EQU    27              ;Physical volume start, 0 or 4.
 HDSIZE  EQU     28
 HDUNITSIZE EQU  2
 HDMEM   DW      0               ;End of conventional memory, paragraphs.
-CALLFL  DW      0245H           ;Flags for ROM disk calls.
 
 ; Preserve caller state except AX (ROM status/type) and flags.
 HDROM:  PUSH    BX

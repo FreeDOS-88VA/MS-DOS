@@ -2577,6 +2577,7 @@ GUNIT   DB      0
 MIDCACHE DB     NUNITS*24 DUP (0) ;Per unit: valid flag, serial, label, type.
 
 SASIMAP DB      0,0D3H         ;Available even when HDDDEV is overlaid.
+CALLFL  DW      0245H           ;Floppy and SASI ROM call flags; always resident.
 RESEND  LABEL   BYTE            ;End of resident BIOS without SASI.
 
         INCLUDE VAHDD.INC       ;Kept only if at least one target mounts.
@@ -2620,13 +2621,7 @@ HWFLPY: XOR     AX,AX
         ; With no accepted unit, discard the whole optional SASI tail.
         MOV     AX,OFFSET RESEND
         CMP     [HDUNITS],0
-        JNE     HWHDDEND
-        ; Floppy-only vaeg workaround: paragraph alignment alone can
-        ; hang CHKDSK after a resident size change (see docs/A1-aux-prn.md).
-        ADD     AX,0FFH
-        AND     AX,0FF00H
-        JMP     SHORT HWEND
-HWHDDEND:
+        JE      HWEND
         MOV     AX,DI           ;End of the accepted BPB records.
 HWEND:  ADD     AX,15
         PUSH    CX

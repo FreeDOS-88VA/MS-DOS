@@ -104,13 +104,8 @@ interrupt hooks; command 16 alone does not establish compatibility.
 - The initial printer fixture contained unsupported 386 near branches.
   Both fixtures now target 186-compatible instructions. The printer
   status reply also now zeroes the low byte when reporting Busy.
-- The final boot path aligns the floppy-only DOS destination to 256
-  bytes as a workaround for the layout-sensitive CHKDSK hang. Scratch
-  controls reproduced it by growing the baseline resident BIOS without
-  changing the driver code. Growing only the IO.SYS file did not
-  reproduce it. The alignment restores the CHKDSK gate on both models;
-  it does **not** establish the root cause. SASI keeps the original DOS
-  destination calculation; HDD boot and other memory sizes were NOT RUN.
+- M3 used a 256-byte alignment workaround for the floppy-only CHKDSK
+  hang. Fix 1 removed it; see [CHKDSK hang root cause](#chkdsk-hang-root-cause).
 
 ## Gate procedure
 
@@ -133,3 +128,82 @@ Actual captures/injection, real devices, NEC execution, PRINT, physical
 (`COPY` both ways, `CTTY AUX` prompt and command): **NOT RUN**. The UART
 mock checks the DOS interface, not the actual UART, IRQ handler or baud.
 See [M3 evidence](A1/m3.txt).
+
+## CHKDSK hang root cause
+
+`CALLFL` (the flags word loaded with `POPF` before ROM disk calls) was
+in the optional SASI tail, **past `RESEND`**, but both the floppy and
+SASI drivers used it. With no SASI volume, SYSINIT relocated DOS over
+that tail. The floppy driver was then loading flags from DOS memory,
+not from the assembled `0245h`. Even builds that appeared to work had
+the dangling reference. Aligning the DOS destination to 256 bytes only
+changed which DOS word the floppy driver read.
+
+**Reproduction and controls.** On vaeg m153, cold boot a single 2HD
+floppy with no SASI units and run `CHKDSK A:`. Assemble and link VAIO
+with `DB n DUP (0)` immediately before `RESEND`; use the same SYSINIT
+objects, kernel, CHKDSK, disk files and boot sector for all variants.
+The debug script enters the command at frame 260; score a pass only if
+CHKDSK prints its memory summary and returns to `A:\>` (screen dumped
+at frame 950 for the baseline sweep and 680 for the fixed/fine sweeps).
+The requested 0–1024 sweep in steps of 16 did not hang on `9c071a6`:
+those steps preserve the byte offset of the overwritten flags word
+relative to the relocated DOS. In a finer sweep, `n=234` hung on both
+models, while `n=235..240` passed at the **same** DOS destination
+(`1254h`, physical `12540h`). At `n=234`, the assembled flags word is
+at `1000:256Bh` (physical `1256Bh`, DOS offset `002Bh`). At `n=235`,
+it is one byte later.
+
+| Build / padding (decimal) | DOS segment | Last DOS root-buffer read (physical) | CHKDSK FAT read (physical) | VA / VA2 |
+|---|---|---|---|---|
+| Baseline `n=234` | `1254` | `1E288` | Not issued | Hang / Hang |
+| Baseline `n=235..239` | `1254` | `1E288` | `30170` | Pass / Pass |
+| Baseline `n=234`, same-layout flags control | `1254` | `1E288` | `30170` | Pass / Pass |
+| Fixed A1 `n=234,235` | `126D` | `1E418` | `30300` | Pass / Pass |
+
+The stock emulator's `wait-pc` capture at `GET_BPB`'s `REP MOVSB`
+(`1000:2189h` in the failing image) showed `CX=0017h`, `SI=003Bh`,
+`ES:DI=1000:241Bh`, and **DF=1** on both models. The preceding INT 80h
+read succeeded, but the scratch INT 80h trace showed FLAGS `F402h` on
+entry and return: DF set and IF clear. The copy therefore walked
+backwards from `MIDCACHE+1` and overwrote `1000:2405h`, the jump out of
+the floppy get-media-ID handler. Frame samples showed that word change
+from `B0EBh` to `00C0h` and the cache's valid byte from `00h` to the
+boot sector's `29h` signature, exactly as the backward copy predicts.
+CHKDSK printed the volume label, entered IOCTL `440Dh` / `0866h` for
+the serial number, then ran through the corrupted handler and never
+issued the FAT read (`INT 25h`).
+
+For the same-layout control, put `0245h` into two unused bytes of the
+resident padding and retarget only the three floppy `PUSH CS:[CALLFL]`
+operands. With all load and buffer addresses unchanged, both models
+returned from INT 80h with FLAGS `F246h`, copied forward (DF=0 at the
+breakpoint), left `B0EBh` intact, issued the FAT read and returned to
+`A:\>`. FDC/DMA tracing also showed successful 1024-byte transfers
+straddling physical `20000h` (for example `1FD70h..2016Fh` in the
+failing image). The last root read completed at `1E288h`, well below
+1 MiB. Neither a DMA page crossing nor a change in DOS relocation
+address was needed to explain or fix this hang. No vaeg fix was made.
+
+**Fix and gate.** Keep the shared `CALLFL` below `RESEND` and restore
+ordinary paragraph rounding for floppy-only boots. The SASI path
+still rounds the end of the mounted BPB records. MASM reported zero
+warnings and errors for the tested builds. See the
+[65-row sweep](A1/chkdsk-sweep.tsv): all 65 images per model on the
+fixed branch completed CHKDSK and returned to the prompt. Physical
+addresses in the fixed columns were checked against FDC/DMA traces on
+both models. The baseline address columns are derived from the DOS
+load segment and checked against both models' traces at `n=0,16,240,
+512,768,1024` and at the fine-sweep points where the reads occurred.
+
+- **VA and VA2:** `DISKCOPY A: B: /V` completed; all 1,280 sectors
+  matched and the copy booted. `FORMAT B: /S` reported system transfer;
+  the target's IO.SYS matched byte for byte and the target booted to the
+  prompt. `COPY /B` of a 131,328-byte file to that disk matched byte
+  for byte on the host.
+- **D2 SASI, VA2 / 640 KiB:** a mixed NEC 40 MB and FreeDOS 40 MB pair
+  mounted as C: and D:. Both CHKDSK runs were clean, host and guest
+  readbacks matched, the two FATs agreed on each disk, and the temporary
+  directory was absent. `HDRANGE` on D: passed cross-page and range
+  checks; host comparison confirmed the last logical sector was restored.
+  Other SASI models, RAM sizes and HDD boot were not rerun for Fix 1.
