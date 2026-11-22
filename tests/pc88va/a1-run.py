@@ -18,6 +18,12 @@ def scenarios():
     pc = os.environ['AFTER_CISTAT']
     yield 'prn-mock', 'test', j04.plan(pc, [
         (600, 'input-line PRNMCK'), (1800, 'shot result')])
+    yield 'aux-mock', 'test', j04.plan(pc, [
+        (600, 'input-line AUXMCK'), (1800, 'shot result')])
+    for name, arg in [('usage', '/?'), ('valid', '9600'), ('invalid', '9600x')]:
+        yield f'speed-{name}', 'test', j04.plan(pc, [
+            (600, f'input-line SPEED {arg}'), (1600, 'shot result'),
+        ])
     yield 'prn-rom', 'test', j04.plan(pc, [
         (600, 'input-line ECHO A1>PRN'), (1200, 'shot echo'),
         (1250, 'input-line ECHO A1>A1.TXT'),
@@ -33,3 +39,17 @@ if __name__ == '__main__':
         raise SystemExit('output must be outside the repository')
     j04.scenarios = scenarios
     j04.main()
+    for model in ('va', 'va2'):
+        expected = {
+            'prn-mock': 'PRNMCK: P', 'aux-mock': 'AUXMCK: P',
+            'speed-usage': 'Usage: SPEED', 'speed-invalid': 'Usage: SPEED',
+            'speed-valid': '>SPEED 9600',
+        }
+        for name, marker in expected.items():
+            if sys.argv[7:] and name not in sys.argv[7:]:
+                continue
+            path = Path(sys.argv[6]) / model / name / 'result.txt'
+            text = path.read_text()
+            if marker not in text or (name == 'speed-valid' and (
+                    'Usage: SPEED' in text or 'BIOS rejected' in text)):
+                raise SystemExit(f'{path}: {name} did not pass')

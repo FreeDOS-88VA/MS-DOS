@@ -2,6 +2,7 @@
 ; NASM -f bin. Synthetic INT 89h replies; no ROM or printer data captured.
 org 100h
 bits 16
+cpu 186
 
     mov ax,3589h
     int 21h
@@ -11,13 +12,24 @@ bits 16
     mov ax,2589h
     int 21h
 
+%ifdef STARTDEV
+    mov ax,cs
+    add ax,(ioimage-$$+100h)/16
+    mov es,ax
+    mov bx,STARTDEV
+%else
     mov ah,52h
     int 21h
     les bx,[es:bx+12]             ; SYSI_CON
+%endif
 .find:
     cmp word [es:bx+10],'PR'
     je .found
+%ifdef STARTDEV
+    mov bx,[es:bx]
+%else
     les bx,[es:bx]
+%endif
     cmp bx,-1
     jne .find
     jmp done
@@ -30,16 +42,49 @@ bits 16
     mov [driver+2],es
 
     inc byte [stage]
+%ifdef STARTDEV
     mov byte [cmd],8
     mov word [count],1
     mov word [xfer],ascii
     call request
+%else
+    mov dl,'A'
+    mov ah,5
+    int 21h
+    mov byte [cmd],8
+%endif
     cmp word [last],0041h
     jne done
     cmp byte [function],3
     jne done
 
     inc byte [stage]
+%ifdef STARTDEV
+    mov es,[driver+2]
+    mov bx,[es:STARTDEV]         ; CON -> AUX (AUX -> COM1 on M3).
+    mov bx,[es:bx]
+    cmp word [es:bx+10],'CO'
+    jne .prn
+    mov bx,[es:bx]
+.prn:
+    mov bx,[es:bx]              ; PRN -> LPT1.
+    cmp word [es:bx+10],'LP'
+    jne done
+    mov ax,[es:bx+8]
+    mov [driver],ax
+    mov word [xfer],bytes
+    mov word [count],1
+    call request
+    cmp word [last],0041h
+    jne done
+    inc word [xfer]
+    mov word [count],1
+    call request
+    cmp word [last],955ch
+    jne done
+    cmp byte [function],1
+    jne done
+%else
     mov dx,lpt
     mov ax,3d01h
     int 21h
@@ -69,6 +114,7 @@ bits 16
     jne done
     mov ah,3eh
     int 21h
+%endif
 
     inc byte [stage]
     mov byte [cmd],16
@@ -176,3 +222,8 @@ status dw 0
 xfer dw controls,0
 count dw 0
     dw 0
+
+%ifdef STARTDEV
+    align 16
+ioimage: incbin 'IO.SYS'
+%endif

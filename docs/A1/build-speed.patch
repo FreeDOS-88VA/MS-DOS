@@ -1,0 +1,51 @@
+--- a/experiments/msdos4-va/build.py
++++ b/experiments/msdos4-va/build.py
+@@ -333,7 +333,7 @@
+     dos.run(va, va / 'LINK.EXE', 'VABOOT,VABOOT.EXE;')
+     boot = mz_image(expect(va / 'VABOOT.EXE'))
+     (va / 'VABOOT.INC').write_bytes(boot_include(boot))
+-    for module in ('VAIO', 'VAFORMAT', 'VASYS', 'VAKEY', 'VAJFP'):
++    for module in ('VAIO', 'VAFORMAT', 'VASYS', 'VAKEY', 'VAJFP', 'VASPEED'):
+         dos.run(va, va / 'MASM.EXE', module + ';')
+     (va / 'IO.LNK').write_bytes(('VAIO+' + '+'.join(SYSINIT_OBJECTS) + ',IO.EXE,IO.MAP;\r\n')
+                                 .encode('ascii'))
+@@ -341,12 +341,14 @@
+     dos.run(va, va / 'LINK.EXE', 'VAFORMAT,VAFORMAT.EXE;')
+     dos.run(va, va / 'LINK.EXE', 'VASYS,VASYS.EXE;')
+     dos.run(va, va / 'LINK.EXE', 'VAKEY,VAKEY.EXE;')
++    dos.run(va, va / 'LINK.EXE', 'VASPEED,VASPEED.EXE;')
+     dos.run(va, va / 'LINK.EXE', 'VAJFP,VAJFP.EXE;')
+     iosys = mz_image(expect(va / 'IO.EXE'), base=BIOSSEG)
+     built['FORMAT.COM'] = mz_image(expect(va / 'VAFORMAT.EXE'), origin=0x100)
+     built['SYS.COM'] = mz_image(expect(va / 'VASYS.EXE'), origin=0x100)
+     built['JFP.COM'] = mz_image(expect(va / 'VAJFP.EXE'), origin=0x100)
+     built['KEY.COM'] = mz_image(expect(va / 'VAKEY.EXE'), origin=0x100)
++    built['SPEED.COM'] = mz_image(expect(va / 'VASPEED.EXE'), origin=0x100)
+
+     disk = lock['disk']
+     fat_date = ((disk['date'][0] - 1980) << 9) | (disk['date'][1] << 5) | disk['date'][2]
+--- a/experiments/msdos4-va/README.md
++++ b/experiments/msdos4-va/README.md
+@@ -89,10 +89,13 @@
+ | DISKCOPY, DISKCOMP | Assume 512-byte sectors in many places; DISKCOPY also formats tracks through generic IOCTL, which the PC-88VA driver does not implement, and calls INT 13h. Not ported. |
+ | RAMDRIVE.SYS, VDISK.SYS, SMARTDRV, XMA2EMS.SYS, XMAEM.SYS | Need extended or expanded memory of IBM-compatible machines. |
+ | MEMM | Expanded-memory manager; not built. |
+-| PRINT | PRN discards output, so a print spooler has no use yet. |
++| PRINT | The resident spooler still depends on IBM interrupt behavior; the VA PRN driver alone does not port it. |
+ | DOSSHELL, SELECT | IBM text-mode shell and installer; SELECT also has damaged characters in the published sources. Not built. |
+ | FILESYS, IFSFUNC | Installable file system support for networks; no file system driver to use it. |
+
++AUX/COM1 and PRN/LPT1 use the VA ROM BIOS. SPEED sets the AUX baud rate
++(9600 8N1 at boot). Physical serial and printer operation are unverified.
++
+ ## Not implemented in the PC-88VA BIOS part
+
+ - Japanese: no Japanese display or input (no front-end processor).
+@@ -102,7 +105,6 @@
+ - Screen: 80x25 with the label line; no other escape sequences; control
+   codes other than CR, LF and BS are not displayed. Box-drawing characters of TREE and MEM appear as other
+   characters of the VA font.
+-- AUX and PRN: discard output; the RS-232C and printer BIOS are not used.
+ - Disks: only the floppy drives A: and B: in the 2HD format with 1024-byte
+   sectors (8 per track, 80 cylinders, 2 heads); no 2DD or other formats, no
+   hard disk. Generic IOCTL format and verify track are not implemented.

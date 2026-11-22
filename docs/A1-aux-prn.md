@@ -73,11 +73,63 @@ output can repeat bytes. No independent paper-out mapping is possible.
 | Gate | VA | VA2 |
 |---|---|---|
 | Boot from 2HD | Prompt reached | Prompt reached |
-| Synthetic BIOS fixture | FAIL: no completion | FAIL: no completion |
-| CHKDSK | FAIL: no completion | FAIL: no completion |
+| Initial synthetic BIOS fixture | FAIL: invalid fixture opcode | FAIL: invalid fixture opcode |
+| Initial CHKDSK | FAIL: no completion | FAIL: no completion |
 | Physical printer / byte capture | NOT RUN | NOT RUN |
 
 See [M2 evidence](A1/m2.txt). `PRINT` source inspection found that its
 resident code recognizes PRN/LPT1 as IBM INT 17h devices and uses IBM
 interrupt hooks; command 16 alone does not establish compatibility.
 `PRINT.COM` was not executed or added to the builder.
+
+## M3: AUX, COM1 and SPEED
+
+- Boot initializes the communication BIOS to the M1 defaults. AUX and
+  COM1 share the interrupt-fed BIOS queue. A device read waits for the
+  requested byte count, with IRQs enabled; no data is not EOF. An errored
+  receive byte returns read fault. DOS cooked mode can still interpret
+  Ctrl-Z; the driver itself does not. Peek and input status do not
+  consume a byte. Input flush clears the BIOS queue; output flush has no
+  DOS-side queue to clear.
+- Writes submit one byte at a time, return not ready without CTS, and
+  return write fault on BIOS send failure. They do not call BIOS retry:
+  DOS owns retry and the returned count describes only accepted bytes.
+  Output status checks Tx ready, CTS and XOFF; DOS single-character calls
+  can poll that status while the device is busy.
+- `SPEED baud` selects `75`, `150`, `300`, `600`, `1200`, `2400`, `4800`,
+  `9600` or `19200` for AUX/COM1 (e.g. `SPEED 4800`). It changes baud only,
+  without flushing RX, and does not persist a setting. It is not the
+  multi-port NEC command. The [builder patch](A1/build-speed.patch)
+  packages the project implementation as `SPEED.COM`.
+- The initial printer fixture contained unsupported 386 near branches.
+  Both fixtures now target 186-compatible instructions. The printer
+  status reply also now zeroes the low byte when reporting Busy.
+- The final boot path aligns the floppy-only DOS destination to 256
+  bytes as a workaround for the layout-sensitive CHKDSK hang. Scratch
+  controls reproduced it by growing the baseline resident BIOS without
+  changing the driver code. Growing only the IO.SYS file did not
+  reproduce it. The alignment restores the CHKDSK gate on both models;
+  it does **not** establish the root cause. SASI keeps the original DOS
+  destination calculation; HDD boot and other memory sizes were NOT RUN.
+
+## Gate procedure
+
+Use the scratch MASM/LINK toolchain and existing 2HD builder fixture, as
+in [J2d](J2d-console.md#reproduce). Relink `VAIO` with the same SYSINIT
+objects, link `VASPEED` and convert it at COM origin 100h. Keep all
+output outside the checkout. Assemble `PRNMCK.NAS` and `AUXMCK.NAS` in
+`tests/pc88va/` with NASM `-f bin`, then add the two COMs and `SPEED.COM`
+to the test image. The runner accepts the same arguments as the J0.4
+runner: vaeg executable, ROM directory, baseline disk, new disk, test
+disk, scratch output directory, then optional scenario names. Set
+`PYTHONPATH` to vaeg's `tools/qa` and `BASE_CISTAT`/`AFTER_CISTAT` to the
+DOS `CISTAT` entry points in the MASM listings. The cases `prn-mock` and
+`aux-mock` hook the BIOS vectors in a cold-booted DOS guest. `-DSTARTDEV=3`
+with the rebuilt IO.SYS in the NASM working directory instead builds
+isolated fixtures runnable in emu2, omitting DOS standard-handle tests.
+
+Actual captures/injection, real devices, NEC execution, PRINT, physical
+2HD/2D, and drive/terminal scenarios requiring a live serial peer
+(`COPY` both ways, `CTTY AUX` prompt and command): **NOT RUN**. The UART
+mock checks the DOS interface, not the actual UART, IRQ handler or baud.
+See [M3 evidence](A1/m3.txt).
