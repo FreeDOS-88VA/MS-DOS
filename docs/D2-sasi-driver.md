@@ -182,8 +182,13 @@ listed the files and typed the marker written by this driver.
 A mixed 40 MB + 10 MB pair worked on both models. With two 40 MB HDIs,
 VA2 enumerated both, but on VA the ROM reported target 1 as absent
 (SENSE CF=0, AL=FFh), even with a standalone DOS-time BIOS probe. VA
-therefore exposed only C: with that combination. The driver does not
-assume a geometry for a target the BIOS cannot identify.
+therefore exposed only C: with that combination. [F1](F1-small-fixes.md#2-a-40-mb-secondary-sasi-disk-on-va)
+confirmed the VA BIOS rejects a 40 MB secondary even behind a 10 MB
+primary. The VA's documented drive list includes the 40 MB primary
+PC-98H53 but not the secondary PC-98H54. Both BIOSes received the same
+controller type byte for two 40 MB disks, but only VA2 sought and read
+the second disk. The driver does not assume a geometry for a target the
+BIOS cannot identify.
 
 [`HDRANGE.ASM`](../tests/pc88va/HDRANGE.ASM), for disposable 40 MB
 native images only, writes and reads a pattern in the final logical

@@ -397,9 +397,9 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   before the BIOS; 64 KiB DMA splits with a bounce block. Interchange
   verified both ways with PC-Engine 1.0/1.1 and NEC MS-DOS 2.11. CHKDSK
   accepts NEC media bytes D0h-D3h and 3072 root entries. Resident cost
-  +16 B without SASI, +1,216 B with one volume. Open: on VA two 40 MB
-  targets show only one (ROM SENSE reports target 1 absent; VA2 sees
-  both); not-ready/write-protect/hot removal and real hardware NOT RUN.
+  +16 B without SASI, +1,216 B with one volume. [F1](F1-small-fixes.md#2-a-40-mb-secondary-sasi-disk-on-va)
+  confirmed the VA BIOS does not recognize a 40 MB secondary (VA2 does).
+  Not-ready/write-protect/hot removal and real hardware NOT RUN.
 
 ### D3 — SASI HDD format
 - `FORMAT d:` or `FORMAT /H0` / `/H1` creates the NEC VA single-volume
