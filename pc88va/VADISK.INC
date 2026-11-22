@@ -1,8 +1,8 @@
 ; SPDX-License-Identifier: MIT
 ;
-; Shared routines of the PC-88VA FORMAT and SYS commands.  They use only
-; MS-DOS 2.0 calls and the ROM floppy BIOS (INT 80h), so the same programs
-; run on MS-DOS 2.0 and 4.0.  Included in a .COM program with DS = CS.
+; Shared routines of the PC-88VA FORMAT and SYS commands. The floppy
+; path uses DOS 2.0 and INT 80h; SASI additionally needs the VA driver's
+; private DOS 4 IOCTLs and INT 81h. Included in a .COM with DS = CS.
 ; VABOOT.INC is generated from VABOOT.ASM by the build and defines
 ; BOOTCODE, the 1024-byte boot sector.
 
@@ -71,7 +71,7 @@ WAITEN1:
 WAITEN2:
         JMP     CRLF
 
-; Parse "d:" at the command tail.  On return CF=1 if absent or not A:/B:,
+; Parse "d:" at the command tail. On return CF=1 if absent or invalid,
 ; else [DRV] is set and SI points after the colon.
 GETDRV: MOV     SI,81H
 GETDR1: LODSB
@@ -81,7 +81,7 @@ GETDR1: LODSB
         JE      GETDR1
         AND     AL,0DFH
         SUB     AL,'A'
-        CMP     AL,1
+        CMP     AL,25
         JA      GETDR9
         CMP     BYTE PTR [SI],':'
         JNE     GETDR9
@@ -220,16 +220,46 @@ LOADS1: MOV     BX,[SYSIDX]
         MOV     AX,3D00H
         INT     21H
         MOV     DX,OFFSET S_NOSYS
-        JC      LOADS9
+        JNC     LOADOPEN
+        RET                     ;Open failed with carry set.
+LOADOPEN:
         MOV     [HANDLE],AX
-        MOV     AX,[NEXTSEG]
-        MOV     [SYSSEG+BX],AX
-        ADD     AX,1000H        ;Room for up to 64 KB below the memory top?
+        MOV     BX,AX
+        MOV     AX,4202H        ;Measure before checking the staging space.
+        XOR     CX,CX
+        XOR     DX,DX
+        INT     21H
+        JC      LOADSIZEERR
+        OR      DX,DX
+        JNZ     LOADSIZEERR
+        OR      AX,AX
+        JZ      LOADSIZEERR
+        CMP     AX,0FFF0H       ;Keep the read within one segment.
+        JB      LOADSIZEOK
+LOADSIZEERR:
+        JMP     LOADBAD
+LOADSIZEOK:
+        MOV     BX,[SYSIDX]
+        MOV     [SYSSIZE+BX],AX
+        ADD     AX,15
+        MOV     CL,4
+        SHR     AX,CL
+        MOV     CX,[NEXTSEG]
+        MOV     [SYSSEG+BX],CX
         MOV     DX,OFFSET S_NOMEM
+        ADD     AX,CX
+        JC      LOADS8
         CMP     AX,DS:[2]
         JA      LOADS8
+        MOV     [NEXTSEG],AX
+        MOV     BX,[HANDLE]
+        MOV     AX,4200H
+        XOR     CX,CX
+        XOR     DX,DX
+        INT     21H
+        JC      LOADBAD
         MOV     BX,[SYSIDX]
-        MOV     CX,0FFF0H
+        MOV     CX,[SYSSIZE+BX]
         PUSH    DS
         MOV     AX,[SYSSEG+BX]
         MOV     BX,[HANDLE]
@@ -241,19 +271,19 @@ LOADS1: MOV     BX,[SYSIDX]
         MOV     DX,OFFSET S_NOSYS
         JC      LOADS8
         MOV     BX,[SYSIDX]
-        MOV     [SYSSIZE+BX],AX
-        ADD     AX,15
-        MOV     CL,4
-        SHR     AX,CL
-        ADD     [NEXTSEG],AX
+        CMP     AX,[SYSSIZE+BX]
+        JNE     LOADS8
         MOV     BX,[HANDLE]
         MOV     AH,3EH
         INT     21H
         ADD     [SYSIDX],2
         DEC     [SYSCNT]
-        JNZ     LOADS1
+        JZ      LOADSDONE
+        JMP     LOADS1
+LOADSDONE:
         CLC
         RET
+LOADBAD:MOV     DX,OFFSET S_NOSYS
 LOADS8: PUSH    DX
         MOV     BX,[HANDLE]
         MOV     AH,3EH
@@ -323,3 +353,4 @@ S_NOROOM DB     'Cannot write the system files to the target disk',13,10,'$'
 S_SYSOK DB      'System transferred',13,10,'$'
 
         INCLUDE VABOOT.INC
+        INCLUDE VAHDBOOT.INC

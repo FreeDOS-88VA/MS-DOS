@@ -1,5 +1,8 @@
 # D3 — SASI FORMAT for the PC-88VA
 
+This page records D3 behavior. [D4](D4-hdd-boot.md) adds SASI `/S`; the
+default format without `/S` still does not install an IPL.
+
 ## Use
 
 Boot MS-DOS 4.0 VA from A: and leave A: current. Make a backup before formatting.
