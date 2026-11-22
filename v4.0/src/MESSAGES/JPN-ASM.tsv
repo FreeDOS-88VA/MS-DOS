@@ -1,0 +1,116 @@
+# @ introduces a source file. Each row gives the old and new quoted DB payloads.
+# A final \s represents a significant trailing ASCII space.
+@v4.0/src/CMD/FC/MESSAGES.ASM
+Incompatible switches	併用できないスイッチが指定されています
+Incorrect DOS version	DOS のバージョンが違います
+usage: fc [/a] [/b] [/c] [/l] [/lbNN] [/w] [/t] [/n] [/NNNN] file1 file2	使い方: FC [/A] [/B] [/C] [/L] [/LBNN] [/W] [/T] [/N] [/NNNN] file1 file2
+cannot open %s - %s	%s を開けません - %s
+%s longer than %s	%s は %s より長いファイルです
+no differences encountered	ファイルは一致しました
+out of memory	メモリ不足
+Resync failed.  Files are too different\n	相違が多すぎるため比較を続けられません\n
+Unknown error	不明なエラー
+@pc88va/VASYS.ASM
+Usage: SYS d: (2HD floppy or NEC SASI)	使い方: SYS d: (2HD または NEC SASI)
+Cannot SYS to the current drive	現在のドライブには SYS を実行できません
+Target disk is not a PC-88VA 2HD MS-DOS disk	転送先は PC-88VA 用の 2HD MS-DOS ディスクではありません
+Disk error on the target drive	転送先ドライブにディスクエラーが発生しました
+Target is not a mounted NEC-layout SASI volume	転送先は使用可能な NEC 形式の SASI ボリュームではありません
+Cannot SYS to the boot drive	起動ドライブには SYS を実行できません
+@pc88va/VAFORMAT.ASM
+Usage: FORMAT A:|B: [/S] [/V:label]	使い方: FORMAT A:|B: [/S] [/V:label]
+       FORMAT d:|/H0|/H1 [/S] [/V:label] (SASI)	        FORMAT d:|/H0|/H1 [/S] [/V:label] (SASI)
+Insert new diskette for drive $	新しいディスクを入れてください。ドライブ $
+and press ENTER when ready...$	準備ができたら ENTER を押してください...$
+Formatting...$	初期化中...$
+Formatting... track $	初期化中... トラック $
+Format complete\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s	初期化完了\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s\s
+Write protect error	書き込み禁止エラー
+Format terminated	初期化を中止しました
+Format failure	初期化に失敗しました
+ bytes total disk space	 バイトのディスク総容量
+ bytes used by system	 バイトをシステムが使用
+ bytes available on disk	 バイトのディスク空き領域
+Cannot format the current drive with /S	現在のドライブには /S を指定できません
+No supported SASI disk for this selection.	指定した SASI ディスクは利用できません
+Target is already mounted. Use its DOS drive letter.	既にマウントされています。DOS のドライブ名を指定してください
+Cannot format the current or boot drive.	現在のドライブまたは起動ドライブは初期化できません
+ALL DATA ON FIXED DISK $	固定ディスク $
+ (SASI target $	 (SASI 装置 $
+SASI target $	SASI 装置 $
+ WILL BE LOST	 の全データを消去します!
+Type Y and press Enter to continue: $	続けるには Y を入力して ENTER を押してください: $
+Format cancelled.	初期化を取り消しました
+Not enough memory for the SASI format buffer.	SASI 初期化用のメモリが足りません
+Writing FATs...	FAT を書き込んでいます...
+Writing root directory...	ルートディレクトリを書き込んでいます...
+Format complete. Reboot before accessing the disk.	初期化完了。使用する前に再起動してください
+SASI format failed. Reboot before accessing the disk.	SASI 初期化に失敗しました。使用する前に再起動してください
+@pc88va/VADCOPY.ASM
+Usage: DISKCOPY source: target: [/V]	使い方: DISKCOPY source: target: [/V]
+       DISKCOPY source: /T (read-only diagnostic)	        DISKCOPY source: /T (読み取り専用の診断)
+Not enough conventional memory.	コンベンショナルメモリが足りません
+Cannot select or identify media mode.	ディスク形式を識別または設定できません
+Insert SOURCE diskette in drive $	コピー元ディスクを入れてください。ドライブ $
+Target data will be destroyed.	コピー先の全データを消去します!
+Insert TARGET diskette in drive $	コピー先ディスクを入れてください。ドライブ $
+A: and press ENTER (Esc aborts).	A: 準備ができたら ENTER を押してください (ESC で中止)。
+Source and target media modes differ.	コピー元とコピー先のディスク形式が異なります
+Track\s	トラック\s
+00: mixed sector sizes cannot be reproduced.	00: 異なるサイズのセクタが混在し、コピーできません
+Abort or Ignore (A/I)? $	中止(A) または無視(I)? $
+Target sector verification failed.	コピー先セクタの照合に失敗しました
+Target write error. Retry or Abort (R/A)?	コピー先の書き込みエラー。再試行(R) または中止(A)?
+Target not ready. Retry or Abort (R/A)?	コピー先の準備ができていません。再試行(R) または中止(A)?
+Target is write protected. Retry or Abort (R/A)?	コピー先は書き込み禁止です。再試行(R) または中止(A)?
+Copy complete.	コピーが完了しました
+Copy incomplete. Tracks not fully reproduced (hex):	コピーは未完了です。未完了のトラック (16 進):
+Disk swaps after initial source insertion:\s	最初の挿入後のディスク交換回数:\s
+Copy another diskette (Y/N)?\s	別のディスクをコピーしますか (Y/N)?\s
+Restore the DOS system diskette and press ENTER.	システムディスクを戻して ENTER を押してください
+Cannot write diagnostic output.	診断結果を書き込めません
+Read error on track\s	読み込みエラー、トラック\s
+00h). Abort or Ignore (A/I)? $	00h)。中止(A) または無視(I)? $
+Ignore	無視
+@pc88va/VAKEY.ASM
+KEY                 List definitions	KEY                 定義を表示
+KEY SF1 dir b:\r    Set Shift+F1 (example)	KEY SF1 dir b:\r    Shift+F1 を定義 (例)
+KEY filename        Load a VA key file	KEY filename        VA キー定義ファイルを読み込む
+KEY /SAVE filename  Save a VA key file	KEY /SAVE filename  VA キー定義ファイルに保存
+KEY /?              Show this help	KEY /?              この説明を表示
+Use \r for CR, \e for ESC, \xHH for a byte, \\ for backslash.	CR は \r、ESC は \e、1 バイトは \xHH、逆斜線は \\。
+Use \xFE followed by five label bytes at the start of an F-key.	F キーのラベルは定義の先頭に \xFE と 5 バイトで指定します。
+KEY: DOS I/O error	KEY: DOS 入出力エラー
+KEY: not a VA key file	KEY: VA キー定義ファイルではありません
+@pc88va/VAJFP.ASM
+Usage: JFP ON | ROM | FEP | OFF	使い方: JFP ON | ROM | FEP | OFF
+ON selects FEP; ADD/DEL take full-width Shift-JIS.	ON は FEP を選択。ADD/DEL には全角文字を指定します。
+Run JFP ON again after editing the dictionary.	辞書を編集したら JFP ON を再実行してください。
+ROM allows missing default files.	既定のファイルがない場合も ROM は使用できます。
+JFP off; plain CON input.	JFP を解除しました。CON 入力に戻ります。
+Project FEP on. ZENKAKU: kana; F7: katakana; HENKAN: candidates.	FEP を開始しました。全角: かな、F7: カタカナ、変換: 候補。
+Cannot select input mode. Use JFP OFF before switching.	入力方式を選択できません。先に JFP OFF を実行してください。
+JFP on. ZENKAKU: kana; HENKAN: convert; KETTEI: confirm.	JFP を開始しました。全角: かな、変換: 変換、決定: 確定。
+JFP on (ROM fallback: default file missing).	JFP を開始しました (既定ファイルがないため ROM を使用)。
+FEP requires both default files absent; plain CON input.	既定のファイルがあるため FEP を使えません。CON 入力に戻ります。
+JFP default-file open failed; plain CON input.	既定のファイルを開けません。CON 入力に戻ります。
+Cannot initialize JFP; plain CON input.	JFP を初期化できません。CON 入力に戻ります。
+VAIO JFP interface not installed.	VAIO の JFP 機能が組み込まれていません。
+Expected a full-width hiragana reading and full-width word (1-30 cells each).	読みは全角ひらがな、単語は全角文字で各 1-30 文字を指定してください。
+Dictionary pair already registered.	この読みと単語は登録済みです。
+User dictionary full (64 pairs).	ユーザー辞書に空きがありません (上限 64 件)。
+Dictionary pair not found.	この読みと単語は登録されていません。
+User dictionary empty.	ユーザー辞書は空です。
+User dictionary saved.	ユーザー辞書を保存しました。
+User dictionary I/O error.	ユーザー辞書の入出力エラー。
+Invalid JFPUSER.DIC.	JFPUSER.DIC が正しくありません。
+Dictionary save error; check JFPUSER.DIC, .TMP and .BAK.	辞書の保存に失敗しました。JFPUSER.DIC、.TMP、.BAK を確認してください。
+Cannot update resident user dictionary.	常駐ユーザー辞書を更新できません。
+@v4.0/src/CMD/SHARE/GSHARE2.ASM
+Share: Internal error	SHARE: 内部エラー
+@v4.0/pc88va/VAIO.ASM
+SASI boot volume did not mount	SASI 起動ボリュームをマウントできませんでした
+@v4.0/pc88va/VASPEED.ASM
+Usage: SPEED baud (AUX/COM1, 8N1)	使い方: SPEED baud (AUX/COM1, 8N1)
+Baud: 75 150 300 600 1200 2400 4800 9600 19200	通信速度: 75 150 300 600 1200 2400 4800 9600 19200
+Serial BIOS rejected the baud rate.	シリアル BIOS で通信速度を設定できませんでした。

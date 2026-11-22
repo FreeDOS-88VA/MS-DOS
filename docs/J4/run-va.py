@@ -24,6 +24,44 @@ CORE = [
 ]
 
 
+FAIL = [('fail', ['DIR B:', '@r', '@f', '@a', 'ECHO AFTER-A'])]
+
+UTILITIES = [
+    ('append', ['APPEND /!']),
+    ('assign', ['ASSIGN B=A', 'ASSIGN /STATUS']),
+    ('attrib', ['ATTRIB NOSUCH.TXT']),
+    ('backup', ['BACKUP A: A:']),
+    ('chkdsk', ['CHKDSK']),
+    ('comp', ['COMP CONFIG.SYS CONFIG.SYS', '@n']),
+    ('debug', ['DEBUG', 'Z', 'Q']),
+    ('edlin', ['EDLIN', 'EDLIN TEMP.TXT', 'Q', '@n', 'Q', '@y', 'ECHO AFTER-Y']),
+    ('exe2bin', ['EXE2BIN']),
+    ('fastopen', ['FASTOPEN /!']),
+    ('fc', ['FC']),
+    ('find', ['FIND /!']),
+    ('join', ['JOIN /!']),
+    ('label', ['LABEL', '@enter', '@n']),
+    ('mem', ['MEM', 'MEM /DEBUG']),
+    ('mem-layout', ['MEM /DEBUG > MEMOUT.TXT', 'MORE < MEMOUT.TXT', '', '', '']),
+    ('more', ['MORE < README.TXT', '', '']),
+    ('nlsfunc', ['NLSFUNC /!']),
+    ('recover', ['RECOVER NOSUCH.TXT', '', '']),
+    ('replace', ['REPLACE NOSUCH.TXT']),
+    ('restore', ['RESTORE A: A:']),
+    ('share', ['SHARE /!']),
+    ('sort', ['SORT /! < CONFIG.SYS']),
+    ('subst', ['SUBST Z:']),
+    ('tree', ['MD FIRST', 'MD SECOND', 'TREE']),
+    ('xcopy', ['XCOPY NOSUCH.TXT']),
+    ('format', ['FORMAT /?']),
+    ('sys', ['SYS /?']),
+    ('diskcopy', ['DISKCOPY /?']),
+    ('key', ['KEY /?']),
+    ('jfp', ['JFP /?']),
+    ('speed', ['SPEED /?']),
+]
+
+
 def capture(vaeg, roms, disk, out, model, commands, pc='1000:0A73'):
     out.mkdir(parents=True)
     shutil.copyfile(disk, out / 'disk.d88')
@@ -58,11 +96,19 @@ def main():
     for arg in ('vaeg', 'roms', 'disk', 'output'):
         parser.add_argument(arg, type=lambda p: Path(p).resolve())
     parser.add_argument('--model', choices=('va', 'va2'), action='append')
+    parser.add_argument('--suite', choices=('core', 'fail', 'utilities', 'boot'), default='core')
+    parser.add_argument('--case', action='append', help='capture only these case names')
     args = parser.parse_args()
+    cases = dict({'core': CORE, 'fail': FAIL, 'utilities': UTILITIES, 'boot': CORE[:1]}[args.suite])
+    names = args.case or cases
+    if set(names) - cases.keys():
+        parser.error('unknown case for this suite')
+    if args.suite == 'utilities':
+        cases = {name: steps + [''] for name, steps in cases.items()}
     with ThreadPoolExecutor(4) as pool:
         jobs = [pool.submit(capture, args.vaeg, args.roms, args.disk,
-                            args.output / model / name, model, commands)
-                for model in args.model or ('va', 'va2') for name, commands in CORE]
+                            args.output / model / name, model, cases[name])
+                for model in args.model or ('va', 'va2') for name in names]
         for job in jobs:
             job.result()
 

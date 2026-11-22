@@ -1,0 +1,288 @@
+vaeg m153, final M3 Japanese 2HD disk. Selected lines from decoded TVRAM.
+Terminal question marks may be trimmed by the decoder. Blank rows omitted.
+
+[va / append]
+Input: APPEND /!
+無効なスイッチ -  /!
+
+[va / assign]
+Input: ASSIGN B=A ; ASSIGN /STATUS
+B: の割り当て先は A: です
+
+[va / attrib]
+Input: ATTRIB NOSUCH.TXT
+ファイルが見つかりません - NOSUCH.TXT
+
+[va / backup]
+Input: BACKUP A: A:
+元と先に同じドライブが指定されています
+
+[va / chkdsk]
+Input: CHKDSK
+   1299456 バイトのディスク総容量
+       754 個の空き割り当て単位
+
+[va / comp]
+Input: COMP CONFIG.SYS CONFIG.SYS ; N 3
+ファイルは一致しました
+ほかのファイルを比較しますか (Y/N)
+
+[va / debug]
+Input: DEBUG ; Z ; Q
+ ^ エラー
+
+[va / edlin]
+Input: EDLIN ; EDLIN TEMP.TXT ; Q ; N 3 ; Q ; Y 3 ; ECHO AFTER-Y
+ファイル名を指定してください
+新規ファイル
+編集を中止しますか (Y/N)? n
+編集を中止しますか (Y/N)? y
+AFTER-Y
+
+[va / exe2bin]
+Input: EXE2BIN
+必要な引数がありません -
+
+[va / fastopen]
+Input: FASTOPEN /!
+無効なスイッチ -  /!
+
+[va / fc]
+Input: FC
+使い方: FC [/A] [/B] [/C] [/L] [/LBNN] [/W] [/T] [/N] [/NNNN] file1 file2
+
+[va / find]
+Input: FIND /!
+FIND: 無効なスイッチ
+
+[va / join]
+Input: JOIN /!
+無効なスイッチ - /!
+
+[va / label]
+Input: LABEL ; enter ; N 3
+現在のボリュームラベルを削除しますか (Y/N)
+
+[va / mem]
+Input: MEM ; MEM /DEBUG
+    655360 バイトの総メモリ
+    524032 バイトまでのプログラムを実行できます
+                  CON                   システムドライバ
+
+[va / mem-layout]
+Input: MEM /DEBUG > MEMOUT.TXT ; MORE < MEMOUT.TXT
+  アドレス    名前          サイズ     種類
+  -------     --------     ------     ------
+
+[va / more]
+Input: MORE < README.TXT
+-- 続き --
+
+[va / nlsfunc]
+Input: NLSFUNC /!
+無効なスイッチ -  /!
+
+[va / recover]
+Input: RECOVER NOSUCH.TXT
+ファイルの回復を始めるにはキーを押してください
+
+[va / replace]
+Input: REPLACE NOSUCH.TXT
+ファイルが見つかりません - A:\NOSUCH.TXT
+
+[va / restore]
+Input: RESTORE A: A:
+元と先に同じドライブが指定されています
+
+[va / share]
+Input: SHARE /!
+無効なスイッチ -  /!
+
+[va / sort]
+Input: SORT /! < CONFIG.SYS
+SORT: 無効なスイッチ
+
+[va / subst]
+Input: SUBST Z:
+無効な引数 - Z:
+
+[va / tree]
+Input: MD FIRST ; MD SECOND ; TREE
+ボリューム MSDOS4-VA のディレクトリ一覧
++---FIRST
+\---SECOND
+
+[va / xcopy]
+Input: XCOPY NOSUCH.TXT
+ファイルが見つかりません - NOSUCH.TXT
+        0 個のファイルをコピーしました
+
+[va / format]
+Input: FORMAT /?
+使い方: FORMAT A:|B: [/S] [/V:label]
+
+[va / sys]
+Input: SYS /?
+使い方: SYS d: (2HD または NEC SASI)
+
+[va / diskcopy]
+Input: DISKCOPY /?
+使い方: DISKCOPY source: target: [/V]
+
+[va / key]
+Input: KEY /?
+KEY                 定義を表示
+KEY /?              この説明を表示
+
+[va / jfp]
+Input: JFP /?
+使い方: JFP ON | ROM | FEP | OFF
+辞書を編集したら JFP ON を再実行してください。
+
+[va / speed]
+Input: SPEED /?
+使い方: SPEED baud (AUX/COM1, 8N1)
+通信速度: 75 150 300 600 1200 2400 4800 9600 19200
+
+[va2 / append]
+Input: APPEND /!
+無効なスイッチ -  /!
+
+[va2 / assign]
+Input: ASSIGN B=A ; ASSIGN /STATUS
+B: の割り当て先は A: です
+
+[va2 / attrib]
+Input: ATTRIB NOSUCH.TXT
+ファイルが見つかりません - NOSUCH.TXT
+
+[va2 / backup]
+Input: BACKUP A: A:
+元と先に同じドライブが指定されています
+
+[va2 / chkdsk]
+Input: CHKDSK
+   1299456 バイトのディスク総容量
+       754 個の空き割り当て単位
+
+[va2 / comp]
+Input: COMP CONFIG.SYS CONFIG.SYS ; N 3
+ファイルは一致しました
+ほかのファイルを比較しますか (Y/N)
+
+[va2 / debug]
+Input: DEBUG ; Z ; Q
+ ^ エラー
+
+[va2 / edlin]
+Input: EDLIN ; EDLIN TEMP.TXT ; Q ; N 3 ; Q ; Y 3 ; ECHO AFTER-Y
+ファイル名を指定してください
+新規ファイル
+編集を中止しますか (Y/N)? n
+編集を中止しますか (Y/N)? y
+AFTER-Y
+
+[va2 / exe2bin]
+Input: EXE2BIN
+必要な引数がありません -
+
+[va2 / fastopen]
+Input: FASTOPEN /!
+無効なスイッチ -  /!
+
+[va2 / fc]
+Input: FC
+使い方: FC [/A] [/B] [/C] [/L] [/LBNN] [/W] [/T] [/N] [/NNNN] file1 file2
+
+[va2 / find]
+Input: FIND /!
+FIND: 無効なスイッチ
+
+[va2 / join]
+Input: JOIN /!
+無効なスイッチ - /!
+
+[va2 / label]
+Input: LABEL ; enter ; N 3
+現在のボリュームラベルを削除しますか (Y/N)
+
+[va2 / mem]
+Input: MEM ; MEM /DEBUG
+    655360 バイトの総メモリ
+    524032 バイトまでのプログラムを実行できます
+                  LPT1                  システムドライバ
+
+[va2 / mem-layout]
+Input: MEM /DEBUG > MEMOUT.TXT ; MORE < MEMOUT.TXT
+  アドレス    名前          サイズ     種類
+  -------     --------     ------     ------
+
+[va2 / more]
+Input: MORE < README.TXT
+-- 続き --
+
+[va2 / nlsfunc]
+Input: NLSFUNC /!
+無効なスイッチ -  /!
+
+[va2 / recover]
+Input: RECOVER NOSUCH.TXT
+ファイルの回復を始めるにはキーを押してください
+
+[va2 / replace]
+Input: REPLACE NOSUCH.TXT
+ファイルが見つかりません - A:\NOSUCH.TXT
+
+[va2 / restore]
+Input: RESTORE A: A:
+元と先に同じドライブが指定されています
+
+[va2 / share]
+Input: SHARE /!
+無効なスイッチ -  /!
+
+[va2 / sort]
+Input: SORT /! < CONFIG.SYS
+SORT: 無効なスイッチ
+
+[va2 / subst]
+Input: SUBST Z:
+無効な引数 - Z:
+
+[va2 / tree]
+Input: MD FIRST ; MD SECOND ; TREE
+ボリューム MSDOS4-VA のディレクトリ一覧
++---FIRST
+\---SECOND
+
+[va2 / xcopy]
+Input: XCOPY NOSUCH.TXT
+ファイルが見つかりません - NOSUCH.TXT
+        0 個のファイルをコピーしました
+
+[va2 / format]
+Input: FORMAT /?
+使い方: FORMAT A:|B: [/S] [/V:label]
+
+[va2 / sys]
+Input: SYS /?
+使い方: SYS d: (2HD または NEC SASI)
+
+[va2 / diskcopy]
+Input: DISKCOPY /?
+使い方: DISKCOPY source: target: [/V]
+
+[va2 / key]
+Input: KEY /?
+KEY                 定義を表示
+KEY /?              この説明を表示
+
+[va2 / jfp]
+Input: JFP /?
+使い方: JFP ON | ROM | FEP | OFF
+辞書を編集したら JFP ON を再実行してください。
+
+[va2 / speed]
+Input: SPEED /?
+使い方: SPEED baud (AUX/COM1, 8N1)
+通信速度: 75 150 300 600 1200 2400 4800 9600 19200
