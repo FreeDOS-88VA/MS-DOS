@@ -142,7 +142,7 @@ FEPLOADOK:
         JC      FEPUPLOADERR
         CALL    ALLOCBLOCK
         JC      FEPUPLOADERR
-        MOV     ES,AX           ;Describe this block to DOS MEM /D.
+        MOV     ES,AX           ;Describe this block to DOS MEM /DEBUG.
         XOR     DI,DI
         XOR     AX,AX
         MOV     CX,8
@@ -288,7 +288,7 @@ ALLOCBLOCK:
         INT     21H
         JC      ALOCSETERR
         MOV     BX,[DICTEND]
-        SUB     BX,OFFSET RECORDS-31 ;Round up and include MEM /D header.
+        SUB     BX,OFFSET RECORDS-31 ;Round up and include subarena header.
         MOV     CL,4
         SHR     BX,CL
         MOV     AH,48H

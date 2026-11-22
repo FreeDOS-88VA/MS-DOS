@@ -36,9 +36,9 @@ or the prolonged sound mark. On disk, records are in registration order.
 
 Only `JFP.COM` does file I/O or DOS allocation. On a nonempty load that
 cannot reuse the current arena, the COM first shrinks its own allocation
-(INT 21h AH=4Ah). Its parsing buffers and 2 KiB stack fit in that smaller
-arena, and the program checks the initial PSP arena size before moving
-its stack. It then uses AH=48h and temporarily selects last-fit with
+(INT 21h AH=4Ah). The transient arena is 21,104 bytes including the PSP,
+parsing buffers and 2 KiB stack. The program checks the initial PSP arena
+size before moving its stack. It then uses AH=48h and temporarily selects last-fit with
 AX=5800h/5801h, restoring the original strategy even if allocation fails.
 Last-fit normally places the persistent allocation at the high end of the
 free arena, not immediately after the temporary COM allocation.
@@ -56,12 +56,13 @@ the MCB signature and marks it free without comparing owners. No copy of
 JFP.COM or of its environment is left resident.
 
 The block starts with a 16-byte `T` subarena header, so DOS
-[`MEM /D`](../v4.0/src/CMD/MEM/MEM.C) can enumerate a non-final owner-8
+[`MEM /DEBUG`](../v4.0/src/CMD/MEM/MEM.C) can enumerate a non-final owner-8
 arena without interpreting dictionary bytes as system subarena headers.
 The VAIO pointer addresses the following paragraph at offset zero. The
 64-entry ceiling therefore costs at most **7,904 bytes** of arena space
-(payload rounded to a paragraph, subarena header, MCB). Most dictionaries
-use less. Reloading a smaller nonempty file keeps the reusable capacity;
+(payload rounded to a paragraph, subarena header, MCB). That is about 6%
+of the plain-mode contiguous free memory measured at 256 KiB; shorter
+records use less. Reloading a smaller nonempty file keeps the reusable capacity;
 missing, invalid or unreadable files detach it. A malformed file or I/O
 error also produces a warning. If a larger allocation fails, the old
 valid table stays installed and JFP reports the failure.
@@ -94,6 +95,65 @@ installed. The resulting free space *above* the new block is real but
 not part of the contiguous room reported by CHKDSK. It becomes contiguous
 again on OFF. This is temporary fragmentation, not retained dictionaries.
 
+## Results
+
+[Build and artifact pins](J3b.5/build.txt) ·
+[Dictionary checker output](J3b.5/dictionary-results.txt) ·
+[Per-check stock M6 output](J3b.5/switch-results.tsv).
+
+| CHKDSK free (bytes) | VA 640 KiB | VA2 256 KiB | VA2 640 KiB |
+|---|---:|---:|---:|
+| Plain, empty FEP, and ROM with a file present | 524,800 | 131,584 | 524,800 |
+| 8 maximum-size entries, fresh | 523,776 | 130,560 | 523,776 |
+| 64 maximum-size entries, fresh | 516,896 | 123,680 | 516,896 |
+| 64 entries, grown from 8 | 515,872 | 122,656 | 515,872 |
+| Grown table after 5 consecutive `JFP ON` reloads | 515,872 | 122,656 | 515,872 |
+| After 5 `JFP ON`/`JFP OFF` cycles | 524,800 | 131,584 | 524,800 |
+
+The 1,024-byte difference between fresh and grown 64-entry loads is the
+old block plus its MCB above the new allocation. `MEM /DEBUG` enumerated
+the grown payload as a single `INSTALL=` subarena of `001EC0h` bytes.
+CHKDSK's figures are for contiguous room, not the sum of all free MCBs.
+J3c reported 525,408 B free at 640 KiB and 132,192 B at 256 KiB; this
+build is 608 B below those figures with no dictionary allocated.
+
+On VA 640 KiB the worst-work fixture (64 records, each reading
+matching until byte 60) crossed **0 frame ticks** from scan entry to
+BIOS fallback entry. Both captures occurred in the same frame. This
+measures the lookup only, at the tested frame phase; it does not bound
+firmware conversion or wall-clock time on physical hardware.
+
+| Gate | VA 640 KiB | VA2 256 KiB | VA2 640 KiB |
+|---|---|---|---|
+| ADD/DEL/LIST, v2 bytes, validation, v1 lookup and migration | PASS | PASS | PASS |
+| User before BIOS, reverse crossing, reload, v1/v2 corrupt fallback | PASS | PASS | PASS |
+| User-hit monitor, COPY CON and EDLIN | PASS | PASS | PASS |
+| Entries 1/33/64 convert, ADD 65 refused | PASS | PASS | PASS |
+| CHKDSK ownership, growth, reuse, release; MEM /DEBUG | PASS | PASS | PASS |
+| Stock plain J0.3 1/5/9, J0.4 1–5 and usage | 21/21 | 21/21 | 21/21 |
+| Stock `JFP ON` | 13/13 | 13/13 | 13/13 |
+| Stock `JFP FEP` | 13/13 | 13/13 | 13/13 |
+| Stock `JFP ROM` | 11/13 + 2 known differences | 11/13 + 2 known differences | 11/13 + 2 known differences |
+
+Stock M6 reached exit in 105 cold cases (600 captures). The two ROM
+monitor differences per configuration match J3c: zero nested DOS
+entries but nested firmware text-BIOS calls in both scopes.
+
+Both user-hit monitor cases on each configuration observed zero nested
+INT 21h calls during buffered CON input. The user-only case also made no
+conversion BIOS calls. The monitor disks remained byte-identical. The
+stock suite used the immediately preceding COM, with the same VAIO and
+no dictionary file, so it did not exercise the final subarena-header
+change; the dictionary and memory gates used the final COM. The clean
+full distribution rebuild also passed the capacity and corrupt-v2 cases
+and the basic conversion scenario through all three selectors on each
+configuration.
+
+**NOT RUN:** physical hardware, other models/RAM or ROM versions, 2D
+and HDD boot, IRQ stress, allocation-failure and save/rollback fault
+injection, exhaustive malformed inputs, other DOS implementations and a
+full stock M6 replay after the final MEM-header change.
+
 ## Reproduce
 
 Use the builder setup from [D4](D4-hdd-boot.md), including R1, J3a and
@@ -116,6 +176,10 @@ python3 -B "$G" check-detail "$S/core"
 python3 -B "$R" pack "$DIST" "$S/resident.d88"
 python3 -B "$R" run "$VAEG" "$ROMS" "$S/resident.d88" "$S/resident" --cistat "$PC"
 python3 -B "$G" check-resident "$S/resident"
+python3 -B "$G" pack-corrupt-v2 "$DIST" "$S/corrupt-v2.d88"
+python3 -B "$R" run "$VAEG" "$ROMS" "$S/corrupt-v2.d88" "$S/corrupt-v2" \
+  --cistat "$PC" --case corrupt
+python3 -B "$G" check-corrupt-v2 "$S/corrupt-v2" "$S/resident"
 nasm -I docs/J3b.3/ -f bin docs/J3b.4/USERMON.NAS -o "$S/USERMON.COM"
 python3 -B "$G" pack-user "$DIST" "$S/user.d88" "$S/USERMON.COM"
 python3 -B "$G" run-user "$VAEG" "$ROMS" "$S/user.d88" "$S/user" --cistat "$PC"
@@ -132,3 +196,6 @@ run only `after-boot` and `after-regression` using `1000:0A02`; map those
 case directories to `base-boot` and `base-regression` in the reference
 profile tree. For enabled cases run `run.main(switch_gate.enabled,
 ('ON', 'ROM', 'FEP'))` with the same arguments, using original waits.
+For the full-distribution selector smoke, run
+`run.main(run.scenarios, ('ON', 'FEP', 'ROM'))` on the rebuilt `$DIST`
+with `--case prompt`, then `gate.py check-selectors "$S/product-selectors"`.

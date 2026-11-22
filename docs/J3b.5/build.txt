@@ -1,0 +1,29 @@
+Base: f746fd4 (release/msdos-va)
+Product source: 64801289144e2afdab62bcdb623f3cde2b44e0ac
+Builder: D4 delivery configuration, emu2 9d8698d06e67359bc8b230c2d19d5b1503e60819
+Tools: Microsoft MASM 5.10 and LINK as pinned by the D4 builder
+Emulator: vaeg Rel.20261121 (m153)
+Emulator executable SHA-256: a3ab65a03eac9fd2abccca3d51b8e464266a4b6141b9d5132b5b667495655906
+
+Incremental product gate disk: D4 delivery distribution, rebuilt VAIO and
+VAJFP with MASM (both 0 warnings and 0 errors) and relinked IO.SYS and
+JFP.COM (LINK's existing no-stack-segment warning). The DOS/editor build
+and boot banner on the incremental disk are from D4.
+
+A complete D4-style distribution rebuild of the product source succeeded.
+IO.SYS, MSDOS.SYS and JFP.COM were byte-identical to the incremental
+versions. The full build had its own release identity in COMMAND.COM.
+Full 2HD disk SHA-256: 3ad2feee41c2df058932d36c4a5e933073b86c26dceb006aee5620c71fa66836
+
+File          Bytes  SHA-256
+IO.SYS        28202  b436ac1a8439cd69729627ae07906c0b67fca6c5eb50d8655c4b6082138deaeb
+JFP.COM        2914  617180948114ca66cdbc77eaedc3177662cf589fe7e3f98243ce98cd680756ec
+
+M6 stock switches used step 4615635 before the MEM subarena-header change.
+Its IO.SYS is byte-identical. Each stock JFP invocation is dictionary-free;
+no allocation or retained-block code from the final change is exercised in
+these cases. Final product binaries were used for the dictionary and memory
+checks, including JFP ROM with a dictionary file present but not loaded.
+
+Project VAIO listing offsets: CISTAT 0A3Dh, FEPUFIND 17EDh,
+FEPSTARTBIOS 1701h, RESEND 233Fh. No ROM addresses used as breakpoints.

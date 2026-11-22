@@ -6,11 +6,11 @@ from pathlib import Path
 import re
 import sys
 
-from checks import j3a, v, verify_selection
+from checks import expect_echo, j3a, v, verify_selection
 from format_gate import FIRST, SECOND, files, record as v1, sj
 from media import pack_va
 from quality import candidate, cells
-from resident_gate import THIRD
+from resident_gate import THIRD, end_reading
 import resident_gate
 import run
 from safety_gate import user_cases, user_check
@@ -85,7 +85,7 @@ def core_cases(pc, screens):
 
     p = run.Plan(pc, screens)
     for command in ('COPY /B EIGHT.UD JFPUSER.DIC', 'JFP ON',
-                    'COPY /B FULL.UD JFPUSER.DIC', 'JFP ON', 'MEM /D'):
+                    'COPY /B FULL.UD JFPUSER.DIC', 'JFP ON', 'MEM /DEBUG > MEM.TXT'):
         p.line(command, 450)
     p.shot('detail')
     yield 'mem-detail', p
@@ -105,8 +105,7 @@ def long_reading(p, key, shot):
         p.event(f'key-tap {c} 3', 12)
     p.keys('HENKAN')
     p.shot(shot)
-    # Clear the long candidate instead of echoing it onto an 80-col line.
-    p.keys('ESC', 'ESC', 'ZENKAKU')
+    end_reading(p)
 
 
 def listing(pairs):
@@ -137,11 +136,7 @@ def core_check(root):
         assert get('migrate', 'JFPUSER.DIC') == dictionary(FULL[:8] + [SECOND])
         print(f'{profile}\tPASS\tADD/DEL/LIST, validation, exact v2 bytes, padded v1 migration')
 
-        assert get('capacity', 'OVER.TXT') == b'User dictionary full (64 pairs).\r\n'
-        assert get('capacity', 'JFPUSER.DIC') == dictionary(FULL)
-        for i in SLOTS:
-            assert candidate(p / 'capacity' / f'slot-{i+1}', 'FEP')[0] == FULL[i][1], (profile, i)
-        print(f'{profile}\tPASS\tfull-size 64 records; slots 1/33/64; ADD 65 rejected')
+        capacity_check(p / 'capacity', profile)
 
         m = p / 'memory'
         def free(phase):
@@ -164,20 +159,52 @@ def core_check(root):
         assert full == free('reuse-smaller') == free('reuse-full') == free('reload'), profile
         for phase in ('empty', 'eight', 'full', 'reuse-smaller', 'reuse-full', 'fresh-full'):
             assert any(line.startswith('Project FEP on.') for line in v(m / phase)), (profile, phase)
-        assert sum(line.startswith('Project FEP on.') for line in v(m / 'reload')) == 5, profile
+        # The 24-row screen scrolls part of both transcripts away. Count
+        # injected commands between captures as well as visible success lines.
+        with (m / 'events.tsv').open(newline='', encoding='ascii') as stream:
+            events = list(csv.DictReader(stream, delimiter='\t'))
+        def inputs_between(first, last):
+            stamps = {e['id']: int(e['frame']) for e in events if e['event'] == 'capture'}
+            return sum(e['event'] == 'input' and stamps[first] < int(e['frame']) <= stamps[last]
+                       for e in events)
+        assert inputs_between('reuse-full', 'reload') == 6, profile  # 5 ON + CHKDSK
+        assert inputs_between('fresh-full', 'cycle-transcript') == 11, profile  # OFF + 5 pairs
+        assert sum(line.startswith('Project FEP on.') for line in v(m / 'reload')) >= 2, profile
         cycle = v(m / 'cycle-transcript')
-        assert sum(line.startswith('Project FEP on.') for line in cycle) == 5, profile
-        assert sum(line.startswith('JFP off;') for line in cycle) >= 5, profile
+        assert sum(line.startswith('Project FEP on.') for line in cycle) >= 4, profile
+        assert sum(line.startswith('JFP off;') for line in cycle) >= 4, profile
         print(f'{profile}\tPASS\tCHKDSK plain/empty/8/64 fresh/64 grown/ROM '
               f'{plain}/{empty}/{eight}/{fresh}/{full}/{rom}; reuse, five reloads and five ON/OFF cycles')
+
+
+def capacity_check(p, profile):
+    assert j3a.get(p, 'OVER.TXT') == b'User dictionary full (64 pairs).\r\n'
+    assert j3a.get(p, 'JFPUSER.DIC') == dictionary(FULL)
+    for i in SLOTS:
+        assert candidate(p / f'slot-{i+1}', 'FEP')[0] == FULL[i][1], (profile, i)
+    print(f'{profile}\tPASS\tfull-size 64 records; slots 1/33/64; ADD 65 rejected')
 
 
 def detail_check(root):
     for model, ram in run.MATRIX:
         profile = f'{model}-{ram}'
-        screen = v(root / profile / 'fep/mem-detail/detail')
-        assert any(re.search(r'\b7,?872\b', line) for line in screen), (profile, screen)
-        print(f'{profile}\tPASS\tMEM /D enumerated the grown 7,872-byte payload')
+        p = root / profile / 'fep/mem-detail'
+        detail = j3a.get(p, 'MEM.TXT')
+        assert re.search(rb'^ +001EC0 +INSTALL=', detail, re.M), (profile, detail, v(p / 'detail'))
+        print(f'{profile}\tPASS\tMEM /DEBUG enumerated the grown 7,872-byte payload')
+
+
+def selectors_check(root):
+    for model, ram in run.MATRIX:
+        profile = f'{model}-{ram}'
+        for selector in ('ON', 'FEP', 'ROM'):
+            mode = 'FEP' if selector == 'ON' else selector
+            p = root / profile / selector.lower() / 'prompt'
+            verify_selection(p / 'enabled', mode)
+            first, nxt, previous = (candidate(p / s, mode) for s in ('first', 'next', 'previous'))
+            assert first and first[0] == '日本語' and previous == first and nxt, p
+            assert expect_echo(p / 'submitted', '日本語'), p
+            print(f'{profile}\tPASS\tfull distribution JFP {selector}, candidate keys and confirm')
 
 
 def timing_cases(pc, screens):
@@ -213,6 +240,10 @@ if __name__ == '__main__':
     action = sys.argv.pop(1)
     if action == 'pack':
         core_pack(*map(Path, sys.argv[1:]))
+    elif action == 'pack-corrupt-v2':
+        fixtures = [(name, dictionary([THIRD]) + b'\x02' if name == 'BAD.UD' else data)
+                    for name, data in resident_gate.fixtures()]
+        pack_va(*map(Path, sys.argv[1:]), fixtures)
     elif action == 'pack-user':
         base, out, monitor = map(Path, sys.argv[1:])
         pack_va(base, out, [('USERMON.COM', monitor.read_bytes()), ('JFPUSER.DIC', dictionary(PAIRS))])
@@ -225,6 +256,12 @@ if __name__ == '__main__':
         run.main(user_cases, ('FEP',))
     elif action == 'check':
         core_check(Path(sys.argv[1]))
+    elif action == 'check-selectors':
+        selectors_check(Path(sys.argv[1]))
+    elif action == 'check-capacity':
+        for model, ram in run.MATRIX:
+            profile = f'{model}-{ram}'
+            capacity_check(Path(sys.argv[1]) / profile / 'fep/capacity', profile)
     elif action == 'check-detail':
         detail_check(Path(sys.argv[1]))
     elif action == 'check-timing':
@@ -232,6 +269,18 @@ if __name__ == '__main__':
     elif action == 'check-resident':
         resident_gate.HEADER, resident_gate.record = HEADER, v2
         resident_gate.check(Path(sys.argv[1]))
+    elif action == 'check-corrupt-v2':
+        root, reference = map(Path, sys.argv[1:])
+        for model, ram in run.MATRIX:
+            profile = f'{model}-{ram}'
+            p = root / profile / 'fep/corrupt'
+            expected = candidate(reference / profile / 'fep/resident/empty', 'FEP')
+            assert expected, profile
+            for rejected, fallback in [('rejected', 'fallback'), ('rejected-cold', 'fallback-cold')]:
+                assert 'Invalid JFPUSER.DIC.' in v(p / rejected), (profile, rejected)
+                verify_selection(p / rejected, 'FEP')
+                assert candidate(p / fallback, 'FEP') == expected, (profile, fallback)
+            print(f'{profile}\tPASS\ttruncated v2 rejected on reload and cold load')
     elif action == 'check-user':
         user_check(*map(Path, sys.argv[1:]))
     else:
