@@ -579,6 +579,8 @@ ROMKEY: PUSH    DS
 ; INT DC / CL=F0h, AX=4A46h. Reply AX=464Ah, BX=current mode.
 ; BX request: 0=query, 1=reserve for ROM, 2=commit ROM, 3=release,
 ; 4=commit master-disabled project FEP from reservation. Reply 3=project.
+; 5=replace project dictionary (ES:SI validated records, DX byte size).
+;    AX=554Ah on successful copy; BX still reports mode.
 ; Only JFP.COM calls the transition operations. No DOS or JFP reset here.
 JFPINT: PUSH    CX
         PUSH    DX
@@ -598,8 +600,11 @@ JFPTEST2:CMP    BX,2
 JFPTEST3:CMP    BX,3
         JE      JFPREL
         CMP     BX,4
+        JE      JFPPROJECT
+        CMP     BX,5
         JNE     JFPREPLY
-        CMP     [JFPMODE],2
+        JMP     JFPLOAD
+JFPPROJECT:CMP  [JFPMODE],2
         JNE     JFPREPLY
         XOR     CX,CX           ;GetJFP: require the expected master-off mode.
         INT     8DH
@@ -617,6 +622,7 @@ JFPREL: CMP     [JFPMODE],3
         JNE     JFPOFF
         JMP     JFPACK
 JFPENDP:CALL    FEPFLUSH
+        MOV     [FEPUEND],OFFSET FEPUDATA
         MOV     [FEPWIDE],0
         MOV     [JFPMODE],0
         MOV     AL,[JFPLABEL]
@@ -666,9 +672,9 @@ JFPCOMMIT:
         CALL    JFPCLEAR
         MOV     CS:[JFPDIRTY],1
         CALL    JFPREFRESH
-JFPACK: XOR     BX,BX
+JFPACK: MOV     AX,464AH
+JFPACKAX:XOR    BX,BX
         MOV     BL,CS:[JFPMODE]
-        MOV     AX,464AH
         POP     ES
         POP     DS
         POP     BP
@@ -677,6 +683,33 @@ JFPACK: XOR     BX,BX
         POP     DX
         POP     CX
         IRET
+
+JFPLOAD:CMP     [JFPMODE],3
+        JNE     JFPACK
+        CMP     [FEPCHOICE],0   ;Never invalidate a live candidate cursor.
+        JNE     JFPACK
+        CMP     DX,FEPUCAP
+        JA      JFPACK
+        MOV     AX,SI
+        ADD     AX,DX
+        JC      JFPACK
+        MOV     CX,DX
+JFPLOADN:JCXZ   JFPLOADC
+        SUB     CX,FEPUREC
+        JNC     JFPLOADN
+        JMP     SHORT JFPACK
+JFPLOADC:
+        PUSH    ES              ;Source ES:SI, destination CS:DI.
+        PUSH    DS
+        POP     ES
+        POP     DS
+        CLD
+        MOV     DI,OFFSET FEPUDATA
+        MOV     CX,DX
+        REP     MOVSB
+        MOV     CS:[FEPUEND],DI ;Publish only once the whole copy is resident.
+        MOV     AX,554AH
+        JMP     SHORT JFPACKAX
 
 JFPROW: MOV     AL,[LABELON]
         MOV     [JFPLABEL],AL

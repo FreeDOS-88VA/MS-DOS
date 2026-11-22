@@ -103,12 +103,31 @@ ENABLE: CALL    QUERY
         CMP     [HEADLESS],0
         JE      CHECKROM
         CMP     BX,3
-        JE      FEPENABLED
-        JMP     BUSY
+        JNE     BUSY
+        JMP     FEPENABLED
 CHECKROM:CMP    BX,1
         JNE     BUSY
         JMP     ENABLED
 FEPENABLED:
+        CALL    SETUPIO
+        CALL    LOADDICT
+        JNC     FEPLOADOK
+        MOV     AH,9            ;Warn, then replace any old table with empty.
+        INT     21H
+        MOV     [DICTEND],OFFSET RECORDS
+FEPLOADOK:
+        MOV     SI,OFFSET RECORDS
+        MOV     DX,[DICTEND]
+        SUB     DX,SI
+        PUSH    DS
+        POP     ES
+        MOV     BX,5
+        CALL    VAIO
+        CMP     AX,554AH
+        JE      FEPMESSAGE
+        MOV     DX,OFFSET UPLOADMSG
+        JMP     FAIL
+FEPMESSAGE:
         MOV     DX,OFFSET FEPMSG
         JMP     SUCCESS
 RESERVE:CALL    SETUPIO
@@ -624,6 +643,7 @@ OPENED  DB      0
 HELPMSG DB      'Usage: JFP ON | ROM | FEP | OFF',13,10
         DB      '       JFP ADD reading word | DEL reading word | LIST',13,10
         DB      'ON selects FEP; ADD/DEL take full-width Shift-JIS.',13,10
+        DB      'Run JFP ON again after editing the dictionary.',13,10
         DB      'ROM allows missing default files.',13,10,'$'
 OFFMSG  DB      'JFP off; plain CON input.',13,10,'$'
 FEPMSG  DB      'Project FEP on. ZENKAKU: kana; F7: katakana; HENKAN: candidates.',13,10,'$'
@@ -643,6 +663,7 @@ SAVEDMSG DB     'User dictionary saved.',13,10,'$'
 IOMSG   DB      'User dictionary I/O error.',13,10,'$'
 BADDICTMSG DB   'Invalid JFPUSER.DIC.',13,10,'$'
 SAVERRMSG DB    'Dictionary save error; check JFPUSER.DIC, .TMP and .BAK.',13,10,'$'
+UPLOADMSG DB    'Cannot update resident user dictionary.',13,10,'$'
 LISTSEP DB      ' : '
 LISTCR  DB      13,10
 DICTORIG DB     'A:\JFPUSER.DIC',0
