@@ -346,6 +346,17 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   disk, a 2D 320 KiB disk and an N88-BASIC 2D disk (compare D88 images);
   one-drive and two-drive runs; error path on a damaged sector.
 
+- D1 accepted 2026-11-22 (`docs/D1-diskcopy.md`): `pc88va/VADCOPY.ASM`
+  → DISKCOPY.COM copies through the ROM floppy BIOS track by track
+  (READ ID layout, N=0-3, FM/MFM, independent C/H, high R; 2D/2DD/2HD/
+  2HC), formats blank targets, refuses detectable mode mismatch, `/V`
+  verify, Abort/Ignore with a summary of skipped tracks. Mixed-N tracks
+  cannot be reproduced (one N per uPD765 FORMAT) and are reported. One
+  drive: VA2 256 KiB 5/13/25 swaps (2D/2DD/2HD), 640 KiB 1/3/5. Builder
+  patch `docs/D1/build-diskcopy.patch`. vaeg bug: FORMAT dropped the FM
+  density flag (fix `64e55e11`, PR). NOT RUN: real hardware, CRC-error
+  data path, deleted data.
+
 ### D2 — SASI hard disk driver
 - Goal: IO.SYS block units for SASI drives PC-98H31-H53 (5-40 MB) through
   the ROM hard disk BIOS (602HDD), with FAT12/FAT16 partitions.
