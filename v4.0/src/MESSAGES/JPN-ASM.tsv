@@ -114,3 +114,7 @@ SASI boot volume did not mount	SASI 起動ボリュームをマウントでき�
 Usage: SPEED baud (AUX/COM1, 8N1)	使い方: SPEED baud (AUX/COM1, 8N1)
 Baud: 75 150 300 600 1200 2400 4800 9600 19200	通信速度: 75 150 300 600 1200 2400 4800 9600 19200
 Serial BIOS rejected the baud rate.	シリアル BIOS で通信速度を設定できませんでした。
+@v4.0/src/CMD/MORE/MORE.ASM
+Usage: MORE [filename]	使い方: MORE [ファイル名]
+MORE: Cannot open input file	MORE: 入力ファイルを開けません
+MORE: Cannot read input	MORE: 入力を読み取れません
