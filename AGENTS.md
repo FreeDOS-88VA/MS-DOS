@@ -13,14 +13,17 @@ changes to the Microsoft sources stay under `v4.0/src`.
    Hand pi one milestone at a time. Briefs live in `docs/tasks/`; run
    them with
    `pi -p --model openai-codex/gpt-6.2-sol:medium @docs/tasks/<brief>.md`.
-2. **Review: Opus 5.5, adversarial.** After each milestone, Opus 5.5
-   reviews pi's diff and results adversarially. The review assumes the
-   change is wrong until the code and the gate output show it is right,
-   and it looks for regressions, unhandled PC-88VA cases (1024-byte
-   sectors, 2HD/2D media, ROM BIOS calls) and claims that were never
-   tested.
-3. **Decide: Opus 5.5.** Opus 5.5 decides whether to accept the
-   milestone, send it back to pi with specific fixes, or split it again.
+2. **Review: pi, adversarial (6.2-Sol high).** After each milestone, a
+   separate pi run reviews the implementer's diff and results
+   adversarially, from a review brief Opus 5.5 writes in `docs/tasks/`:
+   `pi -p --model openai-codex/gpt-6.2-sol:high @docs/tasks/<review-brief>.md`.
+   The review assumes the change is wrong until the code and the gate
+   output show it is right, and it looks for regressions, unhandled
+   PC-88VA cases (1024-byte sectors, 2HD/2D media, ROM BIOS calls) and
+   claims that were never tested. It reports findings; it does not fix
+   them. Opus 5.5 checks the findings against the code before acting.
+3. **Decide: Opus 5.5.** Using the review, Opus 5.5 decides whether to
+   accept the milestone, send it back to pi with specific fixes, or split it again.
    The next milestone starts only after this decision.
 
 Standing approval from the maintainer (2026-11-21): once Opus 5.5 has
