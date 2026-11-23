@@ -1356,7 +1356,12 @@ $$EN13:
 	    mov    word ptr ds:[bx.CACHE_PTR+2], cx  ;AN000;
 	    mov    cx, [H_Buffers]		     ;AN000;
 	    mov    ds:[bx.CACHE_COUNT], cx	     ;AN000;
+	    IFDEF  PC88VA
+	    mov    ax, [SingleBufferSize]	; B3: largest sector plus primary buffer header
+	    sub    ax, BUFINSIZ			; B3: look-ahead stores raw sectors (up to 1024 bytes on VA)
+	    ELSE
 	    mov    ax, 512			;AN000; 512 byte
+	    ENDIF
 	    mul    cx				;AN000;
 	    mov    [Memlo], ax			;AN000;
 	    or	   [SetDevMarkFlag], FOR_DEVMARK ;AN005;

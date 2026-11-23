@@ -448,9 +448,11 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
 - B2 M1 accepted 2026-11-23 (`docs/B2-dos40-bugs.md`): MS-DOS 4.01,
   PD0255 and IBM IR80263 fixes imported unchanged from tsupplis/
   msdos40-hacking (DEV, CTRLC, MKNODE, DISK3, FASTOPEN; FORMAT, MSINIT,
-  GRAPHICS, ANSI not shipped on VA). Open: any look-ahead buffers
-  (`BUFFERS=n,m`) stop the VA boot after the sign-on (older than B2).
+  GRAPHICS, ANSI not shipped on VA).
   M2 accepted 2026-11-23: MORE [filename] from the same project.
+- B3 (`docs/B3-lookahead-buffers.md`): fixed VA/VA2 boot with
+  `BUFFERS=n,m` by sizing the look-ahead allocation for the actual
+  maximum sector size. Accepted 2026-11-23.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
