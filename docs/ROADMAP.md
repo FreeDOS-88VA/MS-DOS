@@ -452,7 +452,7 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   M2 accepted 2026-11-23: MORE [filename] from the same project.
 - B3 (`docs/B3-lookahead-buffers.md`): fixed VA/VA2 boot with
   `BUFFERS=n,m` by sizing the look-ahead allocation for the actual
-  maximum sector size. Pending review.
+  maximum sector size. Accepted 2026-11-23.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
