@@ -1091,8 +1091,20 @@ CISTAB: SUB     AL,36H
         JB      CISTAI
 CISTAA: MOV     AL,DL
         OR      AL,AL
-        JNZ     CISTABYTE
-        JMP     CISTA1          ;Unknown scan without an internal code.
+        JZ      CISTASKIP       ;Unknown scan without an internal code.
+        ; NEC admits raw GRPH codes only in graph mode (ESC ) 3).
+        ; Use the queued code, not the live GRPH key state. In kanji
+        ; mode these bytes can collide with Shift-JIS leads. Leave kana,
+        ; soft-key strings and generated JFP text on their own paths.
+        CMP     AL,80H
+        JB      CISTABYTE
+        CMP     AL,0A0H
+        JB      CISTAGFX
+        CMP     AL,0E0H
+        JB      CISTABYTE
+CISTAGFX:CMP    CS:[OUTGRAPH],0
+        JNE     CISTABYTE
+CISTASKIP:JMP   CISTA1
 CISTABYTE:
         MOV     CS:[CHAR],AL
         JMP     SHORT CISTAR
