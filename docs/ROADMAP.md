@@ -347,6 +347,11 @@ comparison is done.
   re-prompts in both languages (DOS behaviour). NOT RUN: real hardware,
   unexercised error branches, boot-sector diagnostics (still English).
 
+### K1 — KANA lock and GRPH input
+
+[K1](K1-kana-grph-keys.md): admit raw GRPH bytes only in CON graph mode,
+as on NEC 3.3D. KANA-lock failure not reproduced on vaeg VA/VA2. Pending review.
+
 ## Release identity
 
 R1 accepted 2026-11-21 (`docs/R1-boot-banner.md`): the boot COMMAND
