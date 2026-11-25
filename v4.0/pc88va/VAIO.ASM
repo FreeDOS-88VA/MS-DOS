@@ -641,6 +641,7 @@ JFPPROJECT:CMP  [JFPMODE],2
         CMP     AX,8F80H
         JNE     JFPREPLY
         CALL    JFPCLEAR
+        CALL    FEPHOTON
         MOV     CS:[JFPMODE],3
         MOV     CS:[JFPSEEN],1
         MOV     CS:[JFPDIRTY],1
@@ -651,7 +652,8 @@ JFPREL: CMP     [JFPMODE],3
         CMP     [JFPMODE],0
         JNE     JFPOFF
         JMP     JFPACK
-JFPENDP:CALL    FEPFLUSH
+JFPENDP:CALL    FEPHOTOFF
+        CALL    FEPFLUSH
         CLI
         CALL    JFPDETACH
         PUSH    BX

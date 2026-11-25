@@ -29,8 +29,56 @@ FEPUBRIDGE DB   0               ;Can return from BIOS to the user prefix.
 FEPUFOCUS DW    0
 FEPUFIRST DB    FEPVISIBLE+1 DUP (0) ;Initial BIOS result for reverse crossing.
 
+; 603KEYB §§6.3.3, 6.3.5: KyBook and the user-trap pointer/enable byte.
+FEPHOTBOOK:
+        MOV     AH,0EH
+        INT     82H
+        MOV     BX,DX
+        RET
+FEPHOTON:
+        CALL    FEPHOTBOOK
+        CMP     BYTE PTR ES:[BX+0188H],0 ;Do not displace an active trap.
+        JNE     FEPHOTDONE
+        PUSH    CS
+        POP     ES
+        MOV     DX,OFFSET FEPHOTKEY
+        MOV     AX,0801H        ;UsrTrap: register ES:DX.
+        INT     82H
+FEPHOTDONE:
+        RET
+FEPHOTOFF:
+        CALL    FEPHOTBOOK
+        CMP     WORD PTR ES:[BX+0184H],OFFSET FEPHOTKEY
+        JNE     FEPHOTDONE
+        MOV     AX,CS
+        CMP     ES:[BX+0186H],AX
+        JNE     FEPHOTDONE      ;An application can have replaced the trap.
+        MOV     AX,0800H        ;UsrTrap: remove.
+        INT     82H
+        RET
+
+; GRPH + scan 0Ch queues 0C8Bh with or without Shift. Only the IRQ
+; trap has the modifiers for this key, so queue ZENKAKU here and let
+; FEPKEY handle it in order, including the pending-reading rule.
+FEPHOTKEY:
+        PUSHF
+        CMP     AX,0C8BH
+        JNE     FEPHOTRET
+        CMP     CS:[JFPMODE],3
+        JNE     FEPHOTRET
+        TEST    CL,10H          ;GRPH.
+        JZ      FEPHOTRET
+        TEST    CL,20H          ;Not Ctrl+GRPH.
+        JNZ     FEPHOTRET
+        TEST    CL,3            ;Either Shift.
+        JZ      FEPHOTRET
+        MOV     AX,7B00H        ;ZENKAKU; no change to the BIOS queue flags in DL.
+FEPHOTRET:
+        POPF
+        RETF
+
 ; Pump only after a primitive get. CF=0 returns the original AX for the
-; ordinary VAIO decoder; CF=1 means project consumed the physical key.
+; ordinary VAIO decoder; CF=1 means the project consumed the key.
 FEPKEY: PUSH    CS
         POP     DS
         CLD
