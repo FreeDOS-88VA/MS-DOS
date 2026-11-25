@@ -84,21 +84,14 @@ FEPKEYENTER:JMP FEPENTER
 FEPKEYF7:CMP    AH,68H          ;F7 (leave its DOS meaning alone when idle)
         JNE     FEPKEYSPACE
         JMP     FEPTOCAT
-FEPKEYSPACE:CMP AX,3420H        ;Space, including with Shift or KANA.
-        JNE     FEPKEYNEXT
-        MOV     AH,0BH          ;PrmSfts: the Space queue entry has no Shift bit.
-        INT     82H
-        TEST    AL,30H          ;Ctrl / GRPH Space is not a conversion key.
-        JNZ     FEPUSED2
-        TEST    AL,3            ;Either Shift, sampled when consuming Space.
-        JNZ     FEPKEYBACK
-        JMP     FEPNEXTKEY
-FEPKEYNEXT:CMP  AH,35H          ;HENKAN / XFER
+FEPKEYSPACE:CMP AX,3420H        ;Space has one queued code, regardless of modifiers.
+        JE      FEPKEYNEXT
+        CMP     AH,35H          ;HENKAN / XFER
         JNE     FEPKEYPREV
-        JMP     FEPNEXTKEY
-FEPKEYPREV:CMP  AH,0A5H         ;Shift+HENKAN
+FEPKEYNEXT:JMP  FEPNEXTKEY
+FEPKEYPREV:CMP  AH,0A5H         ;Shift+HENKAN has a distinct queued scan.
         JNE     FEPCHAR
-FEPKEYBACK:JMP  FEPPREVKEY
+        JMP     FEPPREVKEY
 FEPCHAR:CMP     AL,0A1H
         JB      FEPASCII
         CMP     AL,0DFH
