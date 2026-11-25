@@ -20,6 +20,9 @@ probe:  mov dx, prompt
         int 21h
         mov [old], bx
         mov [old+2], es
+        mov dx, ctrl_c
+        mov ax, 2523h
+        int 21h
         mov dx, hook
         mov ax, 2582h
         int 21h
@@ -42,11 +45,7 @@ probe:  mov dx, prompt
 cooked: mov dx, buffer
         mov ah, 0ah
         int 21h
-got:    push ds
-        lds dx, [old]
-        mov ax, 2582h
-        int 21h
-        pop ds
+got:    call restore
         mov dx, result
         call puts
         xor cx, cx
@@ -76,6 +75,18 @@ done:   mov dx, newline
         call puts
         mov ax, 4c00h
         int 21h
+; DOS restores INT 23h from the PSP at exit. Restore INT 82h ourselves
+; before requesting the normal Ctrl-C abort (carry set and RETF).
+ctrl_c: call restore
+        stc
+        retf
+restore:
+        push ds
+        lds dx, [cs:old]
+        mov ax, 2582h
+        int 21h
+        pop ds
+        ret
 hexbyte:
         push ax
         shr al, 1
