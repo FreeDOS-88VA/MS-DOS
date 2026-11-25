@@ -167,18 +167,29 @@ a separate `UsrTrap` probe confirmed the **key-event** status in `CL`:
 alone, and sampling live Shift would miss the chord after release. VAIO
 uses the documented keyboard **user trap** only in project mode. The
 trap substitutes the ZENKAKU pair (`7B00h`) for `0C8Bh` with GRPH and either
-Shift (not Ctrl), keeping the BIOS queue flags. `FEPKEY` makes the width
-decision in queue order; the interrupt callback does not run the FEP.
+Shift, but only with both Ctrl and KANA up, keeping the BIOS queue flags.
+This changes the queued pair, so a program reading the BIOS queue directly
+also sees `7B00h` for the matched chord in project mode. `FEPKEY` makes the
+width decision in queue order; the interrupt callback does not run the FEP.
 A foreground probe with the documented pop-up trap did not return keyboard
 input on VA even with a no-op callback, so this does not use a pop-up trap.
 
 If another program already owns the active user trap, VAIO leaves it in
-place and ZENKAKU remains available. `JFP OFF` removes VAIO's trap only
-if it still owns the slot. The separate K1 GRPH filter would not affect
-this shortcut: it runs in the ordinary VAIO decoder after `FEPKEY`, and
+place and ZENKAKU remains available. Repeating `JFP ON` or `JFP FEP`
+tries registration again without resetting the width or reading state.
+It does not register again if any trap is active, including VAIO's own.
+The registration check uses the KyBook `UsrTb` flag: zero means no trap
+on the tested VA/VA2 firmware, but the manual does not specify the flag
+values. For `JFP OFF`, ownership is instead verified by comparing the
+full documented `TrapAdd` pointer with VAIO's callback. VAIO saves and
+restores `DS` across both KyBook and UsrTrap, so the transition code,
+including the flush on OFF, does not depend on BIOS register preservation.
+
+The separate K1 GRPH filter would not affect this shortcut: it runs in
+the ordinary VAIO decoder after `FEPKEY`, and
 only unmatched graphic bytes would reach it.
 
-### J3d.2 gate
+### Original J3d.2 gate
 
 Japanese 2HD, vaeg m153 (`6367e5d3`), VA and VA2 at 640 KiB. Same builder
 as above, using `f4e53a9`; candidate `CISTAT=0A79h`. Host-layout tests fed
@@ -190,7 +201,7 @@ SDL `LANG5` through the JIS keymap.
 | `JFP ON` and `JFP FEP` | PASS. First Alt+grave leaves `ECHO` unchanged and `nihon` goes to the reading row. Alt+grave during the reading leaves it unchanged. KETTEI confirms `にほん`; the next Alt+grave inserts nothing and `a` goes straight to DOS. |
 | Delayed poll (`POLL.COM`) | PASS. With both modifiers already up, Alt+grave still arrives at `FEPKEY` as `7B00h`. GRPH+scan `0Ch` followed by late Shift stays `0C8Bh`. |
 | Neighbor keys and JIS ZENKAKU | PASS. GRPH+scan `0Ch` without Shift and GRPH+Q match the baseline. JIS ZENKAKU passes the same width, pending, and no-insertion checks. |
-| Bare US grave and tilde | **Unchanged; literal grave gate not met.** These BIOSes produce `^~` from the two US host keys, both before and after the change. Bare host grave arrives as `5Eh`, not `60h`; this change does not remap it. |
+| Bare US grave and tilde | **Literal grave waived; tilde passes.** Both builds produce `^~`: vaeg already sent bare grave as synthetic Shift + scan `0Ch`, which the BIOS returns as `5Eh`, not `60h`. Correcting the bare-grave mapping is a vaeg follow-up; this change leaves vaeg untouched. |
 | Plain and `JFP ROM` | PASS. Alt+grave still yields the old input (no width change); the existing ROM Space/HENKAN/confirm spot check also matches. OFF restores plain behavior and a new ON restores the shortcut. |
 | User-trap ownership | PASS. A test TSR that replaces the callback survives OFF, and a subsequent ON leaves the TSR's active callback alone; ZENKAKU still works. |
 | J3d SPACE and J3b.2 regression | PASS. J3d prompt, COPY, idle, endpoints, phrase/arrow, and delayed-poll checks passed. J3b.2 historical project plans: 51 matching captures per model apart from banner and free memory, including `FEPBYTE` PASS (see historical-plan caveat above). Plain 24/24 per model. Current EDLIN test saved the exact expected bytes on both models and on VA2 at 256 KiB. |
@@ -204,3 +215,43 @@ object byte for byte.
 exhaustive modifier combinations, VA3, 2D, external dictionaries, or the
 full historical ROM matrix. K1 was inspected, not built or tested together
 with this change.
+
+### Fix 1 gate
+
+Build `4395f1e`, Japanese 2HD on vaeg m153 (`6367e5d3`). The VAIO
+listing has `CISTAT=0A85h`, `FEPKEY=181Ah`, and the post-primitive
+Sense/Get sites at `0B04h` / `0B0Fh` for the delayed-poll harness.
+The listed VAIO object matches the distribution object byte for byte.
+`RESEND` moved from `264Fh` to `2661h`: **+18 resident VAIO bytes** for
+fix 1, **+114 bytes** since J3d. Japanese `IO.SYS` stays **28,797 B**.
+CHKDSK on both models reports **523,904 B free**, down **32 B** from the
+first J3d.2 build after DOS paragraph rounding.
+
+On VA and VA2, a non-rewriting `UsrTrap` probe captured `AX=0C8Bh`,
+`CL=19h` for KANA+GRPH+Shift+scan `0Ch`. The KANA bit (`08h`) matches
+603KEYB §6.3.4; the trap receives that shift-status format in CL
+(§6.3.3). With the project trap installed, primitive get still returned
+`0C8Bh` for this chord, matching the baseline, and the chord did not
+switch width. Repeating the chord with KANA up queued `7B00h`. The Ctrl
+and actual `@` combinations in the modifier probe also matched baseline.
+
+The original Alt+grave gate passed again on both models (literal grave
+waived as above): ON/FEP, pending reading and no insertion, JIS ZENKAKU,
+neighbor keys, delayed polling, OFF/reopen, and plain/ROM spot checks.
+On each model a test TSR replaced VAIO's trap and continued remapping
+`Q` to `s` after a repeated `JFP ON` or `JFP FEP`. After a utility
+removed the TSR's trap with `UsrTrap`, repeating either command restored
+Alt+grave without an OFF/ON cycle: `nihon` reached DOS as `にほん` after
+confirmation. A further repeat with VAIO's trap active still worked.
+The original OFF ownership test also passed.
+
+The J3d Space gate passed on both models: prompt and COPY CON bytes,
+idle spacing, candidate endpoints, phrase/arrow, ROM spot check, and
+delayed polling. J3b.2 historical plans again matched all 51 captures
+per model apart from banner and free memory (same caveat as above);
+`FEPBYTE` passed and the plain regression passed 24/24 per model. The
+current EDLIN plan saved the expected bytes on VA and VA2 at 640 KiB
+and on VA2 at 256 KiB.
+
+**NOT RUN:** BIOS register-clobber injection, physical hardware, native
+Windows input, VA3, 2D, a combined K1 build, or the full ROM matrix.
