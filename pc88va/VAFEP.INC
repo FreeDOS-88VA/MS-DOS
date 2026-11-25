@@ -82,12 +82,14 @@ FEPKEYCR:
         JNE     FEPKEYF7
 FEPKEYENTER:JMP FEPENTER
 FEPKEYF7:CMP    AH,68H          ;F7 (leave its DOS meaning alone when idle)
-        JNE     FEPKEYNEXT
+        JNE     FEPKEYSPACE
         JMP     FEPTOCAT
-FEPKEYNEXT:CMP  AH,35H          ;HENKAN / XFER
+FEPKEYSPACE:CMP AX,3420H        ;Space has one queued code, regardless of modifiers.
+        JE      FEPKEYNEXT
+        CMP     AH,35H          ;HENKAN / XFER
         JNE     FEPKEYPREV
-        JMP     FEPNEXTKEY
-FEPKEYPREV:CMP  AH,0A5H         ;Shift+HENKAN
+FEPKEYNEXT:JMP  FEPNEXTKEY
+FEPKEYPREV:CMP  AH,0A5H         ;Shift+HENKAN has a distinct queued scan.
         JNE     FEPCHAR
         JMP     FEPPREVKEY
 FEPCHAR:CMP     AL,0A1H
