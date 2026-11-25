@@ -1,0 +1,92 @@
+K1 fix 1: 67252c0 vs 20de76d, vaeg m153, VA and VA2
+
+=== va ===
+base plain kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base plain graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base plain ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+base on    kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base on    graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base on    ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+base off   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base off   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base off   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+base rom   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 48 records)
+base rom   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 48 records)
+base rom   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   plain kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 32 records)
+K1   plain graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+K1   plain ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   on    kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 32 records)
+K1   on    graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+K1   on    ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   off   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 32 records)
+K1   off   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+K1   off   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   rom   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 48 records)
+K1   rom   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 48 records)
+K1   rom   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+plain F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+on    F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+off   F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+rom   F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+BS/LEFT/DEL each remove a complete caret pair (DOS 0Ah and echo cells)
+Project FEP romaji/HENKAN/KETTEI and direct kana composition unchanged
+base CHKDSK: 524032 bytes free
+K1 CHKDSK: 524000 bytes free
+ROM JFP wide conversion unchanged; graph-mode DOS 0Ah still treats 9E as a lead
+K1BYTES Ctrl-C returns to DOS and a fresh 0Ah/08h trace succeeds
+Project JFP Space converts to 日本, GRPH+Space advances to にほん, Space cycles back
+=== va2 ===
+base plain kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base plain graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base plain ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+base on    kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base on    graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base on    ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+base off   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base off   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+base off   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+base rom   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 48 records)
+base rom   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 48 records)
+base rom   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   plain kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 32 records)
+K1   plain graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+K1   plain ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   on    kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 32 records)
+K1   on    graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+K1   on    ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   off   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 32 records)
+K1   off   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 32 records)
+K1   off   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+K1   rom   kanji 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 20 61 0D (BIOS trace 48 records)
+K1   rom   graph 08h/0Ah 61 61 61 C1 B1 B2 B3 A8 61 9E 9C F7 80 20 61 0D (BIOS trace 48 records)
+K1   rom   ECHO/COPY CON/EDLIN/TYPE exact kana and ASCII bytes
+plain F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+on    F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+off   F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+rom   F1–F10, Shift+F1–F10, KEY F1, editing raw stream identical (104 bytes)
+BS/LEFT/DEL each remove a complete caret pair (DOS 0Ah and echo cells)
+Project FEP romaji/HENKAN/KETTEI and direct kana composition unchanged
+base CHKDSK: 524032 bytes free
+K1 CHKDSK: 524000 bytes free
+ROM JFP wide conversion unchanged; graph-mode DOS 0Ah still treats 9E as a lead
+K1BYTES Ctrl-C returns to DOS and a fresh 0Ah/08h trace succeeds
+Project JFP Space converts to 日本, GRPH+Space advances to にほん, Space cycles back
+
+=== BIOS user trap, fixed build ===
+va  kanji DOS 06h: 9E FD F8 72 0D
+va  graph DOS 06h: 9E FD F8 72 0D
+va  reset DOS 06h: 9E FD F8 72 0D
+va2 kanji DOS 06h: 9E FD F8 72 0D
+va2 graph DOS 06h: 9E FD F8 72 0D
+va2 reset DOS 06h: 9E FD F8 72 0D
+
+=== X11 host lock, fixed build ===
+va  plain COPY CON and EDLIN FAT bytes match
+va  on    COPY CON and EDLIN FAT bytes match
+va  off   COPY CON and EDLIN FAT bytes match
+va  rom   COPY CON and EDLIN FAT bytes match
+va2 plain COPY CON and EDLIN FAT bytes match
+va2 on    COPY CON and EDLIN FAT bytes match
+va2 off   COPY CON and EDLIN FAT bytes match
+va2 rom   COPY CON and EDLIN FAT bytes match
