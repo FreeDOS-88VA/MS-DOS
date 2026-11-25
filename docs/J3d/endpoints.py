@@ -14,12 +14,7 @@ def plans(pc, screens):
         p.echo('nihon')
         p.keys(key.upper())
         p.shot('first')
-        if key == 'space':
-            p.event('key-down SHIFT', 20)
-            p.keys('SPACE')
-            p.event('key-up SHIFT', 40)
-        else:
-            p.keys('SHIFT+HENKAN')
+        p.keys('SHIFT+HENKAN')
         p.shot('previous')
         for i in range(1, 9):
             p.keys(key.upper())

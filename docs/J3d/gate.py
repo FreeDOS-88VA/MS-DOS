@@ -21,7 +21,7 @@ def scenarios(pc, screens):
         return p
 
     def shifted(p):
-        # Space contains no queued Shift bit. Hold Shift until CON polls it.
+        # Hold Shift through the primitive probe's status read.
         p.event('key-down SHIFT', 20)
         p.keys('SPACE')
         p.event('key-up SHIFT', 40)
@@ -42,10 +42,7 @@ def scenarios(pc, screens):
 
     for name, forward in [('space', 'SPACE'), ('henkan', 'HENKAN')]:
         def previous(p):
-            if forward == 'SPACE':
-                shifted(p)
-            else:
-                p.keys('SHIFT+HENKAN')
+            p.keys('SHIFT+HENKAN')
 
         p = plan()
         p.echo('nihon')
@@ -129,7 +126,7 @@ def check_plain(plain, extra):
         print(model)
         # Reuse the historical checks with the Japanese DIR and CHKDSK wording.
         with patch.object(j3a, 'relevant', localized_dir), patch.object(j3a, 'memory', free):
-            assert j3a.regression(root) == 524016
+            assert j3a.regression(root) == 524032
         for case in ('eof-1', 'eof-2'):
             path = extra / model / case
             assert j3a.get(path, 'T.TXT') == b'ABC\r\nDEF\r\n'
@@ -168,7 +165,9 @@ def check(base, after, old_base, old_after):
         assert expect_echo(p / 'echo', '日本')
         k = a / 'space-kana'
         assert old.system_row(k / 'reading') == '[H] ち'
-        assert candidate(k / 'first', 'FEP')
+        expected = ('血', '地', '血') if model == 'va' else ('値', '地', '値')
+        assert tuple(candidate(k / stage, 'FEP')[0] for stage in
+                     ('first', 'next', 'previous')) == expected
         data = b'\x93\xfa\x96\x7b\r\n'
         for root in (b, a):
             assert j3a.get(root / 'henkan-file', 'J.TXT') == data
@@ -207,9 +206,16 @@ def check(base, after, old_base, old_after):
                 raise AssertionError('Unexpected EDLIN file from the historical plan')
         assert count == 51
         assert free(b / 'layout-mode/memory') == 524032
-        assert free(a / 'layout-mode/memory') == 524016
+        assert free(a / 'layout-mode/memory') == 524032
         print(model, 'unchanged J3b.2 project plans: 51 matching captures (except banner and memory);',
-              'FEPBYTE PASS; old COPY/EDLIN matched baseline; free: 524032 -> 524016')
+              'FEPBYTE PASS; old COPY/EDLIN matched baseline; free: 524032 on both builds')
+
+
+def check_edlin(out):
+    for model, ram in (('va', 640), ('va2', 256), ('va2', 640)):
+        data = j3a.get(out / f'{model}-{ram}/fep/edlin', 'E.TXT')
+        assert data == bytes.fromhex('93 FA 96 7B 8C EA 0D 0A 1A'), (model, ram, data)
+        print(model, ram, 'E.TXT:', data.hex(' '))
 
 
 if __name__ == '__main__':
@@ -217,5 +223,7 @@ if __name__ == '__main__':
         check(*map(Path, sys.argv[2:]))
     elif sys.argv[1] == 'check-plain':
         check_plain(*map(Path, sys.argv[2:]))
+    elif sys.argv[1] == 'check-edlin':
+        check_edlin(Path(sys.argv[2]))
     else:
         run.main(scenarios, ('J3D',))

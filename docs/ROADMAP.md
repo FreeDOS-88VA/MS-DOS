@@ -331,7 +331,7 @@ comparison is done.
   at most 7,904 B; no leak over 5 ON/OFF cycles; 0 nested DOS calls.
   [F1](F1-small-fixes.md#3-user-dictionary-on-the-boot-drive) removes the
   fixed A: path: the dictionary now follows the DOS boot drive.
-- J3d — [Space converts and cycles project FEP candidates](J3d-space-convert.md) (VA/VA2 gate run; review pending).
+- J3d — [Space converts and advances project FEP candidates](J3d-space-convert.md) using the queued key code only (VA/VA2 gate run; fix review pending).
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
