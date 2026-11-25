@@ -114,6 +114,8 @@ CHECKMODE:CMP   [HEADLESS],0
         JE      CHECKROM
         CMP     BX,3
         JNE     BUSY
+        MOV     BX,4            ;Try a vacant trap slot without resetting FEP.
+        CALL    VAIO
         JMP     FEPENABLED
 CHECKROM:CMP    BX,1
         JNE     BUSY

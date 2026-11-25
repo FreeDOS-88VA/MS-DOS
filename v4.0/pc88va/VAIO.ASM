@@ -606,7 +606,8 @@ ROMKEY: PUSH    DS
 ; INT DC / CL=F0h, AX=4A47h. Reply AX=474Ah, BX=current mode.
 ; BX request: 0=query, 1=reserve for ROM, 2=commit ROM, 3=release
 ; (returns detached dictionary payload segment in BX, or 0).
-; 4=commit master-disabled project FEP from reservation. Reply 3=project.
+; 4=commit project FEP from a master-disabled reservation, or re-arm
+; its keyboard trap if already in project mode. Reply 3=project.
 ; 5=replace table from ES:SI (validated v2 payload), DX bytes. DI=0
 ; tries reuse; otherwise DI is a new block's payload segment with room
 ; for ceil(DX/16) paragraphs. DX=0 detaches. AX=554Ah returns old payload in BX
@@ -634,7 +635,9 @@ JFPTEST3:CMP    BX,3
         CMP     BX,5
         JNE     JFPREPLY
         JMP     JFPLOAD
-JFPPROJECT:CMP  [JFPMODE],2
+JFPPROJECT:CMP  [JFPMODE],3
+        JE      JFPREARM
+        CMP     [JFPMODE],2
         JNE     JFPREPLY
         XOR     CX,CX           ;GetJFP: require the expected master-off mode.
         INT     8DH
@@ -646,6 +649,8 @@ JFPPROJECT:CMP  [JFPMODE],2
         MOV     CS:[JFPSEEN],1
         MOV     CS:[JFPDIRTY],1
         CALL    JFPRIDLE
+        JMP     SHORT JFPREPLY
+JFPREARM:CALL   FEPHOTON        ;No reset of width or reading state.
 JFPREPLY:JMP    JFPACK
 JFPREL: CMP     [JFPMODE],3
         JE      JFPENDP

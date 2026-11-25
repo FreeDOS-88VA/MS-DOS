@@ -32,20 +32,18 @@ FEPUFIRST DB    FEPVISIBLE+1 DUP (0) ;Initial BIOS result for reverse crossing.
 ; 603KEYB §§6.3.3, 6.3.5: KyBook and the user-trap pointer/enable byte.
 FEPHOTBOOK:
         MOV     AH,0EH
-        INT     82H
+        CALL    FEPHOTBIOS
         MOV     BX,DX
         RET
 FEPHOTON:
         CALL    FEPHOTBOOK
-        CMP     BYTE PTR ES:[BX+0188H],0 ;Do not displace an active trap.
-        JNE     FEPHOTDONE
+        CMP     BYTE PTR ES:[BX+0188H],0 ;Zero = vacant on VA/VA2 (observed).
+        JNE     FEPHOTDONE      ;Leave any active trap alone, including ours.
         PUSH    CS
         POP     ES
         MOV     DX,OFFSET FEPHOTKEY
         MOV     AX,0801H        ;UsrTrap: register ES:DX.
-        INT     82H
-FEPHOTDONE:
-        RET
+        JMP     SHORT FEPHOTBIOS
 FEPHOTOFF:
         CALL    FEPHOTBOOK
         CMP     WORD PTR ES:[BX+0184H],OFFSET FEPHOTKEY
@@ -54,7 +52,17 @@ FEPHOTOFF:
         CMP     ES:[BX+0186H],AX
         JNE     FEPHOTDONE      ;An application can have replaced the trap.
         MOV     AX,0800H        ;UsrTrap: remove.
+FEPHOTBIOS:
+        ; KyBook returns ES:DX. The transition code needs its resident DS
+        ; (including for FEPFLUSH), and neither call promises to preserve it.
+        PUSHF
+        PUSH    DS
+        PUSH    BP
         INT     82H
+        POP     BP
+        POP     DS
+        POPF
+FEPHOTDONE:
         RET
 
 ; GRPH + scan 0Ch queues 0C8Bh with or without Shift. Only the IRQ
@@ -68,7 +76,7 @@ FEPHOTKEY:
         JNE     FEPHOTRET
         TEST    CL,10H          ;GRPH.
         JZ      FEPHOTRET
-        TEST    CL,20H          ;Not Ctrl+GRPH.
+        TEST    CL,28H          ;Ctrl and KANA both up (603KEYB §6.3.4).
         JNZ     FEPHOTRET
         TEST    CL,3            ;Either Shift.
         JZ      FEPHOTRET
