@@ -332,7 +332,7 @@ comparison is done.
   [F1](F1-small-fixes.md#3-user-dictionary-on-the-boot-drive) removes the
   fixed A: path: the dictionary now follows the DOS boot drive.
 - J3d — [Space converts and advances project FEP candidates](J3d-space-convert.md) using the queued key code only. Accepted 2026-11-25 (VA/VA2; Shift+Space is not a back key: the ROM queue has no modifier state for Space).
-- J3d.2 — [US Alt+grave toggles project FEP width](J3d-space-convert.md#j3d2--altgrave-toggles-project-width) via key-event modifiers; fix 1 excludes KANA and re-arms a vacant trap on repeated ON/FEP. ROM mode still uses ZENKAKU. Pending review.
+- J3d.2 — [US Alt+grave toggles project FEP width](J3d-space-convert.md#j3d2--altgrave-toggles-project-width) via key-event modifiers; fix 1 excludes KANA and re-arms a vacant trap on repeated ON/FEP. ROM mode still uses ZENKAKU. Accepted 2026-11-25 (VA/VA2; bare US grave gives `^` — vaeg mapping, waived).
 
 ### J4 — Japanese messages (optional)
 - Goal: Japanese message file next to `USA-MS.MSG`, selected at build.
