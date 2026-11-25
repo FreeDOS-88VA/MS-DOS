@@ -5,8 +5,10 @@ import re
 import runpy
 import sys
 
-check = runpy.run_path(str(Path(__file__).resolve().parents[2] / 'docs/J3a/check.py'))
+docs = Path(__file__).resolve().parents[2] / 'docs'
+check = runpy.run_path(str(docs / 'J3a/check.py'))
 relevant, words, get = (check[k] for k in ('relevant', 'words', 'get'))
+system_row = runpy.run_path(str(docs / 'J3b.2/check.py'))['system_row']
 KANA = bytes.fromhex('B1 B2 B3 61')
 BODY = bytes.fromhex('61 61 61 C1 B1 B2 B3 A8 61')
 GRPH = bytes.fromhex('9E 9C F7 80')
@@ -114,7 +116,7 @@ def regressions(base, fixed):
             assert text in relevant(root / case), (root, case, relevant(root / case))
     print('Project FEP romaji/HENKAN/KETTEI and direct kana composition unchanged')
     assert words(base / 'rom-composition/candidate', 25) == words(fixed / 'rom-composition/candidate', 25)
-    for tag, root, free in (('base', base, 524032), ('K1', fixed, 524016)):
+    for tag, root, free in (('base', base, 524032), ('K1', fixed, 524000)):
         assert '日本' in relevant(root / 'rom-composition/confirmed')
         d = root / 'graph-lead'
         assert not any(row.startswith('BYTES:') for row in relevant(d / 'first-cr')), d
@@ -124,6 +126,19 @@ def regressions(base, fixed):
         assert f'{free} バイトの空き' in [row.strip() for row in rows], rows
         print(f'{tag} CHKDSK: {free} bytes free')
     print('ROM JFP wide conversion unchanged; graph-mode DOS 0Ah still treats 9E as a lead')
+    for root in (base, fixed):
+        for api in ('line', 'raw'):
+            abort = root / 'ctrl-c' / (api + '-abort')
+            retry = root / 'ctrl-c' / (api + '-retry')
+            assert relevant(abort)[-2:] == ['EDIT>^C', check['PROMPT']], abort
+            assert dosbytes(retry) == b'a\r', retry
+            assert relevant(retry)[-2] == 'TRACE: 0A611D000000 09611D000000 0A0D1C000000 090D1C000000', retry
+        d = root / 'space'
+        assert system_row(d / 'space') == '[C] [日本]', d
+        assert system_row(d / 'grph-space') == '[C] [にほん]', d
+        assert '日本' in relevant(d / 'confirm'), d
+    print('K1BYTES Ctrl-C returns to DOS and a fresh 0Ah/08h trace succeeds')
+    print('Project JFP Space converts to 日本, GRPH+Space advances to にほん, Space cycles back')
 
 
 if __name__ == '__main__':

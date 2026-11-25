@@ -117,6 +117,27 @@ def scenarios():
     yield 'graph-lead', p
 
     p = Plan()
+    for api in ('line', 'raw'):
+        cmd = 'K1BYTES' + (' R' if api == 'raw' else '')
+        line(p, cmd)
+        p.keys('CTRL+C')
+        p.shot(api + '-abort')
+        line(p, cmd)
+        p.keys('A', 'RETURN')
+        p.shot(api + '-retry')
+    yield 'ctrl-c', p
+
+    p = Plan()
+    mode(p, 'on')
+    p.keys(*'ECHO', 'SPACE', 'ZENKAKU', *'NIHON', 'SPACE')
+    p.shot('space')
+    held(p, 'GRPH', 'SPACE')
+    p.shot('grph-space')
+    p.keys('SPACE', 'KETTEI', 'RETURN')
+    p.shot('confirm')
+    yield 'space', p
+
+    p = Plan()
     p.line('CHKDSK', delay=1500)
     p.shot('free')
     yield 'memory', p
