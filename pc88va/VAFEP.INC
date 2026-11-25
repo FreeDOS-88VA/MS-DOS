@@ -29,8 +29,64 @@ FEPUBRIDGE DB   0               ;Can return from BIOS to the user prefix.
 FEPUFOCUS DW    0
 FEPUFIRST DB    FEPVISIBLE+1 DUP (0) ;Initial BIOS result for reverse crossing.
 
+; 603KEYB §§6.3.3, 6.3.5: KyBook and the user-trap pointer/enable byte.
+FEPHOTBOOK:
+        MOV     AH,0EH
+        CALL    FEPHOTBIOS
+        MOV     BX,DX
+        RET
+FEPHOTON:
+        CALL    FEPHOTBOOK
+        CMP     BYTE PTR ES:[BX+0188H],0 ;Zero = vacant on VA/VA2 (observed).
+        JNE     FEPHOTDONE      ;Leave any active trap alone, including ours.
+        PUSH    CS
+        POP     ES
+        MOV     DX,OFFSET FEPHOTKEY
+        MOV     AX,0801H        ;UsrTrap: register ES:DX.
+        JMP     SHORT FEPHOTBIOS
+FEPHOTOFF:
+        CALL    FEPHOTBOOK
+        CMP     WORD PTR ES:[BX+0184H],OFFSET FEPHOTKEY
+        JNE     FEPHOTDONE
+        MOV     AX,CS
+        CMP     ES:[BX+0186H],AX
+        JNE     FEPHOTDONE      ;An application can have replaced the trap.
+        MOV     AX,0800H        ;UsrTrap: remove.
+FEPHOTBIOS:
+        ; KyBook returns ES:DX. The transition code needs its resident DS
+        ; (including for FEPFLUSH), and neither call promises to preserve it.
+        PUSHF
+        PUSH    DS
+        PUSH    BP
+        INT     82H
+        POP     BP
+        POP     DS
+        POPF
+FEPHOTDONE:
+        RET
+
+; GRPH + scan 0Ch queues 0C8Bh with or without Shift. Only the IRQ
+; trap has the modifiers for this key, so queue ZENKAKU here and let
+; FEPKEY handle it in order, including the pending-reading rule.
+FEPHOTKEY:
+        PUSHF
+        CMP     AX,0C8BH
+        JNE     FEPHOTRET
+        CMP     CS:[JFPMODE],3
+        JNE     FEPHOTRET
+        TEST    CL,10H          ;GRPH.
+        JZ      FEPHOTRET
+        TEST    CL,28H          ;Ctrl and KANA both up (603KEYB §6.3.4).
+        JNZ     FEPHOTRET
+        TEST    CL,3            ;Either Shift.
+        JZ      FEPHOTRET
+        MOV     AX,7B00H        ;ZENKAKU; no change to the BIOS queue flags in DL.
+FEPHOTRET:
+        POPF
+        RETF
+
 ; Pump only after a primitive get. CF=0 returns the original AX for the
-; ordinary VAIO decoder; CF=1 means project consumed the physical key.
+; ordinary VAIO decoder; CF=1 means the project consumed the key.
 FEPKEY: PUSH    CS
         POP     DS
         CLD

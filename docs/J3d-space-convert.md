@@ -131,3 +131,127 @@ fixture directory. Prepare the candidate image with the
 and the prepared candidate image as `REG_D88`, setting both CISTAT
 variables to `1000:0A73`. Check with
 `python3 -B docs/J3d/gate.py check-plain "$S/plain" "$S/extra"`.
+
+## J3d.2 — Alt+grave toggles project width
+
+In vaeg's **US** layout, press **left Alt + grave** in `JFP ON` or
+`JFP FEP` to switch between ASCII and kana width. Like **ZENKAKU**, it
+inserts nothing and is ignored while a reading is pending. Plain CON is
+unchanged. **`JFP ROM` still needs ZENKAKU**; the shortcut does not change
+firmware-owned conversion.
+
+### Keyboard evidence and dispatch
+
+With vaeg m153, SDL key events went through the US host keymap: Left Alt
+sent GRPH, and the grave key sent synthetic left Shift + scan `0Ch`.
+On **real hardware**, the corresponding chord is **GRPH+SHIFT+`^`**
+(scan `0Ch`, vaeg's `CARET`), which also selects this path in `JFP ON`.
+The actual `@` key is scan `1Ah` and is not the shortcut. Before this
+change scan `0Ch` with GRPH+SHIFT produced the graphic byte `8Bh`, which
+can be treated as a Shift-JIS lead rather than rendered on its own in DOS.
+
+The pre-change `FEPKEY` entry capture on both VA and VA2 was `0C8Bh` for
+US Alt+grave. `SPACEAX` measured the primitive pair and **live** status;
+a separate `UsrTrap` probe confirmed the **key-event** status in `CL`:
+
+| Keys | Primitive AX | Live `PrmSfts` | IRQ `CL` |
+|---|---:|---:|---:|
+| US Left Alt+grave | `0C8B` | `10` (VA), `11` (VA2) in the sampled run | `11` |
+| GRPH+Shift+scan `0Ch`, held | `0C8B` | `11` | `11` |
+| GRPH+scan `0Ch`, no Shift | `0C8B` | `10` | `10` |
+| Shift+scan `0Ch`, no GRPH (also US grave) | `0C5E` | `01` | `01` |
+| GRPH+Q | `109C` | `10` | `10` |
+| US Shift+grave | `1A7E` | `01` | `01` |
+
+`FEPKEY` cannot distinguish the first three rows from their queued pair
+alone, and sampling live Shift would miss the chord after release. VAIO
+uses the documented keyboard **user trap** only in project mode. The
+trap substitutes the ZENKAKU pair (`7B00h`) for `0C8Bh` with GRPH and either
+Shift, but only with both Ctrl and KANA up, keeping the BIOS queue flags.
+This changes the queued pair, so a program reading the BIOS queue directly
+also sees `7B00h` for the matched chord in project mode. `FEPKEY` makes the
+width decision in queue order; the interrupt callback does not run the FEP.
+A foreground probe with the documented pop-up trap did not return keyboard
+input on VA even with a no-op callback, so this does not use a pop-up trap.
+
+If another program already owns the active user trap, VAIO leaves it in
+place and ZENKAKU remains available. Repeating `JFP ON` or `JFP FEP`
+tries registration again without resetting the width or reading state.
+It does not register again if any trap is active, including VAIO's own.
+The registration check uses the KyBook `UsrTb` flag: zero means no trap
+on the tested VA/VA2 firmware, but the manual does not specify the flag
+values. For `JFP OFF`, ownership is instead verified by comparing the
+full documented `TrapAdd` pointer with VAIO's callback. VAIO saves and
+restores `DS` across both KyBook and UsrTrap, so the transition code,
+including the flush on OFF, does not depend on BIOS register preservation.
+
+The separate K1 GRPH filter would not affect this shortcut: it runs in
+the ordinary VAIO decoder after `FEPKEY`, and
+only unmatched graphic bytes would reach it.
+
+### Original J3d.2 gate
+
+Japanese 2HD, vaeg m153 (`6367e5d3`), VA and VA2 at 640 KiB. Same builder
+as above, using `f4e53a9`; candidate `CISTAT=0A79h`. Host-layout tests fed
+SDL key down/up events to vaeg, not guest scan codes. The JIS control fed
+SDL `LANG5` through the JIS keymap.
+
+| Check | VA and VA2 |
+|---|---|
+| `JFP ON` and `JFP FEP` | PASS. First Alt+grave leaves `ECHO` unchanged and `nihon` goes to the reading row. Alt+grave during the reading leaves it unchanged. KETTEI confirms `にほん`; the next Alt+grave inserts nothing and `a` goes straight to DOS. |
+| Delayed poll (`POLL.COM`) | PASS. With both modifiers already up, Alt+grave still arrives at `FEPKEY` as `7B00h`. GRPH+scan `0Ch` followed by late Shift stays `0C8Bh`. |
+| Neighbor keys and JIS ZENKAKU | PASS. GRPH+scan `0Ch` without Shift and GRPH+Q match the baseline. JIS ZENKAKU passes the same width, pending, and no-insertion checks. |
+| Bare US grave and tilde | **Literal grave waived; tilde passes.** Both builds produce `^~`: vaeg already sent bare grave as synthetic Shift + scan `0Ch`, which the BIOS returns as `5Eh`, not `60h`. Correcting the bare-grave mapping is a vaeg follow-up; this change leaves vaeg untouched. |
+| Plain and `JFP ROM` | PASS. Alt+grave still yields the old input (no width change); the existing ROM Space/HENKAN/confirm spot check also matches. OFF restores plain behavior and a new ON restores the shortcut. |
+| User-trap ownership | PASS. A test TSR that replaces the callback survives OFF, and a subsequent ON leaves the TSR's active callback alone; ZENKAKU still works. |
+| J3d SPACE and J3b.2 regression | PASS. J3d prompt, COPY, idle, endpoints, phrase/arrow, and delayed-poll checks passed. J3b.2 historical project plans: 51 matching captures per model apart from banner and free memory, including `FEPBYTE` PASS (see historical-plan caveat above). Plain 24/24 per model. Current EDLIN test saved the exact expected bytes on both models and on VA2 at 256 KiB. |
+
+MASM listing `RESEND`: `25EFh` → `264Fh`, **+96 resident VAIO bytes**.
+CHKDSK free memory: **524,032 → 523,936 B** on both models; `IO.SYS`
+remains **28,797 B**. The listed VAIO object matched the distribution
+object byte for byte.
+
+**NOT RUN:** physical hardware or native Windows input, host auto-repeat,
+exhaustive modifier combinations, VA3, 2D, external dictionaries, or the
+full historical ROM matrix. K1 was inspected, not built or tested together
+with this change.
+
+### Fix 1 gate
+
+Build `4395f1e`, Japanese 2HD on vaeg m153 (`6367e5d3`). The VAIO
+listing has `CISTAT=0A85h`, `FEPKEY=181Ah`, and the post-primitive
+Sense/Get sites at `0B04h` / `0B0Fh` for the delayed-poll harness.
+The listed VAIO object matches the distribution object byte for byte.
+`RESEND` moved from `264Fh` to `2661h`: **+18 resident VAIO bytes** for
+fix 1, **+114 bytes** since J3d. Japanese `IO.SYS` stays **28,797 B**.
+CHKDSK on both models reports **523,904 B free**, down **32 B** from the
+first J3d.2 build after DOS paragraph rounding.
+
+On VA and VA2, a non-rewriting `UsrTrap` probe captured `AX=0C8Bh`,
+`CL=19h` for KANA+GRPH+Shift+scan `0Ch`. The KANA bit (`08h`) matches
+603KEYB §6.3.4; the trap receives that shift-status format in CL
+(§6.3.3). With the project trap installed, primitive get still returned
+`0C8Bh` for this chord, matching the baseline, and the chord did not
+switch width. Repeating the chord with KANA up queued `7B00h`. The Ctrl
+and actual `@` combinations in the modifier probe also matched baseline.
+
+The original Alt+grave gate passed again on both models (literal grave
+waived as above): ON/FEP, pending reading and no insertion, JIS ZENKAKU,
+neighbor keys, delayed polling, OFF/reopen, and plain/ROM spot checks.
+On each model a test TSR replaced VAIO's trap and continued remapping
+`Q` to `s` after a repeated `JFP ON` or `JFP FEP`. After a utility
+removed the TSR's trap with `UsrTrap`, repeating either command restored
+Alt+grave without an OFF/ON cycle: `nihon` reached DOS as `にほん` after
+confirmation. A further repeat with VAIO's trap active still worked.
+The original OFF ownership test also passed.
+
+The J3d Space gate passed on both models: prompt and COPY CON bytes,
+idle spacing, candidate endpoints, phrase/arrow, ROM spot check, and
+delayed polling. J3b.2 historical plans again matched all 51 captures
+per model apart from banner and free memory (same caveat as above);
+`FEPBYTE` passed and the plain regression passed 24/24 per model. The
+current EDLIN plan saved the expected bytes on VA and VA2 at 640 KiB
+and on VA2 at 256 KiB.
+
+**NOT RUN:** BIOS register-clobber injection, physical hardware, native
+Windows input, VA3, 2D, a combined K1 build, or the full ROM matrix.
