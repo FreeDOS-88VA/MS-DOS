@@ -131,3 +131,13 @@ fixture directory. Prepare the candidate image with the
 and the prepared candidate image as `REG_D88`, setting both CISTAT
 variables to `1000:0A73`. Check with
 `python3 -B docs/J3d/gate.py check-plain "$S/plain" "$S/extra"`.
+
+## J3d.2 (withdrawn)
+
+J3d.2 made US-layout Alt+` (guest GRPH+Shift+@) toggle the project FEP
+width through a keyboard BIOS user trap. It was merged (f1236fd) and then
+reverted: on a Windows host with the Japanese IME, Alt+` is taken by the
+IME and never reaches VAEG. The maintainer chose to send the VA 全角 key
+from host Right Ctrl in VAEG's US layout instead (VAEG M170). That works in
+`JFP ON` and `JFP ROM` alike and needs no MS-DOS change. The J3d.2 code,
+evidence and review history are in the git history of f1236fd.
