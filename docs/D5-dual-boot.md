@@ -277,8 +277,8 @@ An unexplained name, slot, attribute, record CRC, or FAT chain is a
 read-only failure: the stage prints a warning and falls back to the DOS
 loader. Such a fallback does not change ownership; the real startup names
 may still belong to another system. Do not edit them until the disk has
-been recovered. The chain walk requires exactly the number of clusters implied by the file size
-and an end marker; it is bounded even on a cycle. Capture also checks
+been recovered. The chain walk requires exactly the number of clusters
+implied by the file size and an end marker; it is bounded even on a cycle. Capture also checks
 the incoming set and the registered sets it depends on.
 
 Preparation writes phase 2 and four
@@ -585,3 +585,56 @@ every write.
 **NOT RUN:** exhaustive guest refresh cuts at every write, and the
 original capture/prepare cut matrix on this build. The refresh layout
 limitation above remains; this is not a pass of the full fix-1 gate.
+
+## Fix 2 verification
+
+MASM 5.10 / LINK 3.65: the IPL is still 1024 bytes. The stage is 2968
+bytes (was 2229), still three 1024-byte logical sectors and within the
+same single-cluster and loader limits. The Japanese ASM catalog applied
+and translated `SYS` assembled and linked. The D1 → D4 → D5 builder
+built `8cd9c51` into a 1,331,888-byte D88 with SHA-256
+`e9d0c9474e64f1437009e1eb6b762cfe202dcdfab0b371d29b4715f6f2c1dd5e`.
+Its IPL, stage, `SYS.COM` and `FORMAT.COM` match the direct build used
+in the tests byte for byte.
+
+On vaeg m153, VA and VA2 passed the full two-capture sequence at both
+5 and 40 MB (640 KiB), including prepare/cancel and a keyless restart.
+A standalone first capture parked its existing pair; the prepared 1.1
+capture kept the DOS pair in place and started empty. Booting 1.1 with
+only an `AUTOEXEC.BAT` ran `11` and the file stayed with 1.1 on the next
+switch. Once all three pairs were populated, all six switch directions
+ran the selected `DOS`, `105` or `11` marker. DOS `TYPE CONFIG.SYS`
+showed `FILES=27`; host checks matched the other two distinct `FILES=`
+fixtures to their owners. CHKDSK passed after the captures and again
+after `/D` (567 free clusters at 5 MB; 2436 at 40 MB). On each model a
+separate 5 MB test created `AUTOEXEC.BAT` from the DOS prompt on a
+system with no pair. The next switch parked it and a return to DOS ran
+its `CREATED` marker, with `CONFIG.SYS` still absent.
+
+For `1.05 → 1.1`, `1.1 → DOS`, and `DOS → 1.05`, on both models at
+both sizes, replayed durable snapshots after the marker and each root
+write from actual SASI write traces (124 cuts). Every HDD-only reboot
+rolled forward before showing the menu, and the complete image matched
+the committed switch. The independent checker verified FATs, file chains
+and all six startup files in those committed images. Guest CHKDSK was
+not rerun on each identical replay image. A real debugger kill on each
+model at 5 MB, after parking the old pair and before activating the new
+one, produced the same snapshot and also recovered HDD-only.
+
+On vaeg m153 at 640 KiB, a fix-1 image with the 1.05 entry owning the
+real pair upgraded on both VA and VA2 using plain `SYS C:`. The test
+used the actual fix-1 IPL and stage with version-1 state. Saved IPLs,
+entry records and default were unchanged, and `105` ran after the next
+menu selection. A digit queued at frame 400 was ignored. Timed from
+first keyboard poll to selection, VA waited 574 frames (10.18 s) and
+VA2 599 frames (10.62 s) at 56.4 Hz.
+
+On both models one 5 MB refresh cut each on D4 and D5 (after SASI
+write 430) left an HDD that reached DOS; retry from floppy passed
+CHKDSK. D4 had no menu. Both `FORMAT B: /S` and `FORMAT B:` followed
+by `SYS B:` produced independently bootable 2HD floppies on both
+models. Active `/D` parked the removed entry's startup files, restored
+the DOS pair and left its four PC-Engine system files untouched.
+
+**NOT RUN:** a new exhaustive capture/prepare or refresh-cut matrix,
+active-removal cut injection, torn writes, or physical hardware.
