@@ -155,7 +155,7 @@ capture or recovery run. Separate 5 MB runs at 256 KiB reached `Ready`
 on VA and VA2 for both stock installers; these were not coexistence
 runs.
 
-### Gate decision needed
+### Gate decision (accepted in continuation 2)
 
 The HDD-only recovery promise cannot cover **every point of capture**
 with the specified installation procedure. The ROM enters the IPL from
@@ -177,7 +177,7 @@ handoff must change so that the foreign installer never replaces the
 ROM-visible dispatcher. Neither patching the foreign installer nor
 changing the ROM is part of D5.
 
-### Pending M4 sequence (with preparation)
+### M4 sequence (with preparation)
 
 1. `HDFORM C:` → PC-Engine 1.05 floppy `SYS C:` → MS-DOS floppy
    `SYS C:` and label the first capture. Boot MS-DOS from the HDD menu
@@ -256,7 +256,8 @@ parks the owner, activates the target (nothing for DOS), then commits
 owner and last choice while clearing the marker. Renames are in-place
 updates of the name and attributes; no FAT or file-data sectors are
 written. A repeat of the active and last choice writes nothing.
-Interrupted switches boot DOS and leave the marker set; restore a
+Refreshing DOS with `SYS` may park the active version, but preserves
+its last menu choice. Interrupted switches boot DOS and leave the marker set; restore a
 backup before further menu use. Preparation writes phase 2 and four
 reserved slots before creating zero-length files. In that phase the
 HDD boots only DOS. Retry `/P` after an interrupted prepare, or use
@@ -299,7 +300,7 @@ and [VA3](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html
 specifications list 256 KiB, versus [64 KiB for the VA](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html).
 The bounded probe saves the bank and a word in the upper aperture,
 tests two values, then restores both. Port 156h reports expansion-ROM
-bank status (manual §3.4, expansion ROM); it is not a unique VA-91
+bank status (manual §3.6, expansion slots); it is not a unique VA-91
 identifier, so an original-size aperture with an expansion indication
 is labelled `PC-88VA?`. An inconclusive probe also prints `PC-88VA?`.
 No entries are filtered by model. vaeg m153 offers `va` and `va2`
@@ -355,3 +356,91 @@ Check the selected label and the installation, not just the banner.
 
 1.05 は VA 用、1.1 は VA2 用です。別の機種で起動すると、ディスク版と
 異なる本体内蔵のバージョンが表示されることがあります。
+
+## M4 — Gate results
+
+The D1 → D4 → D5 builder with MASM 5.10 and LINK 3.65 built source
+commit `7835850` into a 1,331,888-byte D88 with SHA-256
+`77b14f6aaa92e1e909dd6579e252812af7c5f8bec831615248ade2df9ba97d2e`.
+The assembled IPL and stage match the direct assembler build used
+in the fault tests.
+
+vaeg m153, virtual calendar, HDD target 0. For 5 MB the starting
+1.05 image came from the M1 `HDFORM`/`SYS C:` scratch fixture. For
+40 MB the gate ran `HDFORM` on fresh blank images and each stock
+installer. All captures below used the DOS `SYS` on the emulator;
+the images were not assembled on the host. The host compared the IPL
+and all four payloads at capture and after each switch, and checked
+both FATs; [the independent checker](D5/check-menu.py) also checks
+for lost or shared clusters and validates ownership and directory slots.
+
+| Model | SASI | RAM | Two captures, prepare/cancel, three choices, persisted timeout, removal | CHKDSK free clusters after capture / removal |
+|---|---:|---:|---|---:|
+| VA | 5 MB | 640 KiB | PASS | 571 / 571 |
+| VA | 40 MB | 640 KiB | PASS | 2440 / 2440 |
+| VA2 | 5 MB | 640 KiB | PASS | 571 / 571 |
+| VA2 | 40 MB | 640 KiB | PASS | 2440 / 2440 |
+| VA2 | 5 MB | 256 KiB | PASS | 571 / 571 |
+
+The normal sequence left all four placeholders empty before stock
+1.1 `SYS`, showed DOS-only while prepared, and refused to capture
+untouched placeholders. Digits exercised `1.05 → 1.1 → MS-DOS → 1.05`;
+PC-Engine ran `DIR`, DOS booted to `C:\>` with shared startup files,
+and the keyless restart selected the saved default without changing
+any bytes. Enter on VA and VA2 also chose the displayed default
+without writing. From the first keyboard poll to the timeout's switch call,
+separate measurements observed 519 frames (9.20 s) on VA and 545
+(9.66 s) on VA2 at vaeg's 56.4 Hz virtual calendar. Second-boundary
+sampling accounts for up to one second of quantization.
+
+Screens: menu [VA](D5/menu-va.png) / [VA2](D5/menu-va2.png),
+[1.05 on VA](D5/switch-va-engine105.png),
+[1.1 on VA2](D5/switch-va2-engine11.png),
+[DOS at 256 KiB](D5/switch-va2-dos-256.png),
+[40 MB CHKDSK](D5/capture-chkdsk-va2-40.png).
+
+### Interruption tests
+
+The debugger killed only the emulator started for each test, breaking
+before a selected `sxsi_write` so earlier 256-byte writes had completed.
+These are write-boundary cuts, not torn writes. In VA 5 MB initial
+capture, six cuts sampled staging, the two FAT copies, root publication,
+parking, and the write that would replace block 0. Every retry from the
+DOS floppy installed one entry with the original IPL and clean CHKDSK.
+On VA2 at 5 MB/640 KiB a cut during placeholder creation left the HDD
+bootable in DOS-only mode; `/P` resumed and `/C` safely cancelled it.
+Two cuts during a third capture (after the phase-3 marker and after a
+rename) resumed from the DOS floppy with exactly three registered
+entries and clean CHKDSK. `/P` refused the full table without
+changing the disk.
+
+For menu switches, VA and VA2 at 5 MB/640 KiB each passed three cuts
+(after the marker and after further root writes). Reboot fell back to
+DOS. Host byte differences were confined to marker bytes and root
+name/attribute fields; the next floppy DOS `CHKDSK` was clean.
+
+### Fallback and regressions
+
+- VA and VA2, 5 MB: removed or truncated stage, CRC-damaged stage,
+  and truncated or CRC-damaged state all fell back to DOS without a
+  menu or a disk write. SYS refused a missing PC-Engine file without
+  changing the disk. On VA2 a pre-DOS screen capture verified both
+  the prepared and damaged-stage notes. DOS may overwrite that
+  screen area during initialization.
+- VA and VA2, 40 MB: `FORMAT /H0 /S`, HDD-only boot with no menu,
+  followed by floppy boot and `DIR C:` passed. Both FAT copies and
+  the installed DOS files matched the build. On VA and VA2 at 640
+  KiB, and on VA2 at 256 KiB, `FORMAT B: /S` and `FORMAT B:` then
+  `SYS B:` both produced independently bootable floppies.
+- Refresh from the DOS floppy with 1.05 active parked the real names
+  and kept default 1.05. A second refresh left `BOOTMENU.DAT`
+  byte-identical. The Japanese catalog applied to a disposable export;
+  the translated `SYS` assembled and linked.
+
+### Remaining coverage
+
+**NOT RUN:** real hardware, physical boot switches, distinct VA3,
+VA+VA-91, torn sectors, PC-Engine 1.00 coexistence, 10/20 MB D5 menu
+runs, and a full Japanese distribution boot. See the model detection
+notes above for why VA-91 is not identified by an expansion indication
+alone.
