@@ -150,8 +150,9 @@ HDALLOC:MOV     AX,[WORKSEG]
         ADD     AX,256
         MOV     [RFSEG],AX
         ADD     AX,64
+        ; The redo buffer and LOADSYS staging share the same space.
+        ; Never plan a transaction while the source bytes are needed.
         MOV     [TXSEG],AX
-        ADD     AX,(TXMAX+1)*16
         MOV     [NEXTSEG],AX
         CMP     AX,DS:[2]
         JBE     HDVALID
@@ -213,6 +214,8 @@ HDPLAN: CALL    D5PLAN
         CMP     [D5IPL],2
         JB      HDCOPY
         CALL    RFRECOVER
+        JC      HDSYSERR
+        CALL    RFSLOTS
         JC      HDSYSERR
 HDCOPY: MOV     AL,[SOURCE]
         MOV     CX,NSYS

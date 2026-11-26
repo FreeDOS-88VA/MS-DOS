@@ -10,9 +10,15 @@ TXBLOCK DW      0
 TXENTRY DW      TXRUN-TXIPL,0
 TXTAB   DW      128 DUP (0)
 
-TXBEGIN:MOV     [TXUSED],0
+TXBEGIN:MOV     AX,[TXSEG]
+        ADD     AX,(TXMAX+1)*16
+        MOV     DX,OFFSET S_NOMEM
+        CMP     DS:[2],AX
+        JB      TXNOMEM
+        MOV     [TXUSED],0
         MOV     [TXPLAN],1
-        RET
+        CLC
+TXNOMEM:RET
 
 ; Match pending transactions before interpreting the IPL as foreign.
 TXRESUME:

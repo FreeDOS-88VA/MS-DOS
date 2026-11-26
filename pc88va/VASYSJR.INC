@@ -83,9 +83,7 @@ RFCRC:  PUSH    DS
         POP     DS
         RET
 
-RFNEW:  CALL    RFSLOTS
-        D5CF    D5PASS
-        MOV     ES,[RFSEG]
+RFNEW:  MOV     ES,[RFSEG]
         XOR     DI,DI
         XOR     AX,AX
         MOV     CX,128
@@ -207,6 +205,7 @@ RFPLAN: CALL    RFFREE
         CALL    RFVALID
         D5CF    RFERROR
         CALL    TXBEGIN
+        D5CF    D5PASS
         CALL    RFCLAIMS
         MOV     [TXPLAN],0
         D5CF    D5PASS

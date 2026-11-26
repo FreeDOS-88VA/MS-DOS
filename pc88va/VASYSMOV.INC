@@ -63,6 +63,7 @@ RMCHOSEN:
         D5CF    RFERROR
         MOV     [RFCL],AX
         CALL    TXBEGIN
+        D5CF    D5PASS
         CALL    RMMOVE
         MOV     [TXPLAN],0
         D5CF    RFERROR
