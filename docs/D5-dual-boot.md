@@ -320,46 +320,67 @@ your disk.
 
 ### Refresh and upgrade
 
-Fix 3 keeps `IO.SYS` and `MSDOS.SYS` in one 256-byte root block (eight
-entries). `FORMAT /S` places both at the start of the root, even with a
-volume label. Capture checks the layout before reporting success, and
-`SYS /P` checks it before preparing placeholders. For example, a first
-capture with one startup file could put the two entries in slots 7 and 8
-under fix 2. Fix 3 moves the complete slot-7 entry into a vacancy in the
-second block, preserving its chain and attributes. The two kernels need
-not be consecutive or in any particular order. Refresh does the same
-relocation as a separate transaction if it encounters a straddling
-pair. If neither block has a usable vacancy, move a file out of the root
-(e.g. into a subdirectory) to free a slot in one of those blocks, then
-retry. SYS does not move user or PC-Engine entries to make room.
+`FORMAT /S` puts both DOS kernel entries in one 256-byte root block,
+even with a volume label. SYS refresh publishes both replacements in
+one physical write, allocating missing entries and relocating a
+straddling entry as needed. Capture and `SYS /P` also try to group the
+entries; capture reports success with a warning if already committed but
+neither kernel block has a vacancy. Free an entry in one of those blocks
+(e.g. move a file into a subdirectory) before the next refresh. SYS never
+moves a user's or PC-Engine's entry to make room.
 
-For relocation, SYS plans a write of the destination dirent before
-marking its source deleted. For refresh, it stages the new file data in
-clusters free in both FAT copies and calculates final 256-byte block
-images for both FATs and the root. The two kernel dirents are still
-written in one block. No live metadata changes while staging. In either
-transaction, SYS writes the block images to free clusters, with a
-CRC-checked table of destination block numbers and per-image CRCs. The
-original IPL block zero is the final image. Only when the log is fully
-written does SYS replace block zero with a temporary 256-byte replay
-IPL. SYS and an HDD cold boot use the same replay code: restore the
-logged metadata, then restore the original IPL as the last write. If
-power fails during replay, the temporary IPL remains in place and runs
-the same plan again before DOS can mount the disk. Before the temporary
-IPL is installed, the live volume still describes the previous files.
-This assumes atomic 256-byte SASI writes; it does not repair media damage.
+Fix 4 reserves up to 40 physical blocks immediately beyond the fixed NEC
+BPB's last logical sector. These blocks are outside the DOS volume, but
+within the supported SASI capacities (see [D2](D2-sasi-driver.md)). SYS
+claims this space only if blank or already marked as its own. The redo
+area holds a CRC-checked table of destination blocks and pre/post CRCs,
+the final 256-byte metadata images, and the original block 0 as the last
+image. There is no change to the on-volume geometry.
 
-After an interruption, boot the HDD directly as SASI target 0. If booting
-from floppy instead, run the new `SYS` on the affected drive **before**
-writing to it or using CHKDSK repair: the log is in unallocated clusters.
-The new SYS can also replay a pending legacy fix-1/2 `VASYS.JRN`, but an
-old installation interrupted by an old SYS has no pre-boot replay for
-that legacy journal.
+1. SYS checks all three source files, FAT agreement, destination root
+   slots and cluster capacity before staging. A small transaction then
+   creates a hidden, system, read-only `VASYS.JRN` with a real FAT chain
+   for the payload. Interrupted staging leaves an ordinary allocated
+   file, not free clusters DOS can reuse; SYS can reuse this reservation
+   on retry with the same floppy. Do not modify or delete `VASYS.JRN`.
+2. SYS writes the three source files into the reservation. A second
+   transaction splits its chain among the replacement files, publishes
+   the names, and removes the reservation and the accounted old chains.
+   A broken old chain (e.g. bad size or cycle) is not freed; SYS leaves
+   the superseded DOS chains allocated in that case and asks the user
+   to run CHKDSK. The operation does not attempt a general FAT repair.
+3. For each transaction SYS writes the complete redo log and a helper
+   in reserved IPL block 1 (ignored by a normal DOS IPL), then arms
+   replay by writing block 0. The target-0 ROM loads both blocks. The
+   replay code validates the entire log and requires each live block
+   to match its recorded before or after CRC before writing anything.
+   This avoids clobbering a DOS write made after a cut. The final write
+   restores block 0. This assumes atomic 256-byte SASI writes.
+4. If replay fails, the temporary IPL tells the user to boot the DOS
+   floppy and run `SYS C:`. If both FATs agree and the DOS files, staging
+   reservation (if present) and menu state are structurally consistent,
+   SYS rebuilds the reserved IPL area with the D4-style DOS or D5 menu
+   loader and continues. It does not guess how to repair an inconsistent
+   volume: back it up, check it with CHKDSK, clear any reported filesystem
+   problems and retry. Restore from backup if repair cannot produce a
+   consistent volume. This is not a substitute for a full volume check.
 
-中断後は SASI 装置 0 の HDD から起動すると更新が再開されます。フロッピーから
-起動する場合は、書き込みや CHKDSK での修復より先に、新しい SYS を対象ドライブに
-実行してください。ルート項目を空けるよう表示された場合は、どちらかの DOS 起動
-ファイルと同じブロックのファイルをサブディレクトリ等へ移してから再実行します。
+After an interruption, boot the HDD directly as SASI target 0 if the
+DOS floppy has been removed. Otherwise run this distribution's `SYS C:`
+from the floppy **before writing to C:** or running CHKDSK repair. Never
+run D4 or fix-1/2/3 SYS on a disk with an armed transaction. The new SYS
+can replay an intact fix-3 log or recover its IPL after log loss, and
+also recognizes the older fix-1/2 `VASYS.JRN` format.
+
+Target 1 (normally D:) has no pre-boot replay or automatic access block.
+C: can still boot and report D: as mounted even if a D: transaction is
+partially replayed. Do not access D: in that case; rerun `SYS D:` from
+this DOS floppy before using the drive.
+
+中断後にフロッピーから起動した場合は、C: への書き込みや CHKDSK での修復より
+先に、本配布版の `SYS C:` を実行してください。更新途中には旧版 SYS (D4、fix
+1～3) を使用しないでください。SASI 装置 1 (通常 D:) は自動復旧しません。
+中断後は D: にアクセスする前に、フロッピーから `SYS D:` を再実行してください。
 
 New SYS must recognize the old IPL, validate and retain the old state
 entries, and install a matching IPL and stage as a pair. D5 releases
@@ -724,3 +745,61 @@ was not asserted by the final-screen check.
 
 **NOT RUN:** torn writes, physical hardware, 10/20 MB, or an exhaustive
 new capture/prepare interruption matrix.
+
+## Fix 4 verification
+
+The D1 → D4 → D5 builder rebuilt `2cf8894` into a 1,331,888-byte
+`msdos4-pc88va-2hd.d88`, SHA-256
+`8084e4541f283b1282fb0bbba79757a8613e09aa192740d76f2e5ca5378448cb`.
+The Japanese catalog applied in a disposable export; the translated SYS
+assembled and linked with MASM 5.10 and LINK 3.65.
+
+On vaeg m153, the damaged-table test replaced the table immediately
+following the write that arms replay, separately for reservation and
+publication. HDD boot displayed the [recovery instruction](D5/fix4-redo-failed-va2.png).
+Floppy SYS restored the IPL, finished the transfer and passed CHKDSK;
+the HDD booted afterward. A separate cut followed by
+`ECHO RETAINED>C:\EARLY.TXT` from the floppy left both the redo log and
+staged clusters unchanged. SYS retained that file and CHKDSK passed.
+On VA, the final SYS also handled a legacy fix-3 armed disk both with an
+intact log (`/L` replayed it) and with a damaged log (`/L` restored the
+IPL), and refused without writing when the FAT copies disagreed.
+
+For each missing-file case, a host check reconstructed every durable
+prefix of the actual 256-byte SASI write trace and applied its redo
+images when armed. It checked the pre/post guards, FAT equality, unique
+root names, chain ownership, matching old or replacement DOS file bytes,
+and unchanged non-DOS files. For each case a guest booted a cut with the
+reservation in place and retried SYS, and booted an armed publication
+cut directly. Both paths reached DOS and passed CHKDSK.
+
+| vaeg, 5 MB / 640 KiB | Missing file (each tested separately) | Host snapshots per file | Guest checks per file |
+|---|---|---:|---:|
+| VA and VA2, D4 | `IO.SYS`, `MSDOS.SYS`, `COMMAND.COM` | 443 | 2 |
+| VA and VA2, D5 | `IO.SYS`, `MSDOS.SYS`, `COMMAND.COM` | 441 | 2 |
+
+The fix-3 straddling layouts (VA and VA2, actual fix-2 captures), an
+aligned VA2 D5 disk and a plain VA2 40 MB disk each passed host checks
+at all 441 writes. Each distinct metadata/boot state (13 per layout)
+booted with CHKDSK; redundant cuts in staging data were checked on the
+host, not booted independently. Fresh captures with and without an
+existing `CONFIG.SYS` on both 5 MB models also refreshed, passed CHKDSK
+and booted DOS from HDD.
+
+The final distribution on VA2 (5 MB) reported capture success plus a
+layout warning with both kernel blocks full. On VA it replaced a kernel
+with a cyclic chain, retained the old allocation for CHKDSK, and booted.
+VA2 also refreshed a 5 MB menu volume and passed CHKDSK at 256 KiB.
+On VA, an incomplete source floppy and an occupied, unmarked tail were
+both refused with the target image unchanged.
+
+The M4 sequence on VA (5 MB, 640 KiB) used the rebuilt floppy after
+HDFORM and both PC-Engine SYS runs. Both captures, preparation/cancel,
+all three menu choices, startup-file switching, the default after a
+restart, and unregister + CHKDSK passed. Saved IPLs and parked file
+contents matched at the checkpoints. Corrupt-stage and truncated-state
+fallback, occupied menu slots, and three sampled menu-switch cuts also
+passed.
+
+**NOT RUN:** torn writes, physical hardware, 10/20 MB, target-1
+interruption, and new exhaustive capture/prepare interruption tests.
