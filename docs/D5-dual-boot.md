@@ -132,3 +132,71 @@ allocation units with no errors or lost chains.
 **NOT RUN in M2:** product installer or menu, 40 MB, 256 KiB,
 interrupted writes, real hardware, physical boot switches, and
 coexistence with PC-Engine 1.00 (M1 tested chaining only).
+
+## M3/M4 preflight — Capture recovery boundary
+
+On vaeg m153 at 640 KiB, `HDFORM C:` on a fresh 40 MB HDI produced
+an empty root and matching D3 FAT headers on both VA and VA2. In
+separate runs, stock 1.05 and 1.1 `SYS C:` each populated the four
+root files and booted from the HDD alone to `Ready`. The initial run
+using reused 40 MB images did not transfer the files; those copies
+lacked the NEC FAT headers and were not valid reference volumes.
+
+On each valid 40 MB volume, installed 1.05, ran the **D4** MS-DOS floppy
+`SYS C:`, then parked 1.05 and inserted the prepared placeholders by
+editing the scratch root. The stock 1.1 floppy `SYS C:` filled all four
+placeholders. Host checks matched the resulting IPL and four payloads to
+the separate 1.1 install and all four parked payloads to the original
+1.05 install. The next floppy-free boot went directly to PC-Engine and
+ran `DIR` ([VA](D5/preflight-40mb-va.png),
+[VA2](D5/preflight-40mb-va2.png)), even though the MS-DOS system files
+were still on the disk. This was a manual reproduction, not a D5
+capture or recovery run. Separate 5 MB runs at 256 KiB reached `Ready`
+on VA and VA2 for both stock installers; these were not coexistence
+runs.
+
+### Gate decision needed
+
+The HDD-only recovery promise cannot cover **every point of capture**
+with the specified installation procedure. The ROM enters the IPL from
+blocks 0–1 (D4/M1). Stock `SYS C:` has replaced those blocks before
+D5 capture starts. A marker in `BOOTMENU.DAT`, a backup of the DOS IPL,
+or a journal elsewhere on disk cannot run until the ROM is once again
+entering our IPL. At the first capture there need not be any MS-DOS
+system files yet, so writing our IPL first does not provide a DOS
+fallback either. The 40 MB add-version run above demonstrates the
+handoff to the foreign IPL; it is not power-off injection.
+
+Proposed gate split: for **prepare and menu switches**, keep the
+HDD-only MS-DOS/recovery requirement. For **capture before the new IPL
+is published**, require booting the MS-DOS floppy and retrying or
+repairing `SYS C:` without loss of either PC-Engine file set. Once a
+bootable D5 IPL is published, require HDD-only recovery again. If the
+requirement is instead HDD-only recovery throughout capture, the
+handoff must change so that the foreign installer never replaces the
+ROM-visible dispatcher. Neither patching the foreign installer nor
+changing the ROM is part of D5.
+
+### Pending M4 sequence (with preparation)
+
+1. `HDFORM C:` → PC-Engine 1.05 floppy `SYS C:` → MS-DOS floppy
+   `SYS C:` and label the first capture. Boot MS-DOS from the HDD menu
+   to leave all real PC-Engine names free.
+2. Prepare, cancel and verify only the zero-length placeholders were
+   removed. Prepare again and verify HDD boot goes straight to MS-DOS
+   with a note. Verify capture refuses the untouched placeholders.
+3. Boot the 1.1 floppy and run `SYS C:`. Boot the MS-DOS floppy and
+   capture with a distinct label. Check the saved IPLs and payloads
+   after each transfer and run CHKDSK. Exercise interrupted prepare
+   and interrupted capture separately from interrupted menu switches.
+
+| vaeg m153 | 5 MB, 640 KiB | 40 MB, 640 KiB | 5 MB, 256 KiB |
+|---|---|---|---|
+| VA | M2 manual coexistence | Manual preparation + 1.1 install | Stock installers only |
+| VA2 | M2 manual coexistence | Manual preparation + 1.1 install | Stock installers only |
+
+**NOT RUN:** M3 implementation/build and M4 product gates (menu keys,
+timeout/persistence, interruption injection, corruption fallback,
+list/remove, table limits, CHKDSK for the new preflight volumes and
+floppy/D4 regressions), real hardware, physical boot switches and
+PC-Engine 1.00 coexistence.
