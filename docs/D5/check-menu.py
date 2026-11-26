@@ -39,10 +39,11 @@ def outside(path):
 def verify(image, owner, last, captures):
     require = fatcheck.require
     mb, used, free, files = fatcheck.check(image)
-    require('BOOTMENU.JRN' not in files, 'allocation journal still present')
+    require(not {'BOOTMENU.JRN', 'VASYS.JRN'}.intersection(files), 'allocation journal still present')
     state = files['BOOTMENU.DAT']
     require(len(state) == STATESIZ and state[:4] == b'VBM1', 'bad menu state header')
     require(state[4:8] == bytes((owner, last, 0, 0)), 'unexpected ownership, default or phase')
+    require(state[118] in (0, 1) and state[119] == 0, 'unknown state version or switch flags')
     require(crc16(state[:254]) == struct.unpack_from('<H', state, 254)[0], 'bad state CRC')
     _, roots, _, fat_sectors, _ = fatcheck.LEGACY[mb]
     root = fatcheck.HEADER + (1 + 2 * fat_sectors) * 1024

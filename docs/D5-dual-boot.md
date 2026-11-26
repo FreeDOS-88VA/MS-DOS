@@ -387,7 +387,7 @@ Check the selected label and the installation, not just the banner.
    その `SYS C:` を実行します。MS-DOS フロッピーで起動し直し、`SYS C:`
    で `PC-Engine 1.1` などの名前を登録します。登録直後は新しい項目が
    既定値です。
-4. 数字キーで直ちに起動します。Enter または 10 秒経過で前回の選択が
+4. 数字キーで直ちに起動します。Enter または 10～11 秒経過で前回の選択が
    起動します。`SYS C: /L` は登録 ID を表示します (メニューの番号とは
    異なる場合があります)。準備の取り消しは `SYS C: /C`、登録解除は
    `SYS C: /D n` です。登録解除では退避ファイルを残し、復元はしません。
@@ -397,7 +397,7 @@ Check the selected label and the installation, not just the banner.
 1.05 は VA 用、1.1 は VA2 用です。別の機種で起動すると、ディスク版と
 異なる本体内蔵のバージョンが表示されることがあります。
 
-## M4 — Gate results
+## M4 — Original D5 gate results (before fix 1)
 
 The D1 → D4 → D5 builder with MASM 5.10 and LINK 3.65 built source
 commit `7835850` into a 1,331,888-byte D88 with SHA-256
@@ -484,3 +484,49 @@ VA+VA-91, torn sectors, PC-Engine 1.00 coexistence, 10/20 MB D5 menu
 runs, and a full Japanese distribution boot. See the model detection
 notes above for why VA-91 is not identified by an expansion indication
 alone.
+
+## Fix 1 verification
+
+The D1 → D4 → D5 builder assembled `618e2c7` into a 1,331,888-byte
+D88 with SHA-256
+`ccf6c8b477093af3408bd931186f8517fc36942099e3c11a80a4bf6963fa198b`.
+The rebuilt distribution passed HDD-only `FORMAT /H0 /S` boot on VA
+and VA2 (40 MB), and both 2HD `FORMAT B: /S` and `FORMAT B:` + `SYS B:`
+booted on VA/640 KiB and VA2/640 and 256 KiB. The builder's file
+manifest was verified against the disk contents. The complete M4
+three-way sequence passed on VA and VA2 at 5 and 40 MB/640 KiB and
+on VA2 at 5 MB/256 KiB. The independent image checker passed on all
+five resulting three-way volumes.
+
+With a digit queued at frame 400, the default booted unchanged. From
+first poll to selection the vaeg m153 virtual calendar measured VA
+569 frames (10.09 s) and VA2 594 frames (10.53 s), at 56.4 Hz.
+On both models a cyclic PC-Engine chain fell back to DOS without any
+write. Capture also refused an incoming cyclic chain without writing.
+`/D` unregistered an entry with a missing file and changed only the
+state block. A stray `BOOTMENU.SYS` on D4 did not block a
+refresh. A simulated original D5 installation upgraded on both models
+with saved IPLs, records, and the default intact.
+
+All 76 debugger cuts in the switch matrix passed: after the marker
+and after every root write for 1.05 → 1.1, 1.1 → DOS, and DOS → 1.05,
+on VA and VA2 at both 5 and 40 MB. HDD-only boot replayed before
+displaying the menu, the complete image matched the expected switched
+image, and guest CHKDSK was clean. A pending switch also replayed
+with `SYS C: /L` (VA) and plain `SYS C:` (VA2). On VA2 an out-of-order
+root change fell back to DOS and left the image unchanged.
+
+Eight representative refresh cuts covered D4 and D5 across VA/VA2 and
+5/40 MB, including before and after publishing the kernel pair and
+before removing the journal. The next HDD boot reached `C:\>`; retry
+from the floppy completed the update and CHKDSK reported no lost
+chains. Separately, actual SASI writes from all eight combinations of
+VA/VA2, 5/40 MB, and D4/D5 were replayed into host-side snapshots (477
+writes per 5 MB refresh, 453 per 40 MB). After every write, FAT1 resolved
+both kernel files to the old or the new pair, and `COMMAND.COM` remained
+loadable. This was a trace check, not an HDD boot and guest CHKDSK after
+every write.
+
+**NOT RUN:** exhaustive guest refresh cuts at every write, and the
+original capture/prepare cut matrix on this build. The refresh layout
+limitation above remains; this is not a pass of the full fix-1 gate.
