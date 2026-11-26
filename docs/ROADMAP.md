@@ -445,6 +445,16 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   timestamps of all three system files in SASI and floppy `FORMAT /S`
   and in `SYS`.
 
+### D5 — Choose PC-Engine or MS-DOS at SASI boot
+- `SYS C:` on a volume with a PC-Engine IPL saves that IPL to a file on
+  C: before replacing it. When the saved IPL is present, the MS-DOS SASI
+  IPL shows a menu: PC-Engine (default) or MS-DOS, waiting 10 seconds;
+  PC-Engine is started by running the saved IPL as the ROM would.
+- Gate (vaeg VA and VA2): PC-Engine 1.1 `SYS C:` volume → MS-DOS
+  `SYS C:` → HDD-only boot shows the menu; no key for 10 s → PC-Engine
+  Ready; MS-DOS key → C>; volume without a saved IPL boots MS-DOS with
+  no menu (D4 behaviour); D4 HDD and floppy regressions.
+
 ## Follow-ups
 - F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and
   floppy) and SYS keep the source files' date/time; a 40 MB second SASI
