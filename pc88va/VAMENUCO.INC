@@ -321,8 +321,12 @@ MOVESET:MOV     BYTE PTR ES:[ST_PHASE],1
         CALL    RENAMESET
         JC      SWERR
         MOV     BL,[CHOICE]
+        IFDEF   MENUDOS
+        CMP     [KEEPDEFAULT],0
+        JNE     SWOWNER
+        ENDIF
         MOV     ES:[ST_LAST],BL
-        MOV     ES:[ST_OWNER],BL
+SWOWNER:MOV     ES:[ST_OWNER],BL
         MOV     BYTE PTR ES:[ST_PHASE],0
         MOV     BYTE PTR ES:[ST_NEXT],0
         JMP     SAVE
@@ -608,6 +612,9 @@ SLOT    DW      0
 MATCH   DB      32 DUP (0)
 CHOICE  DB      0
 ACTIVATE DB     0
+        IFDEF   MENUDOS
+KEEPDEFAULT DB  0
+        ENDIF
         IFNDEF  MENUDOS
 STARTSEC DB     0
 MAP     DB      5 DUP (0)

@@ -505,9 +505,13 @@ D5KEEPMENU:
         JMP     D5PUBLISH
 D5PARKDOS:
         MOV     ES,[BMSTSEG]
+        CMP     BYTE PTR ES:[ST_OWNER],0
+        JE      D5PARKOK
+        MOV     [KEEPDEFAULT],1  ;SYS is not a boot-menu selection.
         MOV     [CHOICE],0
         CALL    SWITCH
         D5CF    D5IOERR
+D5PARKOK:CLC
         RET
 D5IOERR:MOV     DX,OFFSET S_IOERR
         STC
