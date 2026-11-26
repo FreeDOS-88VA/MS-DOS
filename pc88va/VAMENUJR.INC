@@ -42,6 +42,25 @@ D5JRSAVEST:
         JB      D5JRSAVEST
         MOV     AX,[JRCL+2]
         CALL    D5JRLBA
+        CALL    D5WRITESTAGE
+        D5CF    D5IOERR
+        MOV     AX,[JRSLOT]
+        CALL    GETSLOT
+        D5CF    D5IOERR
+        MOV     SI,OFFSET JRNAME
+        CALL    D5JRDIR
+        MOV     WORD PTR ES:[DI+12],354AH
+        MOV     BX,[JRCL]
+        MOV     ES:[DI+14],BX
+        MOV     BX,[JRCL+2]
+        MOV     ES:[DI+16],BX
+        CALL    PUTSLOT
+        D5CF    D5IOERR
+        CALL    D5JRFINISH
+        D5CF    D5IOERR
+        RET
+
+D5WRITESTAGE:
         MOV     [JRSCAN],AX
         MOV     [JRSRC],OFFSET MENUBINARY
         MOV     [JRLEN],MENUSIZE
@@ -67,20 +86,7 @@ D5JRBINCOPY:XOR  DI,DI
         INC     [JRSCAN]
         CMP     [JRLEN],0
         JNE     D5JRSAVEBIN
-        MOV     AX,[JRSLOT]
-        CALL    GETSLOT
-        D5CF    D5IOERR
-        MOV     SI,OFFSET JRNAME
-        CALL    D5JRDIR
-        MOV     WORD PTR ES:[DI+12],354AH
-        MOV     BX,[JRCL]
-        MOV     ES:[DI+14],BX
-        MOV     BX,[JRCL+2]
-        MOV     ES:[DI+16],BX
-        CALL    PUTSLOT
-        D5CF    D5IOERR
-        CALL    D5JRFINISH
-        D5CF    D5IOERR
+        CLC
         RET
 
 ; Detect an interrupted first capture before any DOS allocation.

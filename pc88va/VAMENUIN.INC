@@ -30,13 +30,11 @@ D5PRESENT DB    0
 D5CAP   DB      0               ;entry ID for new or pending capture.
 D5RESUME DB     0
 D5STAGE DW      0
-D5CLMAX DW      0
+D5STAGESLOT DW  0
+D5UPGRADE DB    0
+D5REPLAYED DB   0
 D5SPC   DW      0
 D5SPF   DW      0
-D5GEOM  DW      1,3,22,617,8
-        DW      2,5,36,1234,8
-        DW      4,9,56,2469,8
-        DW      4,9,105,2469,16
 D5FILE  DW      0
 D5SIZE  DW      0
 D5POS   DW      0
@@ -107,7 +105,36 @@ D5TYPE: PUSH    AX
         JE      D5TRET
         INC     AL
 D5TRET: RET
-D5TOLD: POP     AX
+D5TOLD: ; Released D4 and original D5 IPLs (our own code only).
+        PUSH    DS
+        PUSH    ES
+        POP     DS
+        XOR     SI,SI
+        MOV     CX,255
+        CALL    CRC16
+        MOV     BX,DX
+        MOV     SI,512
+        MOV     CX,512
+        CALL    CRC16
+        POP     DS
+        POP     AX
+        CMP     BX,1A57H       ;D4: keep its IPL on DOS refresh.
+        JNE     D5TV0
+        CMP     DX,0A31AH
+        JNE     D5TRET
+        MOV     AL,2
+        RET
+D5TV0:  CMP     BX,0D7F5H      ;D5 v0: same DOS loader and stage ABI.
+        JNE     D5TRET
+        CMP     DX,2F41H
+        JNE     D5TRET
+        MOV     AL,2
+        CMP     BYTE PTR ES:[255],0
+        JE      D5TRET
+        CMP     BYTE PTR ES:[255],1
+        JNE     D5TRET
+        MOV     AL,3
+        MOV     [D5UPGRADE],1
         RET
 
 D5SETUP:MOV     AL,[FTARGET]
@@ -129,7 +156,23 @@ D5SETUP:MOV     AL,[FTARGET]
         MOV     [D5SPC],AX
         MOV     AH,0DH           ;Drop DOS buffers before raw directory access.
         INT     21H
-        JMP     D5OPEN
+        CALL    BMGEOMETRY
+        D5CF    D5ERROR
+        CALL    D5OPEN
+        JC      D5SETRET
+        CMP     BYTE PTR ES:[ST_PHASE],1
+        JNE     D5SETOK
+        CMP     [D5IPL],3
+        D5NZ    D5ERROR
+        CMP     [D5OP],0
+        JE      D5REPLAY
+        CMP     [D5OP],'L'
+        D5NZ    D5ERROR
+D5REPLAY:CALL   RECOVERSW
+        D5CF    D5ERROR
+        MOV     [D5REPLAYED],1
+D5SETOK:CLC
+D5SETRET:RET
 
 D5ERROR:MOV     DX,OFFSET D5BADMSG
         STC
@@ -154,10 +197,17 @@ D5LOCATE:
         MOV     BL,[MATCH+11]
         AND     BL,0DFH
         CMP     BL,7
-        JNE     D5LOCERR
+        D5NZ    D5LOCERR
         CMP     WORD PTR [MATCH+30],0
-        JNE     D5LOCERR
-        CMP     WORD PTR [MATCH+28],DX
+        D5NZ    D5LOCERR
+        OR      DX,DX
+        JNZ     D5LOCSIZE
+        MOV     DX,WORD PTR [MATCH+28]  ;Older stage, still one cluster.
+        CMP     DX,1
+        JB      D5LOCERR
+        CMP     DX,4096
+        JA      D5LOCERR
+D5LOCSIZE:CMP   WORD PTR [MATCH+28],DX
         JNE     D5LOCERR
         MOV     AX,WORD PTR [MATCH+26]
         CMP     AX,2
@@ -212,13 +262,28 @@ D5OPEN: CALL    D5JRRECOVER
         MOV     DI,AX
         MOV     CX,2048
         REP     STOSW
+        MOV     SI,OFFSET D5DAT
+        CALL    FIND
+        D5CF    D5ERROR
+        CMP     AX,0FFFFH
+        JNE     D5OPENFULL
+        MOV     [D5STAGE],0FFFFH
+        JMP     D5NOSTATE
+D5OPENFULL:
         MOV     SI,OFFSET D5SYS
         MOV     DX,MENUSIZE
-        CALL    D5LOCATE
+        CMP     [D5UPGRADE],0
+        JE      D5OPENLOC
+        XOR     DX,DX
+D5OPENLOC:CALL  D5LOCATE
         D5CF    D5ERROR
         MOV     [D5STAGE],AX
+        MOV     BX,[SLOT]
+        MOV     [D5STAGESLOT],BX
         CMP     AX,0FFFFH
         JE      D5OPENST
+        CMP     [D5UPGRADE],0
+        JNE     D5OPENST
         CALL    D5CHECKSTAGE
         D5CF    D5ERROR
         JMP     SHORT D5OPENST
@@ -281,6 +346,7 @@ D5NOSTATE:
         D5Z     D5ERROR
         MOV     WORD PTR ES:[ST_SIG1],4256H
         MOV     WORD PTR ES:[ST_SIG2],314DH
+        MOV     BYTE PTR ES:[ST_VER],STATEVER
         CLC
         RET
 
@@ -337,13 +403,21 @@ D5NEW:  CALL    D5AVAILABLE
         D5CF    D5NOROOM
 D5FOUNDID:
         CALL    D5CAPCHECK
-        JNC     D5GETLABEL
+        JNC     D5CAPROOM
         CMP     [D5PRESENT],0
         JNE     D5BADPCE
         ; Plain D4 upgrades need no menu when all four names are absent.
         CALL    CHECKFILES
         D5CF    D5PCERR
         RET
+D5CAPROOM:
+        CMP     [D5PRESENT],0
+        JNE     D5GETLABEL
+        MOV     SI,OFFSET D5SYS
+        CALL    FIND
+        D5CF    D5ERROR
+        CMP     AX,0FFFFH
+        D5NZ    D5NOROOM
 D5GETLABEL:
         MOV     AL,[SETID]
         MOV     [D5CAP],AL
@@ -426,7 +500,15 @@ D5CAPCHECK:
         JE      D5CCINIT
         MOV     AL,[D5CAP]
         MOV     [SETID],AL
-D5CCINIT:MOV    [FILEID],0
+D5CCINIT:
+        MOV     AL,[SETID]
+        MOV     [CAPSKIP],AL
+        CALL    CHECKFILES
+        MOV     AL,[CAPSKIP]
+        MOV     [SETID],AL
+        MOV     [CAPSKIP],0
+        D5CF    D5CCERR
+        MOV     [FILEID],0
 D5CCFILE:CALL   NAMES
         CALL    FIND
         D5CF    D5CCERR
@@ -466,14 +548,8 @@ D5CCCHECK:CMP   AX,0FFFFH
         MOV     AL,[ATTR]
         CMP     AL,[MATCH+11]
         JNE     D5CCERR
-        MOV     AX,WORD PTR [MATCH+28]
-        OR      AX,WORD PTR [MATCH+30]
-        JZ      D5CCERR
-        MOV     AX,WORD PTR [MATCH+26]
-        CMP     AX,2
-        JB      D5CCERR
-        CMP     AX,[D5CLMAX]
-        JA      D5CCERR
+        CALL    CHECKCHAIN
+        JC      D5CCERR
         MOV     SI,OFFSET MATCH+12
         MOV     CX,20
         CALL    CRC16
@@ -496,10 +572,19 @@ D5COMMIT:
         JNE     D5CAPTURE
         CMP     [D5PRESENT],0
         JNE     D5KEEPMENU
+        CMP     [D5IPL],2
+        JE      D5PARKOK       ;Already bootable; keep the DOS loader.
         CALL    HIPLWRITE
         D5CF    D5IOERR
         RET
 D5KEEPMENU:
+        CMP     [D5IPL],3
+        JNE     D5PUBFOREIGN
+        CMP     [D5UPGRADE],0
+        JE      D5PARKDOS
+        CALL    D5NEWSTAGE
+        D5CF    D5IOERR
+D5PUBFOREIGN:
         CMP     [D5IPL],3
         JE      D5PARKDOS
         JMP     D5PUBLISH
@@ -573,6 +658,23 @@ D5PARKCAP:
         MOV     BYTE PTR ES:[ST_NEXT],0
         CALL    SAVE
         D5CF    D5IOERR
+; The v0 and v1 IPLs only differ in block 0. Until the stage and
+; its directory size are both replaced, the v0 IPL falls back to DOS.
+D5NEWSTAGE:
+        MOV     AX,[D5STAGE]
+        CALL    D5WRITESTAGE
+        D5CF    D5IOERR
+        MOV     AX,[D5STAGESLOT]
+        CALL    GETSLOT
+        D5CF    D5IOERR
+        MOV     WORD PTR ES:[DI+28],MENUSIZE
+        CALL    PUTSLOT
+        D5CF    D5IOERR
+        CALL    D5PUBLISH
+        D5CF    D5IOERR
+        MOV     ES,[BMSTSEG]
+        MOV     BYTE PTR ES:[ST_VER],STATEVER
+        JMP     SAVE
 D5PUBLISH:
         MOV     ES,[WORKSEG]
         XOR     DI,DI
@@ -581,6 +683,8 @@ D5PUBLISH:
         REP     MOVSW
         MOV     BYTE PTR ES:[255],1
         XOR     AX,AX
+        CMP     [D5UPGRADE],0
+        JNE     D5PUBLISH0
         MOV     BX,2
         MOV     BP,512
         CALL    WRITEBLOCK
@@ -589,7 +693,7 @@ D5PUBLISH:
         ADD     BP,256
         CALL    WRITEBLOCK
         D5CF    D5IOERR
-        XOR     BX,BX
+D5PUBLISH0:XOR  BX,BX
         XOR     BP,BP
         CALL    WRITEBLOCK
         D5CF    D5IOERR
@@ -663,16 +767,10 @@ D5REMOVE:
         MOV     BL,[D5DELETE]
         CALL    IDOK
         D5CF    D5ERROR
-        CALL    CHECKFILES
-        D5CF    D5ERROR
-        MOV     BL,[D5DELETE]
         CMP     BL,ES:[ST_OWNER]
         JNE     D5CLEAR
-        MOV     [CHOICE],0
-        CALL    SWITCH
-        D5CF    D5IOERR
-D5CLEAR:MOV     BL,[D5DELETE]
-        CALL    ENTRY
+        MOV     BYTE PTR ES:[ST_OWNER],0
+D5CLEAR:CALL    ENTRY
         MOV     BYTE PTR ES:[DI],0
         CMP     BL,ES:[ST_LAST]
         JNE     D5UNREG

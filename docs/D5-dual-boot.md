@@ -205,7 +205,7 @@ loader. Byte 255 opts into the menu. `FORMAT /S` and plain DOS-only
 `SYS` leave it off; neither a root scan for menu files nor model
 probing runs on that path. When enabled, the IPL bounds FAT12 reads
 and verifies the exact generated size and CRC of `BOOTMENU.SYS`
-(1727 bytes in this build). A missing, truncated or bad file falls
+(2229 bytes in the fix-1 direct assembly). A missing, truncated or bad file falls
 back to DOS. The stage runs at segment 3400h so it can restore the
 selected saved IPL at 3000:0 using the entry convention verified in
 M1. CRC-16 checks accidental corruption, not malicious image edits.
@@ -219,10 +219,12 @@ words. Its layout:
 
 | Offset | Bytes | Meaning |
 |---:|---:|---|
-| 0 | 4 | `VBM1` signature and version |
+| 0 | 4 | `VBM1` signature |
 | 4 | 4 | Owner ID, last choice, phase, pending target ID |
 | 8 | 8 | Four root slot numbers reserved by `/P`, when prepared |
 | 16 | 102 | Three 34-byte entry records (IDs 1–3); DOS is ID 0 |
+| 118 | 1 | State version: 0 = original D5; 1 = replayable switch |
+| 119 | 1 | Switch flags: bit 0 preserves the previous default during SYS |
 | 254 | 2 | CRC-16/IBM (initial 0) of bytes 0–253 |
 | 1024 | 3072 | Three saved 1024-byte IPLs, in ID order |
 
@@ -257,8 +259,17 @@ owner and last choice while clearing the marker. Renames are in-place
 updates of the name and attributes; no FAT or file-data sectors are
 written. A repeat of the active and last choice writes nothing.
 Refreshing DOS with `SYS` may park the active version, but preserves
-its last menu choice. Interrupted switches boot DOS and leave the marker set; restore a
-backup before further menu use. Preparation writes phase 2 and four
+its last menu choice. On the next HDD-only boot the stage checks for a
+valid prefix of the ordered renames (all owner files park before any
+target file activates), skips completed steps, and rolls forward before
+showing the menu. Plain `SYS C:` and `/L` can also replay the marker.
+An unexplained name, slot, attribute, record CRC, or FAT chain is a
+read-only failure: the stage prints a warning and boots DOS. The chain
+walk requires exactly the number of clusters implied by the file size
+and an end marker; it is bounded even on a cycle. Capture also checks
+the incoming set and the registered sets it depends on.
+
+Preparation writes phase 2 and four
 reserved slots before creating zero-length files. In that phase the
 HDD boots only DOS. Retry `/P` after an interrupted prepare, or use
 `/C` to remove still-empty placeholders; neither operation overwrites
@@ -277,20 +288,47 @@ ignores it. Until block 0 changes, the ROM still enters PC-Engine's
 IPL; some of the files it expects may already be parked. Boot the
 MS-DOS floppy and rerun `SYS C:` to resume the allocation, a committed
 phase-3 capture, or a capture parked before publication. Recover
-before using the HDD from other software. The preceding D4 transfer of
-`IO.SYS`, `MSDOS.SYS` and `COMMAND.COM` is still ordinary DOS file I/O,
-not part of the menu allocation transaction; it does not rename or
-modify the PC-Engine files. Back up the disk first.
+before using the HDD from other software. With a foreign or blank IPL,
+the preceding transfer of `IO.SYS`, `MSDOS.SYS` and `COMMAND.COM` is
+ordinary DOS file I/O. Back up the disk first.
+
+### Refresh and upgrade
+
+When the IPL is already recognized as D4 or D5, SYS stages the new DOS
+file contents in clusters free in both FAT copies. It records the staged
+file entries and the exact new and retired chain lists in a CRC-checked
+plan, then publishes a zero-length `VASYS.JRN` root entry pointing to
+that plan. The staged files are not separately named in the directory.
+SYS claims the new chains in both FATs, replaces the two live kernel
+entries together in one 256-byte write, replaces `COMMAND.COM`, frees
+the old chains in both FATs, then deletes the journal. If the kernel
+entries span physical blocks, SYS refuses rather than exposing a mixed
+pair. This does not yet support refresh on every valid root layout.
+A cut can leave unreferenced chains or unequal FAT copies. Boot the
+floppy and retry `SYS C:` **before** running CHKDSK repair or writing
+anything else to the HDD: the journal cluster itself is not allocated.
+
+New SYS must recognize the old IPL, validate and retain the old state
+entries, and install a matching IPL and stage as a pair. The original
+D5 release and this one share the same DOS loader and differ only in
+IPL block 0. SYS writes the new stage, updates its length in the root,
+then commits block 0 and the state version. Until publication a stage
+length or CRC mismatch falls back to DOS; retry with new SYS. A future
+format change must migrate the state explicitly and must not assume a
+new IPL layout can be published in the same order. The old format did
+not distinguish a SYS-initiated pending switch from a menu selection.
 
 ### Clock and model display
 
 The timeout uses the calendar BIOS, *PC-88VA Technical Manual*
 §6.14.2 (`614CALEN.TXT`), INT 8Ch/AH=02h. It counts elapsed seconds
-modulo 60 (including minute and midnight rollover). Invalid readings
-or a bounded poll loop expiring fall back to DOS. Keyboard uses
-§6.3.4 (INT 82h/AH=0Ah tests carry; AH=09h consumes a pending key).
-Text output uses INT 83h, §6.4. A live countdown is not displayed;
-the prompt names the last choice and the ten-second interval.
+modulo 60 (including minute and midnight rollover). It waits for eleven
+second boundaries, so ten full seconds pass even if the first boundary
+is immediate. Invalid readings or a bounded poll loop expiring fall back
+to DOS. Keyboard uses §6.3.4 (`603KEYB.TXT`): INT 82h/AH=0Ch flushes
+the primitive buffer after the menu is drawn, AH=0Ah polls it, and
+AH=09h consumes a key. Text output uses INT 83h, §6.4; the prompt
+counts down in place.
 
 The model text uses the text VRAM aperture, not firmware bytes:
 *PC-88VA Technical Manual* §§3.3 and 4.2.1 document selecting text
@@ -299,10 +337,10 @@ VRAM with port 153h and the original VA's 64 KiB aperture. NEC's
 and [VA3](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html)
 specifications list 256 KiB, versus [64 KiB for the VA](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html).
 The bounded probe saves the bank and a word in the upper aperture,
-tests two values, then restores both. Port 156h reports expansion-ROM
-bank status (manual §3.6, expansion slots); it is not a unique VA-91
-identifier, so an original-size aperture with an expansion indication
-is labelled `PC-88VA?`. An inconclusive probe also prints `PC-88VA?`.
+tests two values, then restores both. The labels are `PC-88VA` when the
+upper aperture is absent, `PC-88VA2/VA3/VA-91` when present, and
+`PC-88VA?` when inconclusive. No expansion-ROM port is used to identify
+a VA-91.
 No entries are filtered by model. vaeg m153 offers `va` and `va2`
 (`sdl2/cliopts.c`, `sdl2/np2.c`). The VA-91 code in `io/va91.c` is not
 a selectable SDL2 model in that build. VA3 (distinct hardware) and
@@ -322,12 +360,14 @@ VA+VA-91: **NOT RUN**.
    `SYS C: /P`. Then boot the PC-Engine 1.1 floppy and run its `SYS C:`.
    Boot the project DOS floppy and run `SYS C:` again; label the new
    entry `PC-Engine 1.1`. The new entry is the first default.
-4. A digit boots immediately; Enter or ten seconds boots the default.
-   `SYS C: /L` lists persistent IDs (menu digits may differ after
-   removal). Use `SYS C: /C` before installing to cancel preparation,
-   or `SYS C: /D n` to unregister ID `n`. Unregistering retains the
-   parked files and restores nothing. Back up and move those parked
-   files if their names prevent reusing that ID.
+4. A digit boots immediately; Enter or the 10–11 second timeout boots
+   the default. `SYS C: /L` lists persistent IDs (menu digits may differ
+   after removal). Use `SYS C: /C` before installing to cancel preparation,
+   or `SYS C: /D n` to unregister ID `n`, even if its files are missing.
+   `/D` only changes state; it does not rename, delete or restore files.
+   Select MS-DOS before unregistering a healthy active set. If the
+   unregistered set was active and left real names behind, back up and
+   move those files before using the menu again.
 
 PC-Engine 1.05 is for the VA; 1.1 is for the VA2. On the other model,
 PC-Engine can display the built-in version instead of the disk version.

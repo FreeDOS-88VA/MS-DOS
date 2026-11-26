@@ -12,6 +12,8 @@ MAIN:   PUSH    CS
         MOV     [ROOT],BX
         MOV     [DATA0],CX
         MOV     ES,[BMSTSEG]
+        CALL    BMGEOMETRY
+        JC      BADMENU
         CALL    VALIDATE
         JNC     VALID
 BADMENU:MOV     SI,OFFSET BADMSG
@@ -22,7 +24,12 @@ VALID:  CMP     BYTE PTR ES:[ST_PHASE],2
         JMP     SHORT DOSMSG
 UNPREP: CMP     BYTE PTR ES:[ST_PHASE],0
         JE      READY
-        MOV     SI,OFFSET PENDMSG
+        CMP     BYTE PTR ES:[ST_PHASE],1
+        JNE     CAPWAIT
+        CALL    RECOVERSW
+        JNC     READY
+        JMP     SHORT BADMENU
+CAPWAIT:MOV     SI,OFFSET PENDMSG
 DOSMSG: CALL    PRINT
         RETF
 READY:  CALL    CHECKFILES
@@ -77,9 +84,21 @@ VCRC:
         CALL    CRC16
         POP     DS
         CMP     DX,ES:[ST_CSUM]
-        JNE     INVALID
+        JNE     VREJECT
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JA      VREJECT
+        CMP     BYTE PTR ES:[ST_FLAGS],1
+        JA      VREJECT
         CMP     BYTE PTR ES:[ST_PHASE],3
         JA      INVALID
+        CMP     BYTE PTR ES:[ST_PHASE],1
+        JNE     VOWNER
+        MOV     BL,ES:[ST_NEXT]
+        CMP     BL,ES:[ST_OWNER]
+        JE      INVALID
+        CALL    IDOK
+        JC      INVALID
+VOWNER:
         MOV     BL,ES:[ST_OWNER]
         CALL    IDOK
         JC      INVALID
@@ -147,72 +166,7 @@ IPLPTR: XOR     AH,AH
         MOV     AX,[BMSTSEG]
         RET
 
-; Before even offering a choice, validate the free/occupied real names
-; and each saved directory entry. Check duplicate names and unexpected
-; parking aliases rather than letting an ambiguous rename proceed.
-CHECKFILES:
-        MOV     [SETID],1
-CSET:   MOV     BL,[SETID]
-        CALL    ENTRY
-        CMP     BYTE PTR ES:[DI],0
-        JNE     CINIT
-        JMP     CNEXT
-CINIT:  MOV     [FILEID],0
-CFILE:  CALL    NAMES
-        CALL    FIND
-        JC      CFERR
-        MOV     BL,[SETID]
-        CMP     BL,ES:[ST_OWNER]
-        JNE     CPARK
-        INC     AX
-        JNZ     CFERR           ;The owner must have no parked alias.
-        MOV     SI,[REALPTR]
-        CALL    FIND
-        JC      CFERR
-        MOV     DL,[ATTR]
-        JMP     SHORT CRECORD
-CFERR:  STC
-        RET
-CPARK:  MOV     DL,[ATTR]
-        OR      DL,2
-CRECORD:CMP     DL,[MATCH+11]
-        JNE     CFERR
-        PUSH    AX
-        CALL    FILEREC
-        POP     AX
-        CMP     AX,ES:[DI]
-        JNE     CFERR
-        CMP     AX,0FFFFH
-        JE      CFERR
-        MOV     AX,WORD PTR [MATCH+28]
-        OR      AX,WORD PTR [MATCH+30]
-        JZ      CFERR
-        MOV     SI,OFFSET MATCH+12
-        MOV     CX,20
-        CALL    CRC16
-        CMP     DX,ES:[DI+2]
-        JNE     CFERR
-        INC     [FILEID]
-        CMP     [FILEID],4
-        JB      CFILE
-CNEXT:  INC     [SETID]
-        CMP     [SETID],MAXID
-        JA      CEND
-        JMP     CSET
-CEND:   CMP     BYTE PTR ES:[ST_OWNER],0
-        JNE     CFOK
-        MOV     [FILEID],0
-CFREE:  CALL    NAMES
-        MOV     SI,[REALPTR]
-        CALL    FIND
-        JC      CFERR
-        INC     AX
-        JNZ     CFERR
-        INC     [FILEID]
-        CMP     [FILEID],4
-        JB      CFREE
-CFOK:   CLC
-        RET
+        INCLUDE VAMENUCK.INC
 
 ; Name helpers; FILEID is 0..3, SETID is 1..3 when producing a park name.
 NAMES:  XOR     BH,BH
@@ -308,26 +262,33 @@ SWITCH: MOV     BL,[CHOICE]
         JMP     SAVE
 MOVESET:MOV     BYTE PTR ES:[ST_PHASE],1
         MOV     ES:[ST_NEXT],BL
+        MOV     BYTE PTR ES:[ST_VER],STATEVER
+        IFDEF   MENUDOS
+        MOV     AL,[KEEPDEFAULT]
+        MOV     ES:[ST_FLAGS],AL
+        ENDIF
         CALL    SAVE
+        JC      SWERR
+RECOVERSW:
+        CALL    CHECKFILES
         JC      SWERR
         MOV     AL,ES:[ST_OWNER]
         MOV     [SETID],AL
         MOV     [ACTIVATE],0
         CALL    RENAMESET
         JC      SWERR
-        MOV     AL,[CHOICE]
+        MOV     AL,ES:[ST_NEXT]
         MOV     [SETID],AL
         MOV     [ACTIVATE],1
         CALL    RENAMESET
         JC      SWERR
-        MOV     BL,[CHOICE]
-        IFDEF   MENUDOS
-        CMP     [KEEPDEFAULT],0
+        MOV     BL,ES:[ST_NEXT]
+        CMP     BYTE PTR ES:[ST_FLAGS],0
         JNE     SWOWNER
-        ENDIF
         MOV     ES:[ST_LAST],BL
 SWOWNER:MOV     ES:[ST_OWNER],BL
         MOV     BYTE PTR ES:[ST_PHASE],0
+        MOV     WORD PTR ES:[ST_VER],STATEVER
         MOV     BYTE PTR ES:[ST_NEXT],0
         JMP     SAVE
 SWOK:   CLC
@@ -359,7 +320,14 @@ RLOAD:  CALL    FILEREC
         MOV     AX,ES:[DI]
         PUSH    ES
         CALL    GETSLOT
-        JC      REXIT
+        JC      RDONE
+        PUSH    SI
+        PUSH    DI
+        MOV     CX,11
+        REPE    CMPSB
+        POP     DI
+        POP     SI
+        JE      REXIT           ;Already done; preflight checked attributes.
         PUSH    DI
         MOV     CX,11
         REP     MOVSB
@@ -367,7 +335,9 @@ RLOAD:  CALL    FILEREC
         MOV     ES:[DI],DL
         POP     DI
         CALL    PUTSLOT
-REXIT:  POP     ES
+        JMP     SHORT RDONE
+REXIT:  CLC
+RDONE:  POP     ES
         JC      RERR
         INC     [FILEID]
         CMP     [FILEID],4
@@ -467,6 +437,13 @@ ONEXT:  INC     BL
         CALL    PRINT
         MOV     BL,ES:[ST_LAST]
         MOV     [CHOICE],BL
+        PUSH    DS
+        PUSH    ES
+        MOV     AH,0CH          ;Primitive keyboard buffer flush (603KEYB).
+        INT     82H
+        POP     ES
+        POP     DS
+        CLD
         CALL    CLOCK
         JC      FORCEOS
         MOV     [STARTSEC],DL
@@ -485,18 +462,34 @@ POLL:   MOV     AH,0AH
         MOV     BX,AX
         MOV     AL,[MAP+BX+1]
         MOV     [CHOICE],AL
-CHOSEN: RET
+CHOSEN: MOV     SI,OFFSET NEWLINE
+        JMP     PRINT
 TICK:   CALL    CLOCK
         JC      FORCEOS
         SUB     DL,[STARTSEC]
         JNC     NOWRAP
         ADD     DL,60
-NOWRAP: CMP     DL,10
+NOWRAP: CMP     DL,11          ;First boundary can be arbitrarily close.
         JAE     CHOSEN
-        DEC     DI
+        MOV     AL,11
+        SUB     AL,DL
+        CMP     AL,[REMAIN]
+        JE      POLLMORE
+        MOV     [REMAIN],AL
+        AAM
+        ADD     AX,3030H
+        CMP     AH,'0'
+        JNE     TIMEPRINT
+        MOV     AH,' '
+TIMEPRINT:
+        MOV     [SECONDS],AH
+        MOV     [SECONDS+1],AL
+        MOV     SI,OFFSET UPDLINE
+        CALL    PRINT
+POLLMORE:DEC    DI
         JNZ     POLL
 FORCEOS:MOV     [CHOICE],DOSID
-        RET
+        JMP     SHORT CHOSEN
 CLOCK:  MOV     AH,2
         INT     8CH
         CMP     CH,24
@@ -526,8 +519,7 @@ DPRINT: MOV     SI,OFFSET PREFIX
         RET
 ; BNN Technical Manual 3.3 and 4.2.1; NEC VA2/VA3 specifications.
 ; Select text memory and probe its upper aperture, restoring both the
-; original word and the mapping before re-enabling interrupts. ROM bank
-; status can indicate an extension, but is not a unique board ID.
+; original word and the mapping before re-enabling interrupts.
 MODEL:  PUSH    ES
         PUSHF
         CLI
@@ -555,10 +547,6 @@ MODEL:  PUSH    ES
         JMP     SHORT RESTMAP
 OPENBUS:AND     AX,BX
         CMP     AX,0FFFFH
-        JNE     RESTMAP
-        MOV     DX,156H
-        IN      AL,DX
-        CMP     AL,0FFH
         JNE     RESTMAP
         MOV     SI,OFFSET VANAME
 RESTMAP:MOV     DX,153H
@@ -620,13 +608,17 @@ STARTSEC DB     0
 MAP     DB      5 DUP (0)
 HEADER  DB      'MS-DOS 4.0 VA boot menu  ',0
 VANAME  DB      '[PC-88VA]',13,10,0
-VA2NAME DB      '[PC-88VA2/VA3]',13,10,0
+VA2NAME DB      '[PC-88VA2/VA3/VA-91]',13,10,0
 UNKNOWN DB      '[PC-88VA?]',13,10,0
 PREFIX  DB      '0: ',0
 DOSLINE DB      'MS-DOS'
 NEWLINE DB      13,10,0
+UPDLINE DB      13
 DEFAULT DB      'Enter = '
-DEFNUM  DB      '0 (automatic in 10 seconds)',13,10,0
+DEFNUM  DB      '0 (automatic in '
+SECONDS DB      '11'
+        DB      ' seconds)',0
+REMAIN  DB      11
 BADMSG  DB      'Inconsistent boot menu; starting MS-DOS.',13,10,0
 PREPMSG DB      'PC-Engine installation prepared; starting MS-DOS.',13,10,0
 PENDMSG DB      'Boot menu update interrupted; starting MS-DOS.',13,10,0

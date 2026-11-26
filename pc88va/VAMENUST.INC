@@ -11,6 +11,9 @@ ST_PHASE EQU    6               ;0 clean, 1 switch, 2 prepared, 3 capture.
 ST_NEXT EQU     7
 ST_PREP EQU     8               ;Four word-sized placeholder root slots.
 ST_ENT  EQU     16
+ST_VER  EQU     118             ;0 = original D5, 1 = replayable switch.
+ST_FLAGS EQU    119             ;Bit 0: keep the previous menu default.
+STATEVER EQU    1
 ST_CSUM EQU     254
 ENTRYLEN EQU    34
 EN_LABEL EQU    0               ;16 bytes including NUL; empty slot if first byte is 0.
