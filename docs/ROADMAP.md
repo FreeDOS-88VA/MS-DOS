@@ -445,15 +445,21 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   timestamps of all three system files in SASI and floppy `FORMAT /S`
   and in `SYS`.
 
-### D5 — Choose PC-Engine or MS-DOS at SASI boot
-- `SYS C:` on a volume with a PC-Engine IPL saves that IPL to a file on
-  C: before replacing it. When the saved IPL is present, the MS-DOS SASI
-  IPL shows a menu: PC-Engine (default) or MS-DOS, waiting 10 seconds;
-  PC-Engine is started by running the saved IPL as the ROM would.
-- Gate (vaeg VA and VA2): PC-Engine 1.1 `SYS C:` volume → MS-DOS
-  `SYS C:` → HDD-only boot shows the menu; no key for 10 s → PC-Engine
-  Ready; MS-DOS key → C>; volume without a saved IPL boots MS-DOS with
-  no menu (D4 behaviour); D4 HDD and floppy regressions.
+### D5 — Choose PC-Engine 1.05, PC-Engine 1.1 or MS-DOS at SASI boot
+- One NEC-layout SASI volume holds PC-Engine 1.05, PC-Engine 1.1 and
+  MS-DOS. `SYS C:` saves a foreign PC-Engine IPL and parks its system
+  files under per-version names. The HDD boot menu lists the saved
+  PC-Engine versions and MS-DOS, waits 10 seconds and then boots the
+  entry chosen last; before starting a PC-Engine version it renames that
+  version's files to their real names and runs its saved IPL.
+  (Maintainer, 2026-11-26: three-way menu, default = last choice,
+  coexistence by renaming at boot.)
+- Gate (vaeg VA and VA2): build a volume with 1.05 and 1.1 by the
+  documented procedure; each menu entry boots (PC-Engine to Ready with
+  the right version, MS-DOS to C>); the timeout boots the last choice,
+  including after a power-off between boots; CHKDSK clean in MS-DOS
+  after every switch; a volume without saved IPLs boots MS-DOS with no
+  menu (D4 behaviour); D4 HDD and floppy regressions.
 
 ## Follow-ups
 - F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and
