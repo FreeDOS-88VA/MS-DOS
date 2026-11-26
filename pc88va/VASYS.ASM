@@ -34,6 +34,9 @@ D5PAIRREAL DB   '  CONFIG.SYS / AUTOEXEC.BAT',13,10,'$'
 D5PAIRPARK DB   '  VACFG0.SYS / VAEXEC0.BAT',13,10,'$'
 D5NONE  DB      'No PC-Engine entries.',13,10,'$'
 D5WAIT  DB      'Boot-menu update pending.',13,10,'$'
+RFMSG   DB      'Cannot safely refresh the SASI boot files.',13,10,'$'
+TXROOM  DB      'Free a root directory entry in either DOS kernel block and retry SYS.',13,10,'$'
+TXBROKEN DB     'Cannot recover the SASI boot-file transaction.',13,10,'$'
 
 ; Use an internal stack; staging system files may cross the COM segment.
 MAIN:   MOV     SP,OFFSET STKTOP
@@ -147,6 +150,8 @@ HDALLOC:MOV     AX,[WORKSEG]
         ADD     AX,256
         MOV     [RFSEG],AX
         ADD     AX,64
+        MOV     [TXSEG],AX
+        ADD     AX,(TXMAX+1)*16
         MOV     [NEXTSEG],AX
         CMP     AX,DS:[2]
         JBE     HDVALID
@@ -168,8 +173,10 @@ HDFATID:MOV     AL,[FTYPE]
         CMP     BYTE PTR ES:[2],0FFH
         JNE     NOTNEC
         CALL    HIPLCHECK
-        JNC     HDTYPE
+        JNC     HDRESUME
         JMP     HDSYSIO
+HDRESUME:CALL   TXRESUME
+        JC      HDEARLYERR
 HDTYPE: CALL    D5TYPE
         MOV     [D5IPL],AL
         CMP     [D5OP],0
@@ -182,12 +189,14 @@ HDNORMAL:MOV    AX,3305H
         INT     21H
         DEC     DL
         CMP     DL,[DRV]
-        JE      HDLOCAL
-        MOV     AL,[SOURCE]
+        JNE     HDSELSRC
+        JMP     HDLOCAL
+HDSELSRC:MOV    AL,[SOURCE]
         SUB     AL,'A'
         CMP     AL,[DRV]
-        JE      HDSOURCED
-        CMP     [D5IPL],1
+        JNE     HDCHKSRC
+        JMP     HDSOURCED
+HDCHKSRC:CMP     [D5IPL],1
         JNE     HDPLAN
         CALL    HCONFSTDIN
         JNC     HDCONFIRMED
@@ -198,9 +207,9 @@ HDCONFIRMED:MOV DX,OFFSET S_HDIPL
         CALL    PUTS
         CALL    HYES
         MOV     DX,OFFSET S_HDCANCEL
-        JC      HDSYSERR
+        JC      HDEARLYERR
 HDPLAN: CALL    D5PLAN
-        JC      HDSYSERR
+        JC      HDEARLYERR
         CMP     [D5IPL],2
         JB      HDCOPY
         CALL    RFRECOVER
@@ -228,7 +237,11 @@ HDINSTALL:
         INT     21H
 HDPUBLISH:CALL  D5COMMIT
         JC      HDSYSERR
-        CALL    HNOTE
+        CMP     [D5IPL],2
+        JAE     HDDONE
+        CALL    RFSLOTS
+        JC      HDSYSERR
+HDDONE: CALL    HNOTE
         JMP     SUCCESS
 HDLOCAL:MOV     DX,OFFSET S_BOOT
         JMP     SHORT HDJRONLY
@@ -251,9 +264,12 @@ HDSYSIO:MOV     DX,OFFSET S_IOERR
 HDSYSERR:JMP    ERROR
 
 MENUDOS EQU     1
+SYSREDO EQU     1
         INCLUDE VAMENUCO.INC
         INCLUDE VAMENUIN.INC
         INCLUDE VASYSJR.INC
+        INCLUDE VASYSMOV.INC
+        INCLUDE VASYSREDO.INC
         DW      256 DUP (0)
 STKTOP  LABEL   WORD
 ENDPROG LABEL   BYTE

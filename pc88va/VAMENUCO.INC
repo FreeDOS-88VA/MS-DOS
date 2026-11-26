@@ -432,12 +432,23 @@ PUTSLOT:MOV     BX,DI
 
 ; AX = logical LBA, ES:BP = aligned DMA buffer. BX = block within
 ; logical sector on write. INT 81h uses a 32-bit physical block number.
-READSEC:PUSH    BX
+READSEC:
+        IFDEF   SYSREDO
+        CMP     [TXPLAN],0
+        JE      BMREAD
+        JMP     TXREAD
+        ENDIF
+BMREAD: PUSH    BX
         XOR     BX,BX
         MOV     CX,8104H
         JMP     SHORT TRANSFER
 WRITEBLOCK:
-        PUSH    BX
+        IFDEF   SYSREDO
+        CMP     [TXPLAN],0
+        JE      BMWRITE
+        JMP     TXWRITE
+        ENDIF
+BMWRITE:PUSH    BX
         MOV     CX,8201H
 TRANSFER:
         PUSH    AX

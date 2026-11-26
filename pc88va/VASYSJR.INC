@@ -1,8 +1,6 @@
 ; SPDX-License-Identifier: MIT
-; SASI refresh transaction. Stage data before any metadata changes, and
-; keep the complete allocation and release plans until replay finishes.
-; The journal is a reserved root name and one otherwise free cluster.
-; Retry SYS from floppy before making other writes after interruption.
+; SASI refresh planner and legacy VASYS.JRN replay (fix 1/2).
+; New transactions use physical afterimages and replay before DOS boot.
 RFNAME  DB      'VASYS   JRN'
 RFNAMES DB      'IO      SYS','MSDOS   SYS','COMMAND COM'
 RFSEG   DW      0
@@ -34,7 +32,6 @@ RF_ALLOC EQU    52              ;8 words (any unused words remain zero).
 RFERROR:MOV     DX,OFFSET RFMSG
         STC
         RET
-RFMSG   DB      'Cannot safely refresh the SASI boot files; use SYS from floppy to retry.',13,10,'$'
 
 ; Look for a plan left by an interrupted refresh. Only owned IPLs call
 ; this entry point. Journal removal is the last write in the operation.
@@ -86,10 +83,8 @@ RFCRC:  PUSH    DS
         POP     DS
         RET
 
-RFNEW:  CALL    D5JRPAIR        ;Use its first safe, unused root slot.
-        D5CF    RFERROR
-        MOV     AX,[JRSLOT]
-        MOV     [RFROOT],AX
+RFNEW:  CALL    RFSLOTS
+        D5CF    D5PASS
         MOV     ES,[RFSEG]
         XOR     DI,DI
         XOR     AX,AX
@@ -209,45 +204,27 @@ RFSTAGED:
 RFPLAN: CALL    RFFREE
         D5CF    RFERROR
         MOV     [RFCL],AX
-        CALL    D5JRLBA
-        PUSH    AX
-        MOV     ES,[RFSEG]
-        MOV     WORD PTR ES:[RF_SIG],3552H
-        MOV     ES:[RF_SIG+2],AX
-        CALL    RFCRC
-        MOV     ES:[RF_CRC],DX
-        POP     AX
-        ; Reject layouts where the old/new kernel pair cannot be
-        ; installed atomically with this IPL and physical block size.
-        MOV     BX,ES:[RF_FIRST+RF_SLOT]
-        XOR     BX,ES:[RF_FIRST+RF_LEN+RF_SLOT]
-        AND     BX,0FFF8H
-        D5NZ    RFERROR
-        PUSH    AX
         CALL    RFVALID
-        POP     AX
         D5CF    RFERROR
-        MOV     ES,[RFSEG]
-        XOR     BX,BX
-        XOR     BP,BP
-        CALL    WRITEBLOCK
-        D5CF    RFERROR
-        MOV     AX,[RFROOT]
-        CALL    GETSLOT
-        D5CF    RFERROR
-        MOV     SI,OFFSET RFNAME
-        CALL    D5JRDIR
-        MOV     WORD PTR ES:[DI+12],5356H
-        MOV     BX,[RFCL]
-        MOV     ES:[DI+14],BX
-        CALL    PUTSLOT
-        D5CF    RFERROR
-        JMP     SHORT RFCLAIMS
+        CALL    TXBEGIN
+        CALL    RFCLAIMS
+        MOV     [TXPLAN],0
+        D5CF    D5PASS
+        JMP     TXCOMMIT
 
 ; Roll forward from the immutable plan. New clusters are never shared
 ; with the old files; the live kernel names are changed in one write.
 RFAPPLY:CALL    RFVALID
         D5CF    RFERROR
+        CALL    RFCLAIMS
+        D5CF    D5PASS
+        MOV     AX,[RFROOT]
+        CALL    GETSLOT
+        D5CF    RFERROR
+        MOV     BYTE PTR ES:[DI],0E5H
+        CALL    PUTSLOT
+        D5CF    RFERROR
+        RET
 RFCLAIMS:MOV    [RFREC],RF_FIRST
 RFCLAIM:MOV     BX,[RFREC]
         ADD     BX,RF_ALLOC
@@ -328,12 +305,7 @@ RFRELDONE:
         ADD     [RFREC],RF_LEN
         CMP     [RFREC],RF_FIRST+NSYS*RF_LEN
         JB      RFRELEASE
-        MOV     AX,[RFROOT]
-        CALL    GETSLOT
-        D5CF    RFERROR
-        MOV     BYTE PTR ES:[DI],0E5H
-        CALL    PUTSLOT
-        D5CF    RFERROR
+        CLC
         RET
 
 ; Before any replay write, require the real names still to be at the

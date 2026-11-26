@@ -879,6 +879,11 @@ D5DELRESULT:
 
 D5PREP: CMP     BYTE PTR ES:[ST_OWNER],0
         D5NZ    D5NEEDOS
+        CALL    RFRECOVER
+        D5CF    D5PASS
+        MOV     ES,[BMSTSEG]
+        CALL    RFSLOTS
+        D5CF    D5PASS
         CMP     BYTE PTR ES:[ST_PHASE],2
         D5Z     D5VALIDP
         CMP     BYTE PTR ES:[ST_PHASE],0
