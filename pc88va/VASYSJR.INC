@@ -276,8 +276,6 @@ RFSTAGED:
         JMP     RFCOPYFILE
 RFFINAL:CALL    TXBEGIN
         D5CF    D5PASS
-        CALL    RFCLAIMS
-        D5CF    D5PASS
         CALL    RFPUBLISH
         D5CF    D5PASS
         CALL    TXCOMMIT
@@ -559,8 +557,6 @@ RFPLANPROV:
 RFPLANFINAL:
         CALL    TXBEGIN
         D5CF    D5PASS
-        CALL    RFCLAIMS
-        D5CF    D5PASS
         CALL    RFPUBLISH
         MOV     [TXPLAN],0
         D5CF    D5PASS
@@ -650,6 +646,14 @@ RFPROVDIR:
         JMP     TXCOMMIT
 
 RFPUBLISH:
+        CALL    RFCLAIMFAT
+        D5CF    RFERROR
+        ; TXWRITE retains the first position of each physical block.
+        ; Queue removal of the reservation before any replacement name.
+        ; If they share a block, the final combined image is atomic.
+        MOV     AX,[RFSLOT+6]
+        CALL    RFDELSLOT
+        D5CF    RFERROR
         MOV     AX,[RFGAP]
         CMP     AX,0FFFFH
         JE      RFDELMIO
@@ -666,12 +670,15 @@ RFDELMIO:
 RFDELMDOS:
         MOV     AX,[RFSRC+2]
         CMP     AX,0FFFFH
-        JE      RFDELJRN
+        JE      RFPUBFILES
         CMP     AX,[RFSLOT+2]
-        JE      RFDELJRN
+        JE      RFPUBFILES
         CALL    RFDELSLOT
         D5CF    RFERROR
-RFDELJRN:MOV    AX,[RFSLOT+6]
+RFPUBFILES:
+        CALL    RFROOTS
+        D5CF    RFERROR
+        JMP     RFRELEASE
 RFDELSLOT:
         CALL    GETSLOT
         D5CF    RFERROR
@@ -695,11 +702,6 @@ RFAPPLY:CALL    RFVALID
         CALL    PUTSLOT
         D5CF    RFERROR
         RET
-RFCLAIMS:CALL   RFCLAIMFAT
-        D5CF    RFERROR
-        CALL    RFRELEASE
-        D5CF    RFERROR
-        JMP     RFROOTS
 RFCLAIMFAT:
         MOV     [RFREC],RF_FIRST
 RFCLAIM:MOV     BX,[RFREC]

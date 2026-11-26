@@ -329,6 +329,11 @@ neither kernel block has a vacancy. Free an entry in one of those blocks
 (e.g. move a file into a subdirectory) before the next refresh. SYS never
 moves a user's or PC-Engine's entry to make room.
 
+**Fix 5 is not release-ready.** The current implementation still uses
+fix 4's out-of-volume log. Do not run this SYS on a real SASI disk:
+blocks beyond the volume may contain HDFORM alternate tracks, even if
+an emulator fills the same addresses with `E5`.
+
 Fix 4 reserves up to 40 physical blocks immediately beyond the fixed NEC
 BPB's last logical sector. These blocks are outside the DOS volume, but
 within the supported SASI capacities (see [D2](D2-sasi-driver.md)). SYS
@@ -355,15 +360,19 @@ image. There is no change to the on-volume geometry.
    replay code validates the entire log and requires each live block
    to match its recorded before or after CRC before writing anything.
    This avoids clobbering a DOS write made after a cut. The final write
-   restores block 0. This assumes atomic 256-byte SASI writes.
+   restores block 0. This assumes atomic 256-byte SASI writes. Block 1
+   retains the helper after a successful transaction. D4-era SYS
+   compares all four IPL blocks against its own and will warn that
+   this IPL is foreign, even on a plain DOS disk.
 4. If replay fails, the temporary IPL tells the user to boot the DOS
    floppy and run `SYS C:`. If both FATs agree and the DOS files, staging
    reservation (if present) and menu state are structurally consistent,
    SYS rebuilds the reserved IPL area with the D4-style DOS or D5 menu
-   loader and continues. It does not guess how to repair an inconsistent
-   volume: back it up, check it with CHKDSK, clear any reported filesystem
-   problems and retry. Restore from backup if repair cannot produce a
-   consistent volume. This is not a substitute for a full volume check.
+   loader and continues. Missing DOS directory entries do not by
+   themselves block this repair; plain SYS installs the missing files
+   from the floppy. If the recovery checks fail, do not write to this
+   drive; restore a known good backup. Do not run CHKDSK during a pending
+   transaction. The recovery checks are not a full volume check.
 
 After an interruption, boot the HDD directly as SASI target 0 if the
 DOS floppy has been removed. Otherwise run this distribution's `SYS C:`
@@ -395,6 +404,38 @@ length or CRC mismatch falls back to DOS; retry with new SYS. A future
 format change must migrate the state explicitly and must not assume a
 new IPL layout can be published in the same order. The old format did
 not distinguish a SYS-initiated pending switch from a menu selection.
+
+### Fix 5 partial verification — gate failed
+
+On 5 MB vaeg scratch images, an intentionally damaged first-armed log
+and a deleted `IO.SYS` (VA/D4) or `MSDOS.SYS` (VA2/D5) recovered with
+floppy `SYS C:`, then booted from HDD and passed guest CHKDSK. The patched
+VA/D4 refresh trace had no duplicate root-chain ownership at any of its
+441 physical write prefixes. At write 439, CHKDSK returned after `N` to
+its lost-chain prompt, but still reported invalid entries and lost
+chains. The old and new FAT entries can share a physical block, so
+coalescing their updates can free the old chains before switching the
+names. This is not the all-prefix consistency gate.
+
+CHKDSK follow-up: on the same plain VA/D4 volume, an extra root entry
+pointing at the existing `IO.SYS` chain (without changing either FAT or
+any other file) made floppy CHKDSK stop after the volume label for the
+rest of a 4,800-frame run. The unmodified fixture completed CHKDSK and
+returned to the prompt. No SYS transaction was active in either run.
+
+[VA2 Japanese redo-failure message](D5/fix5-redo-failed-ja-va2.png).
+These were scratch test floppies with a rebuilt SYS, not new releases:
+English SHA-256 `ee61881b0a746dbe7669d454462894124a7928a931bb607d69afce6bb6440ada`;
+Japanese SYS SHA-256 (floppy image)
+`6c74b1eb520f9eebd32e56fa4599f96e436956d385d658899c69f0fad0f11ad3`.
+The missing-file traces still had 13 (VA) and 12 (VA2) out-of-volume
+writes. FAT-owned redo, stale-reservation resizing, and the full
+fix-5 distribution gate are outstanding. In particular, a legacy disk
+without an owned log file needs a bootstrap protocol: the two FATs and
+root entry cannot be published by one 256-byte write. Merely moving the
+initial redo log to a free cluster leaves it vulnerable to a DOS write
+before that reservation is published. The replacement must ignore any
+old tail marker and leave those blocks untouched.
 
 ### Clock and model display
 

@@ -376,7 +376,8 @@ TXTAILBAD:
         RET
 
 ; Damaged log: do not guess at FAT repair. Require identical FATs,
-; complete non-overlapping DOS chains and a valid menu (if present).
+; sound non-overlapping chains for present DOS files and a valid menu
+; (if present). Normal SYS can install missing files after IPL repair.
 TXREPAIR:
         CALL    D5GEOMSET
         D5CF    TXERR
@@ -392,11 +393,12 @@ TXKERNEL:
         CALL    RFFIND
         D5CF    TXERR
         CMP     AX,0FFFFH
-        D5Z     TXERR
+        JE      TXNEXTKERNEL
         TEST    BYTE PTR [MATCH+11],18H
         D5NZ    TXERR
         CALL    TXMARKCHAIN
         D5CF    TXERR
+TXNEXTKERNEL:
         INC     [RFIDX]
         CMP     [RFIDX],NSYS
         JB      TXKERNEL
