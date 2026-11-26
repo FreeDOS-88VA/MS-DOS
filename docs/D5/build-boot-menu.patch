@@ -1,0 +1,30 @@
+--- a/experiments/msdos4-va/build.py
++++ b/experiments/msdos4-va/build.py
+@@ -207,2 +207,11 @@
++def boot_menu_crc(data):
++    crc = 0
++    for byte in data:
++        crc ^= byte
++        for _ in range(8):
++            crc = (crc >> 1) ^ (0xA001 if crc & 1 else 0)
++    return crc
++
++
+ class Dos:
+     """Run DOS tools under emu2 and fail on any reported error."""
+@@ -329,6 +338,15 @@
+     for tool in ('MASM.EXE', 'LINK.EXE'):
+         shutil.copy(tools / tool, va)
+     dos.root = out
++    dos.run(va, va / 'MASM.EXE', 'VAMENU;')
++    dos.run(va, va / 'LINK.EXE', 'VAMENU,VAMENU.EXE;')
++    menu = mz_image(expect(va / 'VAMENU.EXE'))
++    if not 0 < len(menu) <= 4096:
++        raise SystemExit('VAMENU must fit the four-sector menu buffer')
++    (va / 'VAMENUSZ.INC').write_bytes(
++        f'MENUSIZE EQU {len(menu)}\r\nMENUCRC EQU 0{boot_menu_crc(menu):04X}H\r\n'.encode('ascii')
++    )
++    (va / 'VAMENUBIN.INC').write_bytes(boot_include(menu, 'MENUBINARY'))
+     dos.run(va, va / 'MASM.EXE', 'VAHDBOOT;')
+     dos.run(va, va / 'LINK.EXE', 'VAHDBOOT,VAHDBOOT.EXE;')
+     hdboot = mz_image(expect(va / 'VAHDBOOT.EXE'))

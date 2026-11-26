@@ -11,12 +11,23 @@ out of memory	メモリ不足
 Resync failed.  Files are too different\n	相違が多すぎるため比較を続けられません\n
 Unknown error	不明なエラー
 @pc88va/VASYS.ASM
-Usage: SYS d: (2HD floppy or NEC SASI)	使い方: SYS d: (2HD または NEC SASI)
+Usage: SYS d: [/L | /P | /C | /D n] (switches for SASI only)	使い方: SYS d: [/L | /P | /C | /D n] (スイッチは SASI 専用)
 Cannot SYS to the current drive	現在のドライブには SYS を実行できません
 Target disk is not a PC-88VA 2HD MS-DOS disk	転送先は PC-88VA 用の 2HD MS-DOS ディスクではありません
 Disk error on the target drive	転送先ドライブにディスクエラーが発生しました
 Target is not a mounted NEC-layout SASI volume	転送先は使用可能な NEC 形式の SASI ボリュームではありません
 Cannot SYS to the boot drive	起動ドライブには SYS を実行できません
+Inconsistent or missing SASI boot-menu files; no new IPL installed.	SASI 起動メニューのファイルがないか不正です。IPL は変更していません。
+Expected a complete PC-Engine set and a replaced PC-Engine IPL.	PC-Engine の IPL と一式のシステムファイルが必要です。
+No free boot-menu entry or root directory slot.	起動メニューまたはルートディレクトリに空きがありません。
+Boot MS-DOS from the menu to park the active set before preparing.	準備の前にメニューから MS-DOS を起動して使用中のファイルを退避してください。
+Label (up to 15 ASCII characters, Enter for PC-Engine n): $	名前 (ASCII 15 文字まで、既定値 PC-Engine n は ENTER): $
+Label must be printable ASCII.	名前には表示できる ASCII 文字だけを使ってください。
+Prepared for another PC-Engine SYS. Use SYS d: /C to cancel.	次の PC-Engine SYS の準備ができました。取り消しは SYS d: /C です。
+Preparation cancelled.	準備を取り消しました。
+Entry unregistered. Parked files were retained.	登録を解除しました。退避ファイルは残っています。
+No PC-Engine entries.	PC-Engine の登録はありません。
+Boot-menu update pending.	起動メニューの更新が完了していません。
 @pc88va/VAFORMAT.ASM
 Usage: FORMAT A:|B: [/S] [/V:label]	使い方: FORMAT A:|B: [/S] [/V:label]
        FORMAT d:|/H0|/H1 [/S] [/V:label] (SASI)	        FORMAT d:|/H0|/H1 [/S] [/V:label] (SASI)

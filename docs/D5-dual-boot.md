@@ -105,7 +105,7 @@ The `DEVICE=` line naming an absent driver did not report a visible
 error; a read is not evidence of DOS-compatible directive parsing.
 Do not assume arbitrary MS-DOS startup files are safe to share.
 
-Use the *PC-88VA Technical Manual* §6.13, calendar-clock BIOS
+Use the *PC-88VA Technical Manual* §6.14.2, calendar-clock BIOS
 (`614CALEN.TXT`), INT 8Ch/AH=02h, which returns hour, minute and second.
 Measure elapsed seconds across minute/midnight rollover, with a bounded
 fallback to MS-DOS for invalid or stalled time readings. For an emulated
@@ -195,8 +195,163 @@ changing the ROM is part of D5.
 | VA | M2 manual coexistence | Manual preparation + 1.1 install | Stock installers only |
 | VA2 | M2 manual coexistence | Manual preparation + 1.1 install | Stock installers only |
 
-**NOT RUN:** M3 implementation/build and M4 product gates (menu keys,
-timeout/persistence, interruption injection, corruption fallback,
-list/remove, table limits, CHKDSK for the new preflight volumes and
-floppy/D4 regressions), real hardware, physical boot switches and
-PC-Engine 1.00 coexistence.
+The table above records only the preflight, not the product gate below.
+
+## M3 — Implementation
+
+The builder applies [the D5 patch](D5/build-boot-menu.patch) after D1
+and D4. The four IPL blocks (1024 bytes) still contain the D4 DOS
+loader. Byte 255 opts into the menu. `FORMAT /S` and plain DOS-only
+`SYS` leave it off; neither a root scan for menu files nor model
+probing runs on that path. When enabled, the IPL bounds FAT12 reads
+and verifies the exact generated size and CRC of `BOOTMENU.SYS`
+(1727 bytes in this build). A missing, truncated or bad file falls
+back to DOS. The stage runs at segment 3400h so it can restore the
+selected saved IPL at 3000:0 using the entry convention verified in
+M1. CRC-16 checks accidental corruption, not malicious image edits.
+
+### On-disk state
+
+Both files are in the root with read-only, hidden and system bits set
+(the archive bit may also be set). `BOOTMENU.DAT` is exactly 4096
+bytes, occupies one ordinary FAT12 cluster, and uses little-endian
+words. Its layout:
+
+| Offset | Bytes | Meaning |
+|---:|---:|---|
+| 0 | 4 | `VBM1` signature and version |
+| 4 | 4 | Owner ID, last choice, phase, pending target ID |
+| 8 | 8 | Four root slot numbers reserved by `/P`, when prepared |
+| 16 | 102 | Three 34-byte entry records (IDs 1–3); DOS is ID 0 |
+| 254 | 2 | CRC-16/IBM (initial 0) of bytes 0–253 |
+| 1024 | 3072 | Three saved 1024-byte IPLs, in ID order |
+
+Unused bytes are reserved. Each record is a NUL-terminated 16-byte
+ASCII label (first byte zero means unregistered), the saved IPL CRC,
+and four `(root slot, metadata CRC)` pairs. The latter CRC covers the
+20 bytes after the name and attributes. File order is `ENGINEIO.SYS`,
+`PCENGINE.SYS`, `ADVGBIOS.SYS`, `PCENGINE.COM`. Parked names are
+`VAij0000.SYS`, where `i` is the persistent entry ID (1–3) and `j` is
+the zero-based file index (0–3). Do not defragment/reorder the root or
+edit these entries behind the installer; consistency checks refuse
+ambiguous names or changed slots and boot DOS instead.
+
+On the first capture, `SYS` stages the CRC-checked menu and state data
+in two free clusters (free in both FATs) before allocating them. It
+writes a temporary zero-length `BOOTMENU.JRN` entry in one of two
+consecutive unused root slots. The entry records both cluster IDs.
+Then it claims the two clusters in each FAT, publishes `BOOTMENU.SYS`
+in the second slot, and replaces the journal with `BOOTMENU.DAT`.
+Only FAT12 entries contained in a single physical block are selected.
+On retry, the journal identifies and rechecks the staged contents
+and lets SYS replay those claims before normal DOS file writes. Do
+not run a DOS disk repair or write other files between interruption
+and retry; a partially completed allocation can look like a lost
+chain before SYS finishes it. Use a clean filesystem and back up the
+disk before installing. The write-order guarantees assume atomic
+256-byte physical-block writes; torn-sector behaviour was not tested.
+
+A switch writes phase 1 and the target before changing any names. It
+parks the owner, activates the target (nothing for DOS), then commits
+owner and last choice while clearing the marker. Renames are in-place
+updates of the name and attributes; no FAT or file-data sectors are
+written. A repeat of the active and last choice writes nothing.
+Interrupted switches boot DOS and leave the marker set; restore a
+backup before further menu use. Preparation writes phase 2 and four
+reserved slots before creating zero-length files. In that phase the
+HDD boots only DOS. Retry `/P` after an interrupted prepare, or use
+`/C` to remove still-empty placeholders; neither operation overwrites
+or deletes a filled placeholder. Raw state and root updates each
+write a single 256-byte physical block.
+
+Capture requires the four nonempty files with the expected attributes
+and a foreign IPL. For additional entries the files must occupy the
+slots recorded by `/P`. Confirm replacement only if these files and
+the IPL are from the intended PC-Engine `SYS`; the project does not
+fingerprint NEC binaries. The installer saves the full foreign IPL
+before setting phase 3, then parks the four files. It commits the
+new default before publishing our IPL. Publication writes blocks 2–3
+first, then block 0 alone; block 1 is left untouched and our loader
+ignores it. Until block 0 changes, the ROM still enters PC-Engine's
+IPL; some of the files it expects may already be parked. Boot the
+MS-DOS floppy and rerun `SYS C:` to resume the allocation, a committed
+phase-3 capture, or a capture parked before publication. Recover
+before using the HDD from other software. The preceding D4 transfer of
+`IO.SYS`, `MSDOS.SYS` and `COMMAND.COM` is still ordinary DOS file I/O,
+not part of the menu allocation transaction; it does not rename or
+modify the PC-Engine files. Back up the disk first.
+
+### Clock and model display
+
+The timeout uses the calendar BIOS, *PC-88VA Technical Manual*
+§6.14.2 (`614CALEN.TXT`), INT 8Ch/AH=02h. It counts elapsed seconds
+modulo 60 (including minute and midnight rollover). Invalid readings
+or a bounded poll loop expiring fall back to DOS. Keyboard uses
+§6.3.4 (INT 82h/AH=0Ah tests carry; AH=09h consumes a pending key).
+Text output uses INT 83h, §6.4. A live countdown is not displayed;
+the prompt names the last choice and the ten-second interval.
+
+The model text uses the text VRAM aperture, not firmware bytes:
+*PC-88VA Technical Manual* §§3.3 and 4.2.1 document selecting text
+VRAM with port 153h and the original VA's 64 KiB aperture. NEC's
+[VA2](https://support.nec-lavie.jp/support/product/data/spec/cpu/b048-1.html)
+and [VA3](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html)
+specifications list 256 KiB, versus [64 KiB for the VA](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html).
+The bounded probe saves the bank and a word in the upper aperture,
+tests two values, then restores both. Port 156h reports expansion-ROM
+bank status (manual §3.4, expansion ROM); it is not a unique VA-91
+identifier, so an original-size aperture with an expansion indication
+is labelled `PC-88VA?`. An inconclusive probe also prints `PC-88VA?`.
+No entries are filtered by model. vaeg m153 offers `va` and `va2`
+(`sdl2/cliopts.c`, `sdl2/np2.c`). The VA-91 code in `io/va91.c` is not
+a selectable SDL2 model in that build. VA3 (distinct hardware) and
+VA+VA-91: **NOT RUN**.
+
+### User procedure (EN)
+
+1. Back up the SASI disk. On a fresh disk use PC-Engine `HDFORM C:` and
+   PC-Engine 1.05 `SYS C:`. Boot the project DOS floppy and run `SYS C:`.
+   Confirm the replacement and enter a label such as `PC-Engine 1.05`.
+2. Put this distribution's `SYS.COM` on the HDD (`COPY A:\SYS.COM
+   C:\SYS.COM`) if you intend to run the maintenance switches without
+   the floppy. Install compatible shared `CONFIG.SYS`/`AUTOEXEC.BAT` if
+   desired. Only the examples described in M2 were tested; arbitrary
+   DOS startup commands and drivers may not be accepted by PC-Engine.
+3. Boot **MS-DOS** from the HDD menu to free the real file names. Run
+   `SYS C: /P`. Then boot the PC-Engine 1.1 floppy and run its `SYS C:`.
+   Boot the project DOS floppy and run `SYS C:` again; label the new
+   entry `PC-Engine 1.1`. The new entry is the first default.
+4. A digit boots immediately; Enter or ten seconds boots the default.
+   `SYS C: /L` lists persistent IDs (menu digits may differ after
+   removal). Use `SYS C: /C` before installing to cancel preparation,
+   or `SYS C: /D n` to unregister ID `n`. Unregistering retains the
+   parked files and restores nothing. Back up and move those parked
+   files if their names prevent reusing that ID.
+
+PC-Engine 1.05 is for the VA; 1.1 is for the VA2. On the other model,
+PC-Engine can display the built-in version instead of the disk version.
+Check the selected label and the installation, not just the banner.
+
+### 利用手順 (JA)
+
+1. SASI ディスクをバックアップします。新規のディスクには PC-Engine で
+   `HDFORM C:` を実行し、1.05 で `SYS C:` を実行します。本配布版 MS-DOS
+   のフロッピーで起動して `SYS C:` を実行し、IPL の置き換えを確認して
+   `PC-Engine 1.05` などの名前を登録します。
+2. HDD だけで保守コマンドを使うには、`COPY A:\SYS.COM C:\SYS.COM` で
+   本配布版の SYS を HDD に置きます。`CONFIG.SYS` と `AUTOEXEC.BAT` は
+   共用です。M2 の例以外の設定やデバイスドライバーは動作未確認です。
+3. HDD メニューで **MS-DOS** を選び、PC-Engine のファイルを退避します。
+   `SYS C: /P` を実行してから、PC-Engine 1.1 のフロッピーで起動し、
+   その `SYS C:` を実行します。MS-DOS フロッピーで起動し直し、`SYS C:`
+   で `PC-Engine 1.1` などの名前を登録します。登録直後は新しい項目が
+   既定値です。
+4. 数字キーで直ちに起動します。Enter または 10 秒経過で前回の選択が
+   起動します。`SYS C: /L` は登録 ID を表示します (メニューの番号とは
+   異なる場合があります)。準備の取り消しは `SYS C: /C`、登録解除は
+   `SYS C: /D n` です。登録解除では退避ファイルを残し、復元はしません。
+   登録処理が中断した場合は MS-DOS フロッピーから再起動し、他の書き込みや
+   ディスク修復をする前に `SYS C:` を再実行します。
+
+1.05 は VA 用、1.1 は VA2 用です。別の機種で起動すると、ディスク版と
+異なる本体内蔵のバージョンが表示されることがあります。
