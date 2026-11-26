@@ -42,10 +42,14 @@ TXRESUME:
         MOV     CX,TXDATA-TXIPL
         REPE    CMPSB
         JNE     TXRECOVER
-        MOV     SI,OFFSET TXHELP
-        MOV     DI,256
-        MOV     CX,128
-        REPE    CMPSW
+        PUSH    DS
+        PUSH    ES
+        POP     DS
+        MOV     SI,256
+        MOV     CX,256
+        CALL    CRC16
+        CMP     DX,DS:[TXHELPCRC-TXIPL]
+        POP     DS
         JNE     TXRECOVER
         CALL    TXFLUSH
         CALL    TXREPLAY
@@ -282,6 +286,10 @@ TXSTAGE:
         MOV     CX,256
         CALL    CRC16
         MOV     [TXSUM],DX
+        MOV     SI,OFFSET TXHELP
+        MOV     CX,256
+        CALL    CRC16
+        MOV     [TXHELPCRC],DX
         MOV     ES,[BMBUFSEG]
         XOR     DI,DI
         MOV     SI,OFFSET TXTAB
@@ -387,25 +395,21 @@ TXKERNEL:
         D5Z     TXERR
         TEST    BYTE PTR [MATCH+11],18H
         D5NZ    TXERR
-        CALL    CHECKCHAIN
+        CALL    TXMARKCHAIN
         D5CF    TXERR
-        MOV     BX,WORD PTR [MATCH+26]
-TXCHAIN:
-        MOV     ES,[RFSEG]
-        PUSH    BX
-        CALL    RFMARK
-        POP     BX
-        D5CF    TXERR
-        XOR     AX,AX
-        CALL    BMFATGET
-        D5CF    TXERR
-        MOV     BX,DX
-        CMP     DX,0FF8H
-        JB      TXCHAIN
         INC     [RFIDX]
         CMP     [RFIDX],NSYS
         JB      TXKERNEL
-        MOV     [D5IPL],2
+        MOV     SI,OFFSET RFNAME
+        CALL    FIND
+        D5CF    TXERR
+        CMP     AX,0FFFFH
+        JE      TXSTATE
+        CMP     WORD PTR [MATCH+12],RFJTAG
+        D5NZ    TXERR
+        CALL    TXMARKCHAIN
+        D5CF    TXERR
+TXSTATE:MOV     [D5IPL],2
         MOV     [D5UPGRADE],1  ;Accept an older stage while reading state.
         CALL    D5OPEN
         D5CF    TXERR
@@ -430,6 +434,24 @@ TXMENUREADY:
         MOV     [D5UPGRADE],0
         CALL    D5PUBLISH
         JMP     SHORT TXREPAIRED
+TXMARKCHAIN:
+        CALL    CHECKCHAIN
+        D5CF    TXERR
+        MOV     BX,WORD PTR [MATCH+26]
+TXCHAIN:
+        MOV     ES,[RFSEG]
+        PUSH    BX
+        CALL    RFMARK
+        POP     BX
+        D5CF    TXERR
+        XOR     AX,AX
+        CALL    BMFATGET
+        D5CF    TXERR
+        MOV     BX,DX
+        CMP     DX,0FF8H
+        JB      TXCHAIN
+        CLC
+        RET
 TXPLAIN:CALL    CHECKFILES
         D5CF    TXERR
         ; Leave block zero armed until both trailing IPL blocks are ready.
@@ -451,6 +473,12 @@ TXPLAIN:CALL    CHECKFILES
         XOR     BP,BP
         CALL    BMWRITE
 TXREPAIRED:
+        D5CF    TXERR
+        ; Block 1 is ignored by the published IPL; clear the helper only
+        ; now so a cut cannot strand an armed IPL without its own code.
+        MOV     BX,1
+        MOV     BP,256
+        CALL    BMWRITE
         D5CF    TXERR
         MOV     DX,OFFSET TXFIXED
         CALL    PUTS

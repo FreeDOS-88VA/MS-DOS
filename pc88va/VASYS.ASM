@@ -43,6 +43,9 @@ TXFIXED DB      'Restored the SASI IPL from the intact DOS volume.',13,10,'$'
 TXCAPWARN DB    'Capture committed. Kernel entries still need room in one root block.',13,10,'$'
 RFLEFTMSG DB    'Old DOS chains left allocated due to damage; run CHKDSK after SYS.',13,10,'$'
 RFJMSG  DB      'Invalid or incompatible VASYS.JRN; check the volume before retrying SYS.',13,10,'$'
+TXMESSAGE MACRO
+TXMSG   DB      'SASI redo failed. Boot the MS-DOS floppy and run SYS C:',13,10,0
+        ENDM
 
 ; Use an internal stack; staging system files may cross the COM segment.
 MAIN:   MOV     SP,OFFSET STKTOP

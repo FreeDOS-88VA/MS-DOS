@@ -103,6 +103,7 @@ TXBASE  DW      0
 TXCOUNT DW      0
 TXLIMIT DW      0
 TXSUM   DW      0
+TXHELPCRC DW    0
         DB      (256-($-TXIPL)) DUP (0)
 TXHELP  LABEL   BYTE
 TXBOOT: PUSH    CS
@@ -122,7 +123,7 @@ TXHALT: MOV     SI,TXMSG-TXIPL
         CLI
 TXWAIT: HLT
         JMP     SHORT TXWAIT
-TXMSG   DB      'SASI redo failed. Boot the MS-DOS floppy and run SYS C:',13,10,0
+        TXMESSAGE
 
 TXLOAD: MOV     CX,DS:[TXBASE-TXIPL]
         XOR     DX,DX
