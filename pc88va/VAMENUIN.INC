@@ -29,6 +29,7 @@ D5DELETE DB     0
 D5PRESENT DB    0
 D5CAP   DB      0               ;entry ID for new or pending capture.
 D5RESUME DB     0
+D5CAPPAIR DB    0               ;Standalone first capture (no DOS files).
 D5STAGE DW      0
 D5STAGESLOT DW  0
 D5UPGRADE DB    0
@@ -105,7 +106,7 @@ D5TYPE: PUSH    AX
         JE      D5TRET
         INC     AL
 D5TRET: RET
-D5TOLD: ; Released D4 and original D5 IPLs (our own code only).
+D5TOLD: ; Released D4 and D5 IPLs (our own code only).
         PUSH    DS
         PUSH    ES
         POP     DS
@@ -124,9 +125,11 @@ D5TOLD: ; Released D4 and original D5 IPLs (our own code only).
         JNE     D5TRET
         MOV     AL,2
         RET
-D5TV0:  CMP     BX,0D7F5H      ;D5 v0: same DOS loader and stage ABI.
+D5TV0:  CMP     BX,0D7F5H      ;Original D5 and fix 1 share the stage ABI.
+        JE      D5TOLDMENU
+        CMP     BX,5434H
         JNE     D5TRET
-        CMP     DX,2F41H
+D5TOLDMENU:CMP  DX,2F41H
         JNE     D5TRET
         MOV     AL,2
         CMP     BYTE PTR ES:[255],0
@@ -161,14 +164,22 @@ D5SETUP:MOV     AL,[FTARGET]
         CALL    D5OPEN
         JC      D5SETRET
         CMP     BYTE PTR ES:[ST_PHASE],1
+        JE      D5REPLAYOP
+        CMP     BYTE PTR ES:[ST_PHASE],4
         JNE     D5SETOK
+D5REPLAYOP:
         CMP     [D5IPL],3
         D5NZ    D5ERROR
         CMP     [D5OP],0
         JE      D5REPLAY
         CMP     [D5OP],'L'
         D5NZ    D5ERROR
-D5REPLAY:CALL   RECOVERSW
+D5REPLAY:CMP    BYTE PTR ES:[ST_PHASE],4
+        JE      D5REPLAYDEL
+        CALL    RECOVERSW
+        JMP     SHORT D5REPLAYEND
+D5REPLAYDEL:CALL RECOVERDEL
+D5REPLAYEND:
         D5CF    D5ERROR
         MOV     [D5REPLAYED],1
 D5SETOK:CLC
@@ -273,8 +284,10 @@ D5OPENFULL:
         MOV     SI,OFFSET D5SYS
         MOV     DX,MENUSIZE
         CMP     [D5UPGRADE],0
-        JE      D5OPENLOC
-        XOR     DX,DX
+        JNE     D5OPENOLD
+        CMP     [D5IPL],1
+        JNE     D5OPENLOC
+D5OPENOLD:XOR   DX,DX
 D5OPENLOC:CALL  D5LOCATE
         D5CF    D5ERROR
         MOV     [D5STAGE],AX
@@ -284,6 +297,8 @@ D5OPENLOC:CALL  D5LOCATE
         JE      D5OPENST
         CMP     [D5UPGRADE],0
         JNE     D5OPENST
+        CMP     [D5IPL],1
+        JE      D5OPENST        ;Foreign IPL is checked against saved capture.
         CALL    D5CHECKSTAGE
         D5CF    D5ERROR
         JMP     SHORT D5OPENST
@@ -413,7 +428,21 @@ D5FOUNDID:
 D5CAPROOM:
         CMP     [D5PRESENT],0
         JNE     D5GETLABEL
-        MOV     SI,OFFSET D5SYS
+        ; No menu: the existing startup pair is presumed PC-Engine's
+        ; only if neither DOS kernel name exists. Persist this decision
+        ; before transferring DOS, so retry cannot change the owner.
+        MOV     SI,OFFSET RFNAMES
+        CALL    FIND
+        D5CF    D5ERROR
+        CMP     AX,0FFFFH
+        JNE     D5CAPDOSEND
+        MOV     SI,OFFSET RFNAMES+11
+        CALL    FIND
+        D5CF    D5ERROR
+        CMP     AX,0FFFFH
+        JNE     D5CAPDOSEND
+        MOV     [D5CAPPAIR],1
+D5CAPDOSEND:MOV SI,OFFSET D5SYS
         CALL    FIND
         D5CF    D5ERROR
         CMP     AX,0FFFFH
@@ -469,6 +498,16 @@ D5IDNAME:CALL   NAMES
         INC     [FILEID]
         CMP     [FILEID],4
         JB      D5IDNAME
+        XOR     BX,BX
+        CALL    D5IDPAIR
+        JC      D5IDERR
+        CMP     AX,0FFFFH
+        JNE     D5IDNEXT
+        MOV     BX,2
+        CALL    D5IDPAIR
+        JC      D5IDERR
+        CMP     AX,0FFFFH
+        JNE     D5IDNEXT
         CLC
         RET
 D5IDNEXT:INC    [SETID]
@@ -476,6 +515,9 @@ D5IDNEXT:INC    [SETID]
         JBE     D5IDTRY
 D5IDERR:STC
         RET
+D5IDPAIR:MOV    AL,[SETID]
+        CALL    PSNAME
+        JMP     FIND
 
 ; D5 saves all four blocks, but boot publication can already have
 ; replaced blocks 2..3. Restart identifies the still-foreign entry by
@@ -569,7 +611,7 @@ D5CCERR:STC
 
 D5COMMIT:
         CMP     [D5CAP],0
-        JNE     D5CAPTURE
+        D5NZ    D5PARKCAP
         CMP     [D5PRESENT],0
         JNE     D5KEEPMENU
         CMP     [D5IPL],2
@@ -579,17 +621,19 @@ D5COMMIT:
         RET
 D5KEEPMENU:
         CMP     [D5IPL],3
-        JNE     D5PUBFOREIGN
+        D5NZ    D5NEWSTAGE
         CMP     [D5UPGRADE],0
-        JE      D5PARKDOS
+        JE      D5UPSTATE
         CALL    D5NEWSTAGE
         D5CF    D5IOERR
-D5PUBFOREIGN:
-        CMP     [D5IPL],3
-        JE      D5PARKDOS
-        JMP     D5PUBLISH
-D5PARKDOS:
+D5UPSTATE:
         MOV     ES,[BMSTSEG]
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JE      D5PARKDOS
+        MOV     BYTE PTR ES:[ST_VER],STATEVER
+        CALL    SAVE
+        D5CF    D5IOERR
+D5PARKDOS:
         CMP     BYTE PTR ES:[ST_OWNER],0
         JE      D5PARKOK
         MOV     [KEEPDEFAULT],1  ;SYS is not a boot-menu selection.
@@ -601,10 +645,13 @@ D5PARKOK:CLC
 D5IOERR:MOV     DX,OFFSET S_IOERR
         STC
         RET
+; Journal capture before DOS file transfer can obscure first ownership.
 D5CAPTURE:
-        MOV     ES,[BMSTSEG]
+        CMP     [D5CAP],0
+        JE      D5PARKOK
         CMP     [D5RESUME],0
-        D5NZ    D5PARKCAP
+        JNE     D5PARKOK
+        MOV     ES,[BMSTSEG]
         MOV     BL,[D5CAP]
         CALL    ENTRY
         PUSH    DI
@@ -624,6 +671,14 @@ D5CAPTURE:
         MOV     AL,[D5CAP]
         MOV     ES:[ST_NEXT],AL
         MOV     BYTE PTR ES:[ST_PHASE],3
+        MOV     AL,[D5CAPPAIR]
+        MOV     ES:[ST_CAPPAIR],AL
+        OR      AL,AL
+        JZ      D5CAPSAVE
+        CALL    PSCAPIDS
+        CALL    PSPLAN
+        D5CF    D5ERROR
+D5CAPSAVE:
         CMP     [D5PRESENT],0
         JE      D5BOOTSTRAP
         ; Store the saved IPL first. It is not referenced by on-disk
@@ -638,28 +693,44 @@ D5CAPTURE:
         D5CF    D5IOERR
         CALL    SAVE
         D5CF    D5IOERR
-        JMP     SHORT D5PARKCAP
+        RET
 D5BOOTSTRAP:
         CMP     [D5STAGE],0FFFFH
         D5NZ    D5ERROR
         CALL    D5JRNEW
         D5CF    D5PASS
-        CALL    D5OPEN
-        D5CF    D5PASS
+        JMP     D5OPEN
 D5PARKCAP:
+        MOV     ES,[BMSTSEG]
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JB      D5CAPCORE
+        CMP     BYTE PTR ES:[ST_CAPPAIR],1
+        JNE     D5CAPCORE
+        CALL    PSCAPIDS
+        CALL    PSCHECK
+        D5CF    D5ERROR
+D5CAPCORE:
         MOV     AL,[D5CAP]
         MOV     [SETID],AL
         MOV     [ACTIVATE],0
         CALL    RENAMESET
         D5CF    D5IOERR
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JB      D5CAPFINISH
+        CMP     BYTE PTR ES:[ST_CAPPAIR],1
+        JNE     D5CAPFINISH
+        CALL    PSAPPLY
+        D5CF    D5IOERR
+D5CAPFINISH:
+        MOV     BYTE PTR ES:[ST_CAPPAIR],0
         MOV     AL,[D5CAP]
         MOV     ES:[ST_LAST],AL
         MOV     BYTE PTR ES:[ST_PHASE],0
         MOV     BYTE PTR ES:[ST_NEXT],0
         CALL    SAVE
         D5CF    D5IOERR
-; The v0 and v1 IPLs only differ in block 0. Until the stage and
-; its directory size are both replaced, the v0 IPL falls back to DOS.
+; D5 IPL revisions differ only in block 0. Until the new stage and
+; its directory size are published, a previous D5 IPL falls back to DOS.
 D5NEWSTAGE:
         MOV     AX,[D5STAGE]
         CALL    D5WRITESTAGE
@@ -718,7 +789,7 @@ D5COMMAND:
         CMP     [D5IPL],3
         D5NZ    D5ERROR
         CMP     [D5OP],'D'
-        JE      D5REMOVE
+        D5Z     D5REMOVE
         CMP     [D5OP],'C'
         D5Z     D5CANCEL
         JMP     D5PREP
@@ -731,7 +802,13 @@ D5LSTART:
         JE      D5LFIRST
         MOV     DX,OFFSET D5WAIT
         CALL    PUTS
-D5LFIRST:MOV    [SETID],1
+D5LFIRST:MOV    DX,OFFSET D5PAIRHDR
+        CALL    PUTS
+        MOV     DX,OFFSET D5PAIRDOS
+        CALL    PUTS
+        MOV     [SETID],0
+        CALL    D5LPAIR
+        MOV     [SETID],1
 D5LENTRY:MOV    BL,[SETID]
         MOV     ES,[BMSTSEG]
         CALL    ENTRY
@@ -753,6 +830,7 @@ D5LCHAR:MOV     ES,[BMSTSEG]
         INT     21H
         JMP     SHORT D5LCHAR
 D5LEND: CALL    CRLF
+        CALL    D5LPAIR
 D5LNEXT:INC     [SETID]
         CMP     [SETID],MAXID
         JBE     D5LENTRY
@@ -761,6 +839,19 @@ D5LNEXT:INC     [SETID]
 D5SHOW: CALL    PUTS
         CLC
         RET
+D5LPAIR:MOV     ES,[BMSTSEG]
+        CMP     BYTE PTR ES:[ST_PHASE],3
+        JE      D5LPAIRRET      ;In-flight foreign capture has no stable names.
+        MOV     AL,[SETID]
+        MOV     DX,OFFSET D5PAIRREAL
+        CMP     AL,ES:[ST_OWNER]
+        JE      D5LPAIRSHOW
+        ADD     AL,'0'
+        MOV     [D5PAIRPARK+7],AL
+        MOV     [D5PAIRPARK+21],AL
+        MOV     DX,OFFSET D5PAIRPARK
+D5LPAIRSHOW:JMP PUTS
+D5LPAIRRET:RET
 D5REMOVE:
         CMP     BYTE PTR ES:[ST_PHASE],0
         D5NZ    D5ERROR
@@ -768,17 +859,23 @@ D5REMOVE:
         CALL    IDOK
         D5CF    D5ERROR
         CMP     BL,ES:[ST_OWNER]
-        JNE     D5CLEAR
-        MOV     BYTE PTR ES:[ST_OWNER],0
-D5CLEAR:CALL    ENTRY
-        MOV     BYTE PTR ES:[DI],0
-        CMP     BL,ES:[ST_LAST]
         JNE     D5UNREG
-        MOV     BYTE PTR ES:[ST_LAST],0
-D5UNREG:CALL    SAVE
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        D5NZ    D5ERROR
+        MOV     BYTE PTR ES:[ST_NEXT],0
+        CALL    PSOWNERS
+        CALL    PSPLAN
+        D5CF    D5ERROR
+        MOV     BYTE PTR ES:[ST_PHASE],4
+        CALL    SAVE
+        D5CF    D5IOERR
+        CALL    RECOVERDEL
+        JMP     SHORT D5DELRESULT
+D5UNREG:CALL    UNREGISTER
+D5DELRESULT:
         D5CF    D5IOERR
         MOV     DX,OFFSET D5DELDONE
-        JMP     SHORT D5SHOW
+        JMP     D5SHOW
 
 D5PREP: CMP     BYTE PTR ES:[ST_OWNER],0
         D5NZ    D5NEEDOS

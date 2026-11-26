@@ -25,7 +25,8 @@ Label (up to 15 ASCII characters, Enter for PC-Engine n): $	名前 (ASCII 15 文
 Label must be printable ASCII.	名前には表示できる ASCII 文字だけを使ってください。
 Prepared for another PC-Engine SYS. Use SYS d: /C to cancel.	次の PC-Engine SYS の準備ができました。取り消しは SYS d: /C です。
 Preparation cancelled.	準備を取り消しました。
-Entry unregistered. Parked files were retained.	登録を解除しました。退避ファイルは残っています。
+Entry unregistered. Parked system and startup files were retained.	登録を解除しました。退避したシステムファイルと起動設定ファイルは残っています。
+Startup names (if present):	起動設定ファイル名 (存在する場合):
 No PC-Engine entries.	PC-Engine の登録はありません。
 Boot-menu update pending.	起動メニューの更新が完了していません。
 @pc88va/VAFORMAT.ASM

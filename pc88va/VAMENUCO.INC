@@ -24,7 +24,12 @@ VALID:  CMP     BYTE PTR ES:[ST_PHASE],2
         JMP     SHORT DOSMSG
 UNPREP: CMP     BYTE PTR ES:[ST_PHASE],0
         JE      READY
-        CMP     BYTE PTR ES:[ST_PHASE],1
+        CMP     BYTE PTR ES:[ST_PHASE],4
+        JNE     BMSWITCH
+        CALL    RECOVERDEL
+        JNC     READY
+        JMP     SHORT BADMENU
+BMSWITCH:CMP    BYTE PTR ES:[ST_PHASE],1
         JNE     CAPWAIT
         CALL    RECOVERSW
         JNC     READY
@@ -89,9 +94,17 @@ VCRC:
         JA      VREJECT
         CMP     BYTE PTR ES:[ST_FLAGS],1
         JA      VREJECT
-        CMP     BYTE PTR ES:[ST_PHASE],3
-        JA      INVALID
-        CMP     BYTE PTR ES:[ST_PHASE],1
+        CMP     BYTE PTR ES:[ST_PHASE],4
+        JA      VREJECT
+        JNE     VSWITCH
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JNE     VREJECT
+        CMP     BYTE PTR ES:[ST_NEXT],0
+        JNE     VREJECT
+        CMP     BYTE PTR ES:[ST_OWNER],0
+        JE      VREJECT
+        JMP     SHORT VOWNER
+VSWITCH:CMP     BYTE PTR ES:[ST_PHASE],1
         JNE     VOWNER
         MOV     BL,ES:[ST_NEXT]
         CMP     BL,ES:[ST_OWNER]
@@ -167,6 +180,7 @@ IPLPTR: XOR     AH,AH
         RET
 
         INCLUDE VAMENUCK.INC
+        INCLUDE VAMENUPS.INC
 
 ; Name helpers; FILEID is 0..3, SETID is 1..3 when producing a park name.
 NAMES:  XOR     BH,BH
@@ -257,22 +271,48 @@ SWITCH: MOV     BL,[CHOICE]
         CMP     BL,ES:[ST_OWNER]
         JNE     MOVESET
         CMP     BL,ES:[ST_LAST]
-        JE      SWOK
-        MOV     ES:[ST_LAST],BL
+        JNE     SWDEFAULT
+        CLC
+        RET
+SWDEFAULT:MOV   ES:[ST_LAST],BL
         JMP     SAVE
-MOVESET:MOV     BYTE PTR ES:[ST_PHASE],1
-        MOV     ES:[ST_NEXT],BL
+MOVESET:MOV     ES:[ST_NEXT],BL
+        CALL    PSOWNERS
+        CALL    PSPLAN
+        JNC     SWMARK
+        RET
+SWMARK:
+        MOV     BYTE PTR ES:[ST_PHASE],1
         MOV     BYTE PTR ES:[ST_VER],STATEVER
         IFDEF   MENUDOS
         MOV     AL,[KEEPDEFAULT]
         MOV     ES:[ST_FLAGS],AL
         ENDIF
         CALL    SAVE
-        JC      SWERR
+        JNC     RECOVERSW
+        RET
 RECOVERSW:
         CALL    CHECKFILES
-        JC      SWERR
-        MOV     AL,ES:[ST_OWNER]
+        JNC     SWCHECK
+        RET
+SWCHECK:CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JB      SWCORE
+        CALL    PSOWNERS
+        CALL    PSCHECK
+        JC      SWBAD
+        CMP     [PSSTART],0
+        JE      SWCORE
+        CMP     BYTE PTR ES:[ST_OWNER],0
+        JE      SWTARGET
+        CMP     [PARKED],4
+        JNE     SWBAD
+SWTARGET:CMP    BYTE PTR ES:[ST_NEXT],0
+        JE      SWCORE
+        CMP     [ACTIVE],4
+        JE      SWCORE
+SWBAD:  STC
+        RET
+SWCORE: MOV     AL,ES:[ST_OWNER]
         MOV     [SETID],AL
         MOV     [ACTIVATE],0
         CALL    RENAMESET
@@ -282,17 +322,40 @@ RECOVERSW:
         MOV     [ACTIVATE],1
         CALL    RENAMESET
         JC      SWERR
-        MOV     BL,ES:[ST_NEXT]
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JB      SWLAST
+        CALL    PSAPPLY
+        JC      SWERR
+SWLAST: MOV     BL,ES:[ST_NEXT]
         CMP     BYTE PTR ES:[ST_FLAGS],0
         JNE     SWOWNER
         MOV     ES:[ST_LAST],BL
 SWOWNER:MOV     ES:[ST_OWNER],BL
         MOV     BYTE PTR ES:[ST_PHASE],0
-        MOV     WORD PTR ES:[ST_VER],STATEVER
+        MOV     BYTE PTR ES:[ST_FLAGS],0
         MOV     BYTE PTR ES:[ST_NEXT],0
-        JMP     SAVE
+        JMP     SHORT SAVE
 SWOK:   CLC
 SWERR:  RET
+
+; An active entry can be removed even with damaged core files. Leave
+; them alone as in fix 1, but park its pair and restore the DOS pair.
+RECOVERDEL:
+        CALL    PSOWNERS
+        CALL    PSCHECK
+        JC      SWERR
+        CALL    PSAPPLY
+        JC      SWERR
+        MOV     BL,ES:[ST_OWNER]
+        MOV     BYTE PTR ES:[ST_OWNER],0
+        MOV     BYTE PTR ES:[ST_PHASE],0
+UNREGISTER:
+        DEC     [COUNT]
+        CALL    ENTRY
+        MOV     BYTE PTR ES:[DI],0
+        CMP     BL,ES:[ST_LAST]
+        JNE     SAVE
+        MOV     BYTE PTR ES:[ST_LAST],0
 SAVE:   PUSH    DS
         PUSH    ES
         POP     DS

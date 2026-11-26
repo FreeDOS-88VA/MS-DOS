@@ -93,7 +93,7 @@ need their own gate; the scratch test does not prove their crash safety.
   フロッピーで起動し、`SYS C:` を実行する。MS-DOS のフロッピーで起動し直し、
   `SYS C:` で新しい版を登録する。追加インストールの準備機能は未実装。
 
-### Shared startup files and countdown
+### Startup-file observations and countdown (M2 only)
 
 On both models, both PC-Engine installations reached `Ready` and ran
 `DIR` with the distribution template's `CONFIG.SYS` (`FILES`, `BUFFERS`,
@@ -205,7 +205,7 @@ loader. Byte 255 opts into the menu. `FORMAT /S` and plain DOS-only
 `SYS` leave it off; neither a root scan for menu files nor model
 probing runs on that path. When enabled, the IPL bounds FAT12 reads
 and verifies the exact generated size and CRC of `BOOTMENU.SYS`
-(2229 bytes in the fix-1 direct assembly). A missing, truncated or bad file falls
+(2229 bytes in the fix-1 direct assembly; see fix 2 below). A missing, truncated or bad file falls
 back to DOS. The stage runs at segment 3400h so it can restore the
 selected saved IPL at 3000:0 using the entry convention verified in
 M1. CRC-16 checks accidental corruption, not malicious image edits.
@@ -220,11 +220,13 @@ words. Its layout:
 | Offset | Bytes | Meaning |
 |---:|---:|---|
 | 0 | 4 | `VBM1` signature |
-| 4 | 4 | Owner ID, last choice, phase, pending target ID |
+| 4 | 4 | Owner ID, last choice, phase (0 clean, 1 switch, 2 prepared, 3 capture, 4 active removal), pending target ID |
 | 8 | 8 | Four root slot numbers reserved by `/P`, when prepared |
 | 16 | 102 | Three 34-byte entry records (IDs 1–3); DOS is ID 0 |
-| 118 | 1 | State version: 0 = original D5; 1 = replayable switch |
+| 118 | 1 | State version: 0 = original D5; 1 = replayable switch; 2 = per-system startup files |
 | 119 | 1 | Switch flags: bit 0 preserves the previous default during SYS |
+| 120 | 1 | Set during standalone capture to park the captured system's startup files |
+| 122 | 16 | Version 2 startup journal: four `(root slot or FFFFh, CRC-16/IBM)` records, CONFIG then AUTOEXEC for the outgoing and incoming owners |
 | 254 | 2 | CRC-16/IBM (initial 0) of bytes 0–253 |
 | 1024 | 3072 | Three saved 1024-byte IPLs, in ID order |
 
@@ -254,8 +256,16 @@ disk before installing. The write-order guarantees assume atomic
 256-byte physical-block writes; torn-sector behaviour was not tested.
 
 A switch writes phase 1 and the target before changing any names. It
-parks the owner, activates the target (nothing for DOS), then commits
-owner and last choice while clearing the marker. Renames are in-place
+parks the owner's PC-Engine system files and activates the target's
+(nothing for DOS), then parks the owner's startup files and activates
+the target's. It commits the owner and last choice while clearing the
+marker. The startup records are used only during an in-flight transaction:
+a file may be created, deleted or edited between switches without changing
+state. The CRC covers the attribute byte with the hidden bit masked off,
+and the remaining 20 metadata bytes. A missing file is not a rename;
+`FFFFh` records its absence. Duplicate, non-file or unexplained names
+refuse the transaction. Renames set the hidden bit when parking and clear
+it on activation, preserving all other attributes. Renames are in-place
 updates of the name and attributes; no FAT or file-data sectors are
 written. A repeat of the active and last choice writes nothing.
 Refreshing DOS with `SYS` may park the active version, but preserves
@@ -264,8 +274,10 @@ valid prefix of the ordered renames (all owner files park before any
 target file activates), skips completed steps, and rolls forward before
 showing the menu. Plain `SYS C:` and `/L` can also replay the marker.
 An unexplained name, slot, attribute, record CRC, or FAT chain is a
-read-only failure: the stage prints a warning and boots DOS. The chain
-walk requires exactly the number of clusters implied by the file size
+read-only failure: the stage prints a warning and falls back to the DOS
+loader. Such a fallback does not change ownership; the real startup names
+may still belong to another system. Do not edit them until the disk has
+been recovered. The chain walk requires exactly the number of clusters implied by the file size
 and an end marker; it is bounded even on a cycle. Capture also checks
 the incoming set and the registered sets it depends on.
 
@@ -281,16 +293,30 @@ and a foreign IPL. For additional entries the files must occupy the
 slots recorded by `/P`. Confirm replacement only if these files and
 the IPL are from the intended PC-Engine `SYS`; the project does not
 fingerprint NEC binaries. The installer saves the full foreign IPL
-before setting phase 3, then parks the four files. It commits the
-new default before publishing our IPL. Publication writes blocks 2–3
+before setting phase 3. For a standalone capture it snapshots the
+startup files in that phase as well. The phase-3 journal is published
+before DOS file transfer, so even a retry after installing `IO.SYS`
+uses the original ownership decision. SYS then parks the four system
+files and any captured startup files. It commits the new default before
+publishing our IPL. Publication writes blocks 2–3
 first, then block 0 alone; block 1 is left untouched and our loader
 ignores it. Until block 0 changes, the ROM still enters PC-Engine's
 IPL; some of the files it expects may already be parked. Boot the
 MS-DOS floppy and rerun `SYS C:` to resume the allocation, a committed
 phase-3 capture, or a capture parked before publication. Recover
 before using the HDD from other software. With a foreign or blank IPL,
-the preceding transfer of `IO.SYS`, `MSDOS.SYS` and `COMMAND.COM` is
-ordinary DOS file I/O. Back up the disk first.
+the transfer of `IO.SYS`, `MSDOS.SYS` and `COMMAND.COM` is ordinary DOS
+file I/O. Back up the disk first.
+
+M2 found that stock PC-Engine 1.05 and 1.1 `SYS C:` install four system
+files, not `CONFIG.SYS` or `AUTOEXEC.BAT`. For a prepared capture the
+real startup names still belong to DOS, so the newly added entry starts
+empty. For a first capture without menu state, if neither DOS kernel
+name (`IO.SYS` or `MSDOS.SYS`) exists, the root startup files are treated
+as the standalone PC-Engine installation's; DOS starts empty. If either
+DOS kernel name exists, SYS conservatively keeps the root pair with DOS.
+Back up and move the files yourself if that heuristic does not describe
+your disk.
 
 ### Refresh and upgrade
 
@@ -303,15 +329,21 @@ SYS claims the new chains in both FATs, replaces the two live kernel
 entries together in one 256-byte write, replaces `COMMAND.COM`, frees
 the old chains in both FATs, then deletes the journal. If the kernel
 entries span physical blocks, SYS refuses rather than exposing a mixed
-pair. This does not yet support refresh on every valid root layout.
-A cut can leave unreferenced chains or unequal FAT copies. Boot the
+pair. This does not yet support refresh on every valid root layout, even
+on a newly captured disk: the initial journal and any startup files can
+shift the DOS kernel slots. A cut can leave unreferenced chains or unequal
+FAT copies. Boot the
 floppy and retry `SYS C:` **before** running CHKDSK repair or writing
 anything else to the HDD: the journal cluster itself is not allocated.
 
 New SYS must recognize the old IPL, validate and retain the old state
-entries, and install a matching IPL and stage as a pair. The original
-D5 release and this one share the same DOS loader and differ only in
-IPL block 0. SYS writes the new stage, updates its length in the root,
+entries, and install a matching IPL and stage as a pair. D5 releases
+share the same DOS loader and differ only in IPL block 0. On the next
+plain `SYS C:` from the new DOS floppy, a fix-1 installation upgrades
+to version 2 without changing the saved IPLs or the menu default. Root
+startup files are assigned to the owner recorded by fix 1 (after replay
+of any pending fix-1 switch). If SYS then parks that owner to restore
+DOS, it parks that owner's pair in the same switch. SYS writes the new stage, updates its length in the root,
 then commits block 0 and the state version. Until publication a stage
 length or CRC mismatch falls back to DOS; retry with new SYS. A future
 format change must migrate the state explicitly and must not assume a
@@ -353,9 +385,11 @@ VA+VA-91: **NOT RUN**.
    Confirm the replacement and enter a label such as `PC-Engine 1.05`.
 2. Put this distribution's `SYS.COM` on the HDD (`COPY A:\SYS.COM
    C:\SYS.COM`) if you intend to run the maintenance switches without
-   the floppy. Install compatible shared `CONFIG.SYS`/`AUTOEXEC.BAT` if
-   desired. Only the examples described in M2 were tested; arbitrary
-   DOS startup commands and drivers may not be accepted by PC-Engine.
+   the floppy. Each system owns its own optional `CONFIG.SYS` and
+   `AUTOEXEC.BAT`. A first capture from standalone PC-Engine keeps its
+   root pair for that entry if no DOS kernel names exist; otherwise the
+   root pair stays with DOS. An additional PC-Engine entry starts empty:
+   stock 1.05 and 1.1 `SYS C:` don't install these files.
 3. Boot **MS-DOS** from the HDD menu to free the real file names. Run
    `SYS C: /P`. Then boot the PC-Engine 1.1 floppy and run its `SYS C:`.
    Boot the project DOS floppy and run `SYS C:` again; label the new
@@ -364,10 +398,19 @@ VA+VA-91: **NOT RUN**.
    the default. `SYS C: /L` lists persistent IDs (menu digits may differ
    after removal). Use `SYS C: /C` before installing to cancel preparation,
    or `SYS C: /D n` to unregister ID `n`, even if its files are missing.
-   `/D` only changes state; it does not rename, delete or restore files.
-   Select MS-DOS before unregistering a healthy active set. If the
-   unregistered set was active and left real names behind, back up and
-   move those files before using the menu again.
+   `/D` retains parked system and startup files. Select MS-DOS before
+   unregistering a healthy active set. If removing the active entry,
+   `/D` journals parking its startup files and restoring DOS's, but
+   leaves the PC-Engine system files alone. Back up and move any real
+   PC-Engine system files left behind before using the menu again.
+5. Edit or create the real startup files while booted into their owner.
+   From MS-DOS, `SYS C: /L` shows the names for other entries, e.g.
+   `VACFG1.SYS` and `VAEXEC1.BAT` for ID 1 (DOS uses ID 0). You can edit
+   or create those files directly, using an editor that can open hidden
+   files or temporarily clearing `ATTRIB -H`. Set `ATTRIB +H` on the
+   parked files afterward. The menu never deletes or overwrites them.
+   Upgrade fix 1 with plain `SYS C:` from the new DOS floppy before using
+   the new maintenance options; the recorded owner keeps the old pair.
 
 PC-Engine 1.05 is for the VA; 1.1 is for the VA2. On the other model,
 PC-Engine can display the built-in version instead of the disk version.
@@ -381,7 +424,10 @@ Check the selected label and the installation, not just the banner.
    `PC-Engine 1.05` などの名前を登録します。
 2. HDD だけで保守コマンドを使うには、`COPY A:\SYS.COM C:\SYS.COM` で
    本配布版の SYS を HDD に置きます。`CONFIG.SYS` と `AUTOEXEC.BAT` は
-   共用です。M2 の例以外の設定やデバイスドライバーは動作未確認です。
+   システムごとに管理し、どちらも省略できます。初回登録時、DOS のカーネル名が
+   どちらもなければ既存の起動設定は PC-Engine に、それ以外の場合は MS-DOS に
+   引き継がれます。追加登録した PC-Engine の起動設定は空です。1.05 と 1.1 の
+   純正 `SYS C:` はこの 2 ファイルを作成しません。
 3. HDD メニューで **MS-DOS** を選び、PC-Engine のファイルを退避します。
    `SYS C: /P` を実行してから、PC-Engine 1.1 のフロッピーで起動し、
    その `SYS C:` を実行します。MS-DOS フロッピーで起動し直し、`SYS C:`
@@ -390,9 +436,18 @@ Check the selected label and the installation, not just the banner.
 4. 数字キーで直ちに起動します。Enter または 10～11 秒経過で前回の選択が
    起動します。`SYS C: /L` は登録 ID を表示します (メニューの番号とは
    異なる場合があります)。準備の取り消しは `SYS C: /C`、登録解除は
-   `SYS C: /D n` です。登録解除では退避ファイルを残し、復元はしません。
+   `SYS C: /D n` です。退避したシステムファイルと起動設定ファイルは残ります。
+   通常は MS-DOS を選んでから登録を解除してください。使用中の項目を解除すると
+   起動設定は退避され、DOS の設定が戻りますが、PC-Engine のシステムファイルは
+   移動しません。元の名前で残ったファイルはバックアップ後に移動してください。
    登録処理が中断した場合は MS-DOS フロッピーから再起動し、他の書き込みや
    ディスク修復をする前に `SYS C:` を再実行します。
+5. 使用中のシステムでは通常の名前で編集・作成できます。別のシステムの設定は
+   MS-DOS で `SYS C: /L` が表示する退避名 (ID 1 なら `VACFG1.SYS` と
+   `VAEXEC1.BAT`、MS-DOS は ID 0) で編集・作成できます。必要に応じて
+   `ATTRIB -H` で隠し属性を外し、編集後に `ATTRIB +H` で戻します。
+   fix 1 から更新するときは、新しい DOS フロッピーから `SYS C:` を実行します。
+   既存の起動設定は、記録されていた所有システムに引き継がれます。
 
 1.05 は VA 用、1.1 は VA2 用です。別の機種で起動すると、ディスク版と
 異なる本体内蔵のバージョンが表示されることがあります。

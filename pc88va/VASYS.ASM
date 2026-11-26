@@ -27,7 +27,11 @@ D5LABELASK DB   'Label (up to 15 ASCII characters, Enter for PC-Engine n): $'
 D5BADLABEL DB   'Label must be printable ASCII.',13,10,'$'
 D5PREPDONE DB   'Prepared for another PC-Engine SYS. Use SYS d: /C to cancel.',13,10,'$'
 D5CANDONE DB    'Preparation cancelled.',13,10,'$'
-D5DELDONE DB    'Entry unregistered. Parked files were retained.',13,10,'$'
+D5DELDONE DB    'Entry unregistered. Parked system and startup files were retained.',13,10,'$'
+D5PAIRHDR DB    'Startup names (if present):',13,10,'$'
+D5PAIRDOS DB    '0 MS-DOS',13,10,'$'
+D5PAIRREAL DB   '  CONFIG.SYS / AUTOEXEC.BAT',13,10,'$'
+D5PAIRPARK DB   '  VACFG0.SYS / VAEXEC0.BAT',13,10,'$'
 D5NONE  DB      'No PC-Engine entries.',13,10,'$'
 D5WAIT  DB      'Boot-menu update pending.',13,10,'$'
 
@@ -211,6 +215,8 @@ HDCOPY: MOV     AL,[SOURCE]
         JC      HDSYSERR
         JMP     SHORT HDPUBLISH
 HDINSTALL:
+        CALL    D5CAPTURE
+        JC      HDSYSERR
         PUSH    CS
         POP     ES
         MOV     AL,[DRV]

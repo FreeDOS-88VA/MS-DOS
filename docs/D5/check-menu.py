@@ -3,6 +3,8 @@
 
 Example: check-menu.py disk.hdi --owner 0 --last 2 1=first.hdi 2=second.hdi
 Pass each comparison image from immediately before that MS-DOS capture.
+Use --startup ID=IMAGE to compare the active or parked startup files with
+CONFIG.SYS and AUTOEXEC.BAT in a reference HDI (including missing files).
 No private data, fingerprints or paths are printed.
 """
 import argparse
@@ -36,14 +38,17 @@ def outside(path):
     return path.read_bytes()
 
 
-def verify(image, owner, last, captures):
+def verify(image, owner, last, captures, startup):
     require = fatcheck.require
     mb, used, free, files = fatcheck.check(image)
     require(not {'BOOTMENU.JRN', 'VASYS.JRN'}.intersection(files), 'allocation journal still present')
     state = files['BOOTMENU.DAT']
     require(len(state) == STATESIZ and state[:4] == b'VBM1', 'bad menu state header')
     require(state[4:8] == bytes((owner, last, 0, 0)), 'unexpected ownership, default or phase')
-    require(state[118] in (0, 1) and state[119] == 0, 'unknown state version or switch flags')
+    require(state[118] in (0, 1, 2) and state[119] == 0, 'unknown state version or switch flags')
+    if state[118] == 2:
+        require(state[120] == 0, 'capture startup flag still present')
+    require(not startup or state[118] == 2, 'startup comparison requires state version 2')
     require(crc16(state[:254]) == struct.unpack_from('<H', state, 254)[0], 'bad state CRC')
     _, roots, _, fat_sectors, _ = fatcheck.LEGACY[mb]
     root = fatcheck.HEADER + (1 + 2 * fat_sectors) * 1024
@@ -79,6 +84,15 @@ def verify(image, owner, last, captures):
     require(owner in present and last in present, 'unregistered owner or default')
     if owner == 0:
         require(not set(NAMES).intersection(files), 'unparked PC-Engine file while DOS owns the volume')
+    for num, reference in startup.items():
+        require(num in present, f'startup owner {num} not registered')
+        ref_files = fatcheck.check(reference)[3]
+        for real, parked in [('CONFIG.SYS', f'VACFG{num}.SYS'),
+                             ('AUTOEXEC.BAT', f'VAEXEC{num}.BAT')]:
+            name = real if num == owner else parked
+            require(files.get(name) == ref_files.get(real), f'{name}: startup file differs')
+            if num == owner:
+                require(parked not in files, f'{parked}: duplicate active startup name')
     print(f'{mb} MB: {used} used, {free} free; FATs, menu state and captures match')
 
 
@@ -87,6 +101,7 @@ def main():
     parser.add_argument('image')
     parser.add_argument('--owner', type=int, choices=range(4), required=True)
     parser.add_argument('--last', type=int, choices=range(4), required=True)
+    parser.add_argument('--startup', action='append', default=[], metavar='ID=IMAGE')
     parser.add_argument('captures', nargs='*', metavar='ID=IMAGE')
     args = parser.parse_intermixed_args()
     try:
@@ -97,7 +112,14 @@ def main():
             if not 1 <= num <= 3 or num in captures:
                 raise ValueError('Capture IDs must be distinct and in 1..3')
             captures[num] = outside(path)
-        verify(outside(args.image), args.owner, args.last, captures)
+        startup = {}
+        for item in args.startup:
+            id_text, path = item.split('=', 1)
+            num = int(id_text)
+            if not 0 <= num <= 3 or num in startup:
+                raise ValueError('Startup IDs must be distinct and in 0..3')
+            startup[num] = outside(path)
+        verify(outside(args.image), args.owner, args.last, captures, startup)
     except (KeyError, OSError, ValueError) as error:
         parser.exit(1, f'{error}\n')
 
