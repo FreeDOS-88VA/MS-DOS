@@ -12,6 +12,7 @@ START:  JMP     MAIN
 
 WORKSEG DW      0
 SOURCE  DB      0
+HDIDX   DW      0
 S_USAGE DB      'Usage: SYS d: [/L | /P | /C | /D n] (switches for SASI only)',13,10,'$'
 S_SAME  DB      'Cannot SYS to the current drive',13,10,'$'
 S_BAD   DB      'Target disk is not a PC-88VA 2HD MS-DOS disk',13,10,'$'
@@ -214,28 +215,42 @@ HDPLAN: CALL    D5PLAN
         CMP     [D5IPL],2
         JB      HDCOPY
         CALL    RFRECOVER
-        JC      HDSYSERR
+        JC      HDEARLYERR
         CALL    RFSLOTS
-        JC      HDSYSERR
-HDCOPY: MOV     AL,[SOURCE]
-        MOV     CX,NSYS
-        CALL    LOADSYS
-        JC      HDSYSERR
-        CMP     [D5IPL],2
+        JC      HDEARLYERR
+HDCOPY: CMP     [D5IPL],2
         JB      HDINSTALL
         CALL    RFNEW
-        JC      HDSYSERR
+        JC      HDEARLYERR
         JMP     SHORT HDPUBLISH
 HDINSTALL:
+        ; Check all source files before writing the capture marker.
+        MOV     [HDIDX],0
+HDTEST: MOV     BX,[HDIDX]
+        CALL    HDLOADONE
+        JC      HDEARLYERR
+        ADD     [HDIDX],2
+        CMP     [HDIDX],NSYS*2
+        JB      HDTEST
         CALL    D5CAPTURE
-        JC      HDSYSERR
+        JC      HDEARLYERR
+        MOV     [HDIDX],0
+HDSAVE: MOV     BX,[HDIDX]
+        CALL    HDLOADONE
+        JC      HDEARLYERR
         PUSH    CS
         POP     ES
+        MOV     AX,[HDIDX]
+        MOV     [SYSIDX],AX
         MOV     AL,[DRV]
         ADD     AL,'A'
-        MOV     CX,NSYS
-        CALL    SAVESYS
+        MOV     [SYSLTR],AL
+        MOV     [SYSCNT],1
+        CALL    SAVES1
         JC      HDSYSERR
+        ADD     [HDIDX],2
+        CMP     [HDIDX],NSYS*2
+        JB      HDSAVE
         MOV     AH,0DH
         INT     21H
 HDPUBLISH:CALL  D5COMMIT
@@ -246,6 +261,16 @@ HDPUBLISH:CALL  D5COMMIT
         JC      HDSYSERR
 HDDONE: CALL    HNOTE
         JMP     SUCCESS
+; Load only source file BX (an even index). The one staging window is
+; available for the next file as soon as its current data is written.
+HDLOADONE:
+        MOV     AX,[TXSEG]
+        MOV     [NEXTSEG],AX
+        MOV     [SYSIDX],BX
+        MOV     [SYSCNT],1
+        MOV     AL,[SOURCE]
+        MOV     [SYSLTR],AL
+        JMP     LOADS1
 HDLOCAL:MOV     DX,OFFSET S_BOOT
         JMP     SHORT HDJRONLY
 HDSOURCED:MOV   DX,OFFSET S_SAME
@@ -272,7 +297,7 @@ SYSREDO EQU     1
         INCLUDE VAMENUIN.INC
         INCLUDE VASYSJR.INC
         INCLUDE VASYSMOV.INC
-        INCLUDE VASYSREDO.INC
+        INCLUDE VASYSTX.INC
         DW      256 DUP (0)
 STKTOP  LABEL   WORD
 ENDPROG LABEL   BYTE

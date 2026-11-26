@@ -90,7 +90,12 @@ RFNEW:  MOV     ES,[RFSEG]
         REP     STOSW
         MOV     [RFIDX],0
         MOV     [RFREC],RF_FIRST
-RFPREP: MOV     SI,OFFSET RFNAMES
+RFPREP: MOV     BX,[RFIDX]
+        SHL     BX,1
+        CALL    HDLOADONE
+        D5CF    D5PASS
+        MOV     ES,[RFSEG]
+        MOV     SI,OFFSET RFNAMES
         MOV     BX,[RFIDX]
         MOV     AL,11
         MUL     BL
