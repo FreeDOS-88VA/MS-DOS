@@ -1,8 +1,17 @@
 ; SPDX-License-Identifier: MIT
 ; Build final metadata block images without changing the live volume.
-; A refresh can touch at most 32 FAT blocks and 3 root blocks. The log
-; adds a table and the original IPL block zero, fitting in two clusters.
-TXMAX   EQU     35
+; A refresh can touch all 32 FAT blocks plus five root blocks. The
+; table and images live beyond the end of the fixed NEC BPB, never in
+; DOS-allocatable space. The smallest documented tail has 396 blocks.
+TXMAX   EQU     37
+TXANCHOR EQU    39              ;Last block of the 40-block private span.
+TXGUARDS EQU    (TXMAX+1)*4
+TXTAIL  DW      4950,9900,19800,39593
+TXOWNER DB      'VA SYS SASI REDO',1
+TXOWNLEN EQU    $-TXOWNER
+TXTAILPOS DW    0
+TXOLDCRC EQU    743BH
+TXOLDENTRY EQU  36H
 TXSEG   DW      0
 TXPLAN  DB      0
 TXUSED  DW      0
@@ -22,18 +31,55 @@ TXNOMEM:RET
 
 ; Match pending transactions before interpreting the IPL as foreign.
 TXRESUME:
+        PUSH    AX
+        MOV     SI,OFFSET TXMAGIC
+        MOV     DI,TXMAGIC-TXIPL
+        MOV     CX,5
+        REPE    CMPSB
+        JNE     TXOLD
         MOV     SI,OFFSET TXIPL
         XOR     DI,DI
         MOV     CX,TXDATA-TXIPL
         REPE    CMPSB
-        JNE     TXNONE
+        JNE     TXRECOVER
+        MOV     SI,OFFSET TXHELP
+        MOV     DI,256
+        MOV     CX,128
+        REPE    CMPSW
+        JNE     TXRECOVER
+        CALL    TXFLUSH
         CALL    TXREPLAY
-        D5CF    TXERR
+        JNC     TXCHECK
+        JMP     SHORT TXRECOVER
+TXOLD:  ; Recognize the fix-3 replay IPL by the immutable code CRC.
+        PUSH    DS
+        MOV     DS,[WORKSEG]
+        XOR     SI,SI
+        MOV     CX,242
+        CALL    CRC16
+        POP     DS
+        CMP     DX,TXOLDCRC
+        JNE     TXNONE
+        MOV     WORD PTR [TXENTRY],TXOLDENTRY
+        CALL    TXFLUSH
+        CALL    TXREPLAY
+        MOV     WORD PTR [TXENTRY],TXRUN-TXIPL
+        JC      TXRECOVER
+TXCHECK:POP     AX
         JMP     HIPLCHECK
-TXNONE: CLC
+TXRECOVER:
+        POP     AX
+        JMP     TXREPAIR
+TXNONE: POP     AX
+        CLC
         RET
 TXERR:  MOV     DX,OFFSET TXBROKEN
         STC
+        RET
+
+TXFLUSH:MOV     AH,0DH
+        INT     21H
+        CLD
         RET
 
 TXREPLAY:
@@ -131,29 +177,53 @@ TXRDONE:POP     DI
         CLC
 TXRRET: RET
 
-; RFCL is reserved (still free in both FATs) by the caller. Only the
-; final block-zero write arms replay. TXREPLAY restores it last.
+; Only the block-zero write arms replay. TXREPLAY restores it last.
 TXCOMMIT:
         MOV     [TXPLAN],0
-        MOV     AX,[RFCL]
-        CALL    D5JRLBA
+        XOR     BH,BH
+        MOV     BL,[FTYPE]
+        SHL     BX,1
+        MOV     AX,[TXTAIL+BX]
         MOV     [TXBASE],AX
-        MOV     AX,[D5SPC]
+        CALL    TXTAILCHECK
+        D5CF    D5PASS
+        MOV     AX,[DATA0]
         SHL     AX,1
         SHL     AX,1
-        MOV     [TXSPAN],AX
+        MOV     [TXLIMIT],AX
         MOV     AX,[TXUSED]
         SHR     AX,1
         SHR     AX,1
         INC     AX
         MOV     [TXCOUNT],AX
-        CMP     AX,[TXSPAN]
-        JB      TXSINGLE
-        CALL    RFFREE
+        MOV     [TXBLOCK],0
+TXPREIMAGE:
+        MOV     BX,[TXBLOCK]
+        CMP     BX,[TXUSED]
+        JAE     TXORIGINAL
+        MOV     AX,[TXTAB+BX]
+        MOV     SI,AX
+        AND     SI,3
+        MOV     CL,8
+        SHL     SI,CL
+        SHR     AX,1
+        SHR     AX,1
+        MOV     ES,[BMBUFSEG]
+        XOR     BP,BP
+        CALL    BMREAD
         D5CF    RFERROR
-        CALL    D5JRLBA
-        MOV     [TXBASE+2],AX
-TXSINGLE:
+        PUSH    DS
+        PUSH    ES
+        POP     DS
+        MOV     CX,256
+        CALL    CRC16
+        POP     DS
+        MOV     BX,[TXBLOCK]
+        SHR     BX,1
+        MOV     [TXTAB+TXGUARDS+BX],DX
+        ADD     [TXBLOCK],4
+        JMP     SHORT TXPREIMAGE
+TXORIGINAL:
         MOV     AX,[DATA0]
         SHL     AX,1
         SHL     AX,1
@@ -197,11 +267,6 @@ TXSTAGE:
         MOV     [TXTAB+BX-2],DX
         MOV     AX,[TXBASE]
         MOV     BX,[TXBLOCK]
-        CMP     BX,[TXSPAN]
-        JB      TXSTAGE1
-        SUB     BX,[TXSPAN]
-        MOV     AX,[TXBASE+2]
-TXSTAGE1:
         MOV     DX,BX
         SHR     DX,1
         SHR     DX,1
@@ -217,7 +282,7 @@ TXSTAGE1:
         MOV     CX,256
         CALL    CRC16
         MOV     [TXSUM],DX
-        MOV     ES,[RFSEG]
+        MOV     ES,[BMBUFSEG]
         XOR     DI,DI
         MOV     SI,OFFSET TXTAB
         MOV     CX,128
@@ -230,15 +295,194 @@ TXSTAGE1:
         MOV     ES,[WORKSEG]
         XOR     DI,DI
         MOV     SI,OFFSET TXIPL
-        MOV     CX,128
+        MOV     CX,256
         REP     MOVSW
         XOR     AX,AX
+        MOV     BX,1
+        MOV     BP,256
+        CALL    BMWRITE
+        D5CF    TXERR
         XOR     BX,BX
         XOR     BP,BP
         CALL    BMWRITE
         D5CF    TXERR
         CALL    TXREPLAY
         D5CF    TXERR
+        RET
+
+; Do not overwrite an unrecognized use of the physical tail. An
+; ownership marker may be left after any cut; it is outside the BPB.
+TXTAILCHECK:
+        MOV     ES,[BMBUFSEG]
+        ADD     AX,TXANCHOR/4
+        XOR     BP,BP
+        CALL    BMREAD
+        D5CF    TXTAILBAD
+        MOV     DI,(TXANCHOR MOD 4)*256
+        MOV     SI,OFFSET TXOWNER
+        MOV     CX,TXOWNLEN
+        REPE    CMPSB
+        JE      TXTAILOK
+        MOV     AX,[TXBASE]
+        MOV     [TXTAILPOS],AX
+TXTAILSCAN:
+        CALL    BMREAD
+        D5CF    TXTAILBAD
+        XOR     DI,DI
+TXTAILBLK:
+        MOV     AL,ES:[DI]
+        OR      AL,AL
+        JZ      TXTAILFILL
+        CMP     AL,0E5H
+        JNE     TXTAILBAD
+TXTAILFILL:
+        MOV     CX,256
+        REPE    SCASB
+        JNE     TXTAILBAD
+        CMP     DI,1024
+        JB      TXTAILBLK
+        INC     [TXTAILPOS]
+        MOV     AX,[TXTAILPOS]
+        SUB     AX,[TXBASE]
+        CMP     AX,(TXANCHOR+1)/4
+        MOV     AX,[TXTAILPOS]
+        JB      TXTAILSCAN
+        XOR     DI,DI
+        XOR     AX,AX
+        MOV     CX,128
+        REP     STOSW
+        XOR     DI,DI
+        MOV     SI,OFFSET TXOWNER
+        MOV     CX,TXOWNLEN
+        REP     MOVSB
+        MOV     AX,[TXBASE]
+        ADD     AX,TXANCHOR/4
+        MOV     BX,TXANCHOR MOD 4
+        CALL    BMWRITE
+        JC      TXTAILBAD
+TXTAILOK:CLC
+        RET
+TXTAILBAD:
+        MOV     DX,OFFSET TXTAILMSG
+        STC
+        RET
+
+; Damaged log: do not guess at FAT repair. Require identical FATs,
+; complete non-overlapping DOS chains and a valid menu (if present).
+TXREPAIR:
+        CALL    D5GEOMSET
+        D5CF    TXERR
+        CALL    RFFATSAME
+        D5CF    TXERR
+        MOV     ES,[RFSEG]
+        MOV     DI,256
+        XOR     AX,AX
+        MOV     CX,156
+        REP     STOSW
+        MOV     [RFIDX],0
+TXKERNEL:
+        CALL    RFFIND
+        D5CF    TXERR
+        CMP     AX,0FFFFH
+        D5Z     TXERR
+        TEST    BYTE PTR [MATCH+11],18H
+        D5NZ    TXERR
+        CALL    CHECKCHAIN
+        D5CF    TXERR
+        MOV     BX,WORD PTR [MATCH+26]
+TXCHAIN:
+        MOV     ES,[RFSEG]
+        PUSH    BX
+        CALL    RFMARK
+        POP     BX
+        D5CF    TXERR
+        XOR     AX,AX
+        CALL    BMFATGET
+        D5CF    TXERR
+        MOV     BX,DX
+        CMP     DX,0FF8H
+        JB      TXCHAIN
+        INC     [RFIDX]
+        CMP     [RFIDX],NSYS
+        JB      TXKERNEL
+        MOV     [D5IPL],2
+        MOV     [D5UPGRADE],1  ;Accept an older stage while reading state.
+        CALL    D5OPEN
+        D5CF    TXERR
+        CMP     [D5PRESENT],0
+        JE      TXPLAIN
+        CMP     BYTE PTR ES:[ST_PHASE],0
+        D5NZ    TXERR
+        CALL    CHECKFILES
+        D5CF    TXERR
+        MOV     AX,[D5STAGE]
+        CALL    D5CHECKSTAGE
+        JC      TXSTAGEFIX
+        MOV     AX,[D5STAGESLOT]
+        CALL    GETSLOT
+        D5CF    TXERR
+        CMP     WORD PTR ES:[DI+28],MENUSIZE
+        JE      TXMENUREADY
+TXSTAGEFIX:
+        CALL    D5STAGEFILE
+        D5CF    TXERR
+TXMENUREADY:
+        MOV     [D5UPGRADE],0
+        CALL    D5PUBLISH
+        JMP     SHORT TXREPAIRED
+TXPLAIN:CALL    CHECKFILES
+        D5CF    TXERR
+        ; Leave block zero armed until both trailing IPL blocks are ready.
+        MOV     ES,[WORKSEG]
+        XOR     DI,DI
+        MOV     SI,OFFSET HDBOOTCODE
+        MOV     CX,512
+        REP     MOVSW
+        XOR     AX,AX
+        MOV     BX,2
+        MOV     BP,512
+        CALL    BMWRITE
+        D5CF    TXERR
+        INC     BX
+        ADD     BP,256
+        CALL    BMWRITE
+        D5CF    TXERR
+        XOR     BX,BX
+        XOR     BP,BP
+        CALL    BMWRITE
+TXREPAIRED:
+        D5CF    TXERR
+        MOV     DX,OFFSET TXFIXED
+        CALL    PUTS
+        MOV     [D5UPGRADE],0
+        MOV     [D5PRESENT],0  ;The normal path reopens the state.
+        JMP     HIPLCHECK
+
+RFFATSAME:
+        MOV     AX,1
+TXFAT:  MOV     ES,[WORKSEG]
+        XOR     BP,BP
+        CALL    BMREAD
+        JC      TXFATRET
+        ADD     AX,[D5SPF]
+        MOV     ES,[BMBUFSEG]
+        CALL    BMREAD
+        JC      TXFATRET
+        PUSH    DS
+        MOV     DS,[WORKSEG]
+        XOR     SI,SI
+        XOR     DI,DI
+        MOV     CX,512
+        REPE    CMPSW
+        POP     DS
+        JNE     TXFATBAD
+        SUB     AX,[D5SPF]
+        INC     AX
+        CMP     AX,[D5SPF]
+        JBE     TXFAT
+        CLC
+TXFATRET:RET
+TXFATBAD:STC
         RET
 
         INCLUDE VASYSIPL.INC

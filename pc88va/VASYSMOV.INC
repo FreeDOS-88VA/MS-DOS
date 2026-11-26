@@ -59,9 +59,6 @@ RMCHOSEN:
         POP     DS
         TEST    BYTE PTR [RMENTRY+11],18H
         D5NZ    RFERROR
-        CALL    RFFREE
-        D5CF    RFERROR
-        MOV     [RFCL],AX
         CALL    TXBEGIN
         D5CF    D5PASS
         CALL    RMMOVE

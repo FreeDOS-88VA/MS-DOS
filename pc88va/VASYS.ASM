@@ -37,7 +37,12 @@ D5NONE  DB      'No PC-Engine entries.',13,10,'$'
 D5WAIT  DB      'Boot-menu update pending.',13,10,'$'
 RFMSG   DB      'Cannot safely refresh the SASI boot files.',13,10,'$'
 TXROOM  DB      'Free a root directory entry in either DOS kernel block and retry SYS.',13,10,'$'
-TXBROKEN DB     'Cannot recover the SASI boot-file transaction.',13,10,'$'
+TXBROKEN DB     'SASI recovery stopped. Back up the drive and run CHKDSK before retrying SYS.',13,10,'$'
+TXTAILMSG DB    'SASI redo area is not available; no new boot files installed.',13,10,'$'
+TXFIXED DB      'Restored the SASI IPL from the intact DOS volume.',13,10,'$'
+TXCAPWARN DB    'Capture committed. Kernel entries still need room in one root block.',13,10,'$'
+RFLEFTMSG DB    'Old DOS chains left allocated due to damage; run CHKDSK after SYS.',13,10,'$'
+RFJMSG  DB      'Invalid or incompatible VASYS.JRN; check the volume before retrying SYS.',13,10,'$'
 
 ; Use an internal stack; staging system files may cross the COM segment.
 MAIN:   MOV     SP,OFFSET STKTOP
@@ -216,8 +221,6 @@ HDPLAN: CALL    D5PLAN
         JB      HDCOPY
         CALL    RFRECOVER
         JC      HDEARLYERR
-        CALL    RFSLOTS
-        JC      HDEARLYERR
 HDCOPY: CMP     [D5IPL],2
         JB      HDINSTALL
         CALL    RFNEW
@@ -258,7 +261,11 @@ HDPUBLISH:CALL  D5COMMIT
         CMP     [D5IPL],2
         JAE     HDDONE
         CALL    RFSLOTS
-        JC      HDSYSERR
+        JNC     HDDONE
+        CMP     DX,OFFSET TXROOM
+        JNE     HDSYSERR
+        MOV     DX,OFFSET TXCAPWARN
+        CALL    PUTS
 HDDONE: CALL    HNOTE
         JMP     SUCCESS
 ; Load only source file BX (an even index). The one staging window is

@@ -1,7 +1,6 @@
 ; SPDX-License-Identifier: MIT
-; Temporary target-0 IPL. SYS arms it with one physical write only after
-; the complete redo log is durable. SYS and the ROM use the same replay
-; routine. No code or data from the log is executed except the restored IPL.
+; Temporary replay IPL. The ROM fetches both of these blocks. Ordinary
+; DOS IPLs ignore block 1, so write the helper there before arming block 0.
 TXIPL:  CLI
         MOV     AX,CS
         MOV     SS,AX
@@ -12,28 +11,11 @@ TXIPL:  CLI
         CLD
         MOV     BX,8000H
         MOV     BP,1000H
-        PUSH    CS
-        CALL    TXRUN
-        JC      TXHALT
-        ; The last image is the original block zero. Copy it from the
-        ; DMA buffer while executing outside the overwritten block.
-        MOV     SI,TXTRAMP-TXIPL
-        MOV     DI,200H
-        MOVSW
-        MOVSW
-        MOV     SI,BP
-        XOR     DI,DI
-        PUSH    DI
-        MOV     CX,128
-        MOV     DX,200H
-        JMP     DX
-TXTRAMP:REP     MOVSW
-        RET
-TXHALT: HLT
-        JMP     SHORT TXHALT
+        JMP     TXBOOT
+TXMAGIC DB      'VATX4'
 
-; Enter at CS:(TXRUN-TXIPL), DS=CS, ES:BP = 512-byte aligned scratch,
-; BX = ROM addressing mode and drive. Leave final image at ES:BP.
+; Far entry, DS = IPL segment, ES:BP = aligned 512-byte scratch,
+; BX = relative addressing and target. Return final IPL at ES:BP.
 TXRUN:  XOR     DI,DI
         ADD     BP,256
         CALL    TXLOAD
@@ -43,56 +25,114 @@ TXRUN:  XOR     DI,DI
         CALL    TXCRC
         CMP     DX,DS:[TXSUM-TXIPL]
         JNE     TXFAIL
+        ; Verify the entire log and the live preconditions before writing.
+        XOR     AX,AX
+        CALL    TXPASS
+        JC      TXFAIL
+        MOV     AX,1
+        CALL    TXPASS
+        RETF
+TXFAIL: STC
+        RETF
+
+TXPASS: PUSH    AX
+        XOR     DI,DI
         LEA     SI,[BP+256]
 TXSTEP: INC     DI
         CMP     DI,TXMAX+2
-        JAE     TXFAIL
+        JAE     TXBAD
         CALL    TXLOAD
-        JC      TXFAIL
-        PUSH    SI
-        MOV     SI,BP
-        CALL    TXCRC
-        POP     SI
+        JC      TXBAD
+        CALL    TXBUFCRC
         CMP     DX,ES:[SI+2]
-        JNE     TXFAIL
-        XOR     DX,DX
+        JNE     TXBAD
         MOV     CX,ES:[SI]
         CMP     DI,DS:[TXCOUNT-TXIPL]
         JE      TXLAST
         CMP     CX,4
-        JB      TXFAIL
+        JB      TXBAD
         CMP     CX,DS:[TXLIMIT-TXIPL]
-        JAE     TXFAIL
-        MOV     AX,8201H
-        PUSH    CS
+        JAE     TXBAD
+        JMP     SHORT TXGUARD
+TXLAST: JC      TXBAD           ;Also require an exact final entry.
+        JCXZ    TXACTION
+TXBAD:  STC
+        JMP     SHORT TXEND
+TXGUARD:XOR     DX,DX
+        POP     AX
+        PUSH    AX
+        OR      AX,AX
+        JNZ     TXACTION
+        MOV     AX,8101H
         CALL    TXIO
-        JC      TXFAIL
-        ADD     SI,4
-        JMP     SHORT TXSTEP
-TXLAST: OR      CX,CX
-        JNZ     TXFAIL
+        JC      TXBAD
+        CALL    TXBUFCRC
+        CMP     DX,ES:[SI+2]    ;Already replayed before an interruption.
+        JE      TXNEXT
+        PUSH    DI
+        DEC     DI
+        SHL     DI,1
+        CMP     DX,ES:[DI+BP+256+TXGUARDS]
+        POP     DI
+        JNE     TXBAD
+        JMP     SHORT TXNEXT
+TXACTION:
+        POP     AX
+        PUSH    AX
+        OR      AX,AX
+        JZ      TXNEXT
+        XOR     DX,DX
         MOV     AX,8201H
-        JMP     SHORT TXIO
-TXFAIL: STC
-        RETF
+        CALL    TXIO
+        JC      TXBAD
+TXNEXT: ADD     SI,4
+        CMP     DI,DS:[TXCOUNT-TXIPL]
+        JB      TXSTEP
+        CLC
+TXEND:  POP     AX
+        RET
+
+TXBUFCRC:
+        PUSH    SI
+        MOV     SI,BP
+        CALL    TXCRC
+        POP     SI
+        RET
+TXDATA  LABEL   BYTE
+TXBASE  DW      0
+TXCOUNT DW      0
+TXLIMIT DW      0
+TXSUM   DW      0
+        DB      (256-($-TXIPL)) DUP (0)
+TXHELP  LABEL   BYTE
+TXBOOT: PUSH    CS
+        CALL    TXRUN
+        JC      TXHALT
+        ; Execute in block 1 while replacing block 0 in memory.
+        MOV     SI,BP
+        XOR     DI,DI
+        PUSH    DI
+        MOV     CX,128
+        REP     MOVSW
+        RET
+TXHALT: MOV     SI,TXMSG-TXIPL
+        MOV     DX,8000H
+        MOV     AH,2
+        INT     83H
+        CLI
+TXWAIT: HLT
+        JMP     SHORT TXWAIT
+TXMSG   DB      'SASI redo failed. Boot the MS-DOS floppy and run SYS C:',13,10,0
 
 TXLOAD: MOV     CX,DS:[TXBASE-TXIPL]
-        MOV     AX,DI
-        CMP     AX,DS:[TXSPAN-TXIPL]
-        JB      TXADDR
-        SUB     AX,DS:[TXSPAN-TXIPL]
-        MOV     CX,DS:[TXBASE+2-TXIPL]
-TXADDR: XOR     DX,DX
+        XOR     DX,DX
         SHL     CX,1
         RCL     DX,1
         SHL     CX,1
         RCL     DX,1
-        ADD     CX,AX
+        ADD     CX,DI
         ADC     DX,0
         MOV     AX,8101H
-        PUSH    CS
-        CALL    TXIO
-        RET
 TXIO:   PUSH    BX
         PUSH    SI
         PUSH    DI
@@ -107,8 +147,7 @@ TXIO:   PUSH    BX
         POP     SI
         POP     BX
         CLD
-        RETF
-
+        RET
 TXCRC:  MOV     CX,256
         XOR     DX,DX
 TXCB:   DB      26H             ;ES: prefix for LODSB.
@@ -122,10 +161,4 @@ TXCN:   DEC     AH
         JNZ     TXCL
         LOOP    TXCB
         RET
-TXDATA  LABEL   BYTE
-TXBASE  DW      0,0
-TXSPAN  DW      0
-TXCOUNT DW      0
-TXLIMIT DW      0
-TXSUM   DW      0
-        DB      (256-($-TXIPL)) DUP (0)
+        DB      (512-($-TXIPL)) DUP (0)

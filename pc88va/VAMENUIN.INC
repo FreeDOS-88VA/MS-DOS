@@ -140,7 +140,8 @@ D5TOLDMENU:CMP  DX,2F41H
         MOV     [D5UPGRADE],1
         RET
 
-D5SETUP:MOV     AL,[FTARGET]
+D5GEOMSET:
+        MOV     AL,[FTARGET]
         OR      AL,80H
         MOV     [BMTARGET],AL
         MOV     AL,[FTYPE]
@@ -159,7 +160,9 @@ D5SETUP:MOV     AL,[FTARGET]
         MOV     [D5SPC],AX
         MOV     AH,0DH           ;Drop DOS buffers before raw directory access.
         INT     21H
-        CALL    BMGEOMETRY
+        JMP     BMGEOMETRY
+
+D5SETUP:CALL    D5GEOMSET
         D5CF    D5ERROR
         CALL    D5OPEN
         JC      D5SETRET
@@ -732,6 +735,14 @@ D5CAPFINISH:
 ; D5 IPL revisions differ only in block 0. Until the new stage and
 ; its directory size are published, a previous D5 IPL falls back to DOS.
 D5NEWSTAGE:
+        CALL    D5STAGEFILE
+        D5CF    D5IOERR
+        CALL    D5PUBLISH
+        D5CF    D5IOERR
+        MOV     ES,[BMSTSEG]
+        MOV     BYTE PTR ES:[ST_VER],STATEVER
+        JMP     SAVE
+D5STAGEFILE:
         MOV     AX,[D5STAGE]
         CALL    D5WRITESTAGE
         D5CF    D5IOERR
@@ -739,13 +750,7 @@ D5NEWSTAGE:
         CALL    GETSLOT
         D5CF    D5IOERR
         MOV     WORD PTR ES:[DI+28],MENUSIZE
-        CALL    PUTSLOT
-        D5CF    D5IOERR
-        CALL    D5PUBLISH
-        D5CF    D5IOERR
-        MOV     ES,[BMSTSEG]
-        MOV     BYTE PTR ES:[ST_VER],STATEVER
-        JMP     SAVE
+        JMP     PUTSLOT
 D5PUBLISH:
         MOV     ES,[WORKSEG]
         XOR     DI,DI
