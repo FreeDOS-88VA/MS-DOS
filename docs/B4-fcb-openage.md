@@ -159,6 +159,20 @@ VA and VA2 printed identical logs for each build:
   it is 141,712 bytes: 16 bytes (one paragraph) more, from the larger
   MSDOS.SYS (38,848 → 38,864 bytes).
 
+## Known limits
+
+- **INT 24h Abort.** If the user answers Abort during a failed FCB read or
+  write, `FCBIO` never returns; `DOS_ABORT` (`DOS/ABORT.ASM`) only clears
+  `sf_ref_count` for the process's FCB SFTs, so the freed entry keeps the
+  byte position in `sf_LRU`/`sf_OpenAge`. With `FCBS=n,0` such a slot can
+  win against a live FCB in `LRUFCB`. Pre-existing; follow-up.
+- **Free-slot use is setup-specific.** In the probe the free slot is used
+  because its `sf_LRU` is 0 (left by init/BlastSFT). `LRUFCB` does not
+  prefer free entries in general; a slot freed by `$FCB_Close` keeps its
+  last LRU.
+- **K1 regression** was waived (no console code; outside FCBIO the binary
+  differs only by one relocated call target).
+
 ## NOT RUN
 
 - FCB I/O through a network redirector (no redirector on VA).

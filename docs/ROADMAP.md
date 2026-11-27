@@ -505,7 +505,12 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   COPY/EDLIN/CHKDSK screens are identical. CHKDSK memory free drops by
   16 bytes (513,664 → 513,648; MSDOS.SYS +16 bytes). NOT RUN:
   redirector, SHARE with a keep count, write-protected disk, `FCBLRU`
-  wrap, K1 regression (no console change).
+  wrap. K1 regression waived by Opus 5.5 (2026-11-27): the change has
+  no console code, and outside FCBIO the binary differs only by one
+  relocated call target. Known limit: an INT 24h Abort during a failed
+  FCB read/write still leaves the freed SFT's age/LRU stale (pre-existing,
+  `DOS_ABORT`); follow-up. Accepted 2026-11-27 (fix by a Claude subagent,
+  reviewed by another; pi runs were blocked by the provider filter).
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.

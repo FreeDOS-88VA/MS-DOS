@@ -506,7 +506,8 @@ SaveSFN:
 	MOV	[SI].FCB_sfn,AL 	; last used SFN
 ;
 ; FCBIO's error path enters here to give the SFT a fresh LRU count, as the
-; success path does.  Inputs: ES:DI -> SFT.  Modifies AX, BX, CX.
+; success path does.  Inputs: ES:DI -> SFT, SS = DOSGroup.  Modifies AX,
+; BX, CX and flags.
 ;
 	entry	FCBPokeLRU
 	MOV	AX,FCBLRU		; get lru count
