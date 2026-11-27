@@ -345,8 +345,13 @@ dos_fcb_call_done:
 	popf
 ENDIF
 
-	JC	FCBDeath
-
+	JNC	FCBIOSuccess
+	; Failed I/O may not return ES:DI pointing at the SFT.
+	; Restore the FCB open age before the error path discards it.
+	LES	DI,CS:[ThisSFT]
+	POP	ES:[DI].sf_OpenAge
+	JMP	FCBDeath
+FCBIOSuccess:
 	CMP	BYTE PTR [DISK_FULL],0	; treat disk full as error
 	JZ	NODSKFULL
 	MOV	BYTE PTR [DISK_FULL],0	; clear the flag
