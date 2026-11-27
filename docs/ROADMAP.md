@@ -487,6 +487,13 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
 - B3 (`docs/B3-lookahead-buffers.md`): fixed VA/VA2 boot with
   `BUFFERS=n,m` by sizing the look-ahead allocation for the actual
   maximum sector size. Accepted 2026-11-23.
+- B4 (`docs/B4-fcb-openage.md`): MS-DOS 4.0 FCB read/write error path
+  loses the SFT open age (`DOS/FCBIO2.ASM`: `PUSH DX` saves `sf_OpenAge`
+  overlaid by the position high word; `JC FCBDeath` skips the restore).
+  Gate: restore the age on the error path without changing success paths;
+  an FCB read error and write denial (local floppy and a redirector case
+  if available) return the error and later FCB opens/closes/eviction work;
+  B2 smoke and K1 regression on VA and VA2.
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
