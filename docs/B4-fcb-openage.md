@@ -1,4 +1,4 @@
-# B4 — FCB read/write errors lose the SFT open age
+# B4 — FCB read/write errors lose the SFT open age and LRU count
 
 ## Bug
 
@@ -14,20 +14,49 @@ but the SFT keeps the position's high word in place of its open age.
 The age becomes 0 for files under 64 KiB, and stays wrong until the file
 is reopened.
 
-## Fix (`d7e17a4`)
+The same path also leaves the low word, the LRU count `sf_LRU`, holding the
+byte position's low word. Only `SaveFCBInfo` on the success path wrote a
+valid LRU back. The review of the first fix found this.
 
-On carry after the I/O call, the error path reloads the SFT pointer and pops
-the saved age into it before it jumps to `FCBDeath`:
+## Fix (`d7e17a4`, `d869339`)
+
+The error path, taken on carry after the I/O call, now:
+- reloads the SFT pointer;
+- pops the saved age back into the SFT (`d7e17a4`);
+- gives the entry a fresh LRU count, as `SaveFCBInfo` does on success
+  (`d869339`).
 
 ```
 	JNC	FCBIOSuccess
 	LES	DI,CS:[ThisSFT]
 	POP	ES:[DI].sf_OpenAge
+	SaveReg <AX,BX,CX>		; AX = error code for FCBDeath
+	invoke	FCBPokeLRU
+	RestoreReg  <CX,BX,AX>
 	JMP	FCBDeath
 FCBIOSuccess:
 ```
 
-The success path is unchanged, apart from the jump sense.
+`FCBPokeLRU` is a new `entry` label in `SaveFCBInfo` (`DOS/FCBIO.ASM`),
+placed at the existing LRU update:
+- `sf_LRU = ++FCBLRU`;
+- on wrap, `ResetLRU` with `BX = sf_position`.
+
+The label emits no code, so `SaveFCBInfo` and the success path of `FCBIO`
+are unchanged apart from the jump sense. The code after the label changes
+AX, BX and CX (`ResetLRU` uses CX), so the error path saves them. AX holds
+the error code that `FCBDeath` → `FCB_Ret_Err` maps. In the after build,
+MSDOS.SYS grows from 38,848 to 38,864 bytes. The MASM diagnostics are the
+same as before.
+
+Why the LRU needed a fix: `sf_LRU` is the low word of `sf_position`.
+`FCBIO` writes the byte position there, and only `SaveFCBInfo` on the
+success path wrote a valid LRU back. After a failed call the entry kept
+the position's low word, which is 0 for record 0. With `FCBS=2,0`,
+`LRUFCB` (keep 0) goes straight to its LRU scan. That scan does not
+prefer free entries, and a free entry's LRU 0 ties with the failed one.
+The next FCB open therefore evicted the open, failed FCB even though an
+entry was free.
 
 Review:
 - **`ThisSFT` is valid on both paths.** `SFTFromFCB` sets `ThisSFT` just
@@ -36,28 +65,19 @@ Review:
   FCB open path already relies on `LES DI,ThisSFT` after a failed
   `DOS_Open` (`$FCB_Open`).
 - **The INT 24h handler does not move `ThisSFT`.** It may only use
-  functions 01h–0Ch and 59h, and those do not set `ThisSFT`.
+  functions 01h–0Ch and 59h. Those (`CPMIO`) do not set `ThisSFT`.
 - **`ES:DI` must be reloaded.** `DOS_Read`/`DOS_Write` do not promise to
   preserve `ES:DI` on failure.
 - **The stack is balanced.** The `BUFFERFLAG` block's own
   `PUSHF`/`POPF` pairs are complete before the test.
+- **SS is DOSGroup for `FCBPokeLRU`.** It runs inside the INT 21h
+  dispatcher, exactly as `SaveFCBInfo` does.
 - **The pattern occurs only here.** `sf_position+2`/`sf_OpenAge` is saved
   and restored around a call at this one site (`grep` of `DOS/*.ASM`).
   `SetOpenAge`, `LRUFCB`, `BlastSFT` and `FCBRegen` only assign or read it.
-- **The after build contains the fix.** Its build record says
-  `msdos_commit d7e17a4a…`, the sign-on says `(j3b3, d7e17a4a)`, and the
-  built `FCBIO2.ASM` has the new lines. `MSDOS.SYS` is 38,848 bytes in
-  both builds.
-
-**Found, not fixed:** the same error path also leaves the *LRU* word
-(`sf_LRU` = `sf_position` low word) holding the byte position's low word.
-On success, `SaveFCBInfo` overwrites it with a fresh LRU count; `FCBDeath`
-does not. The probe shows it on both builds (BAD `LRU 0001 → 0000`, DENY
-`0002 → 0000`). With `FCBS=2,0`, the next FCB open then evicted the open
-BAD entry instead of using the free second entry. `LRUFCB` with keep 0
-goes straight to the LRU scan, and the free entry's LRU 0 ties with it.
-The result is an unneeded eviction and a later regeneration, not data loss.
-This is outside B4's open-age scope and left for a decision.
+- **The builds contain the fix.** Build records and sign-on stamps:
+  `847a33c5` (before), `d7e17a4a` (age only), `d869339e` (age and LRU,
+  the final fix).
 
 ## Probe
 
@@ -76,47 +96,68 @@ This is outside B4's open-age scope and left for a decision.
 
 Steps:
 1. Open BAD. Do a random block read (27h). INT 24h comes up and the
-   probe's handler answers Fail.
-2. Open DENY. Do a random block write (28h), which is refused.
-3. Read DENY, open and read NEXT, then open BAD again. That open must
+   probe's handler answers Fail. Then check that BAD's open age is
+   unchanged and that its LRU count is above its old value and the newest
+   among the live entries.
+2. Open DENY. The cache still has a free entry, so DENY must take it and
+   BAD must stay in the cache.
+3. Do a random block write (28h) on DENY, which is refused. Check DENY's
+   age and LRU the same way.
+4. Read DENY, open and read NEXT, then open BAD again. That open must
    evict DENY, the LRU entry, into DENY's own slot and keep NEXT.
-4. Read the evicted DENY FCB again; DOS must regenerate its SFT.
-5. Close all three FCBs and check that the cache has no live entry. Open,
+5. Read the evicted DENY FCB again; DOS must regenerate its SFT.
+6. Close all three FCBs and check that the cache has no live entry. Open,
    read and close NEXT once more.
 
-Exit code 0 = PASS, 2 = open age lost, 1 = a step failed.
+Exit code 0 = PASS. Otherwise 2 means the open age was lost and 4 means
+the LRU was stale or a free entry was not used; the two can add up to 6.
+Exit code 1 means a step failed.
 
 ## Evidence (vaeg m153, Japanese 2HD distribution image)
 
-Before = `847a33c5` (B4 gate commit, without the fix); after = `d7e17a4a`.
-VA and VA2 printed identical logs:
-[before](B4/age-before-va.txt), [after](B4/age-after-va.txt).
+Three builds were tested:
+- **Before** = `847a33c5`, the B4 gate commit, without the fix.
+- **Age only** = `d7e17a4a`.
+- **After** = `d869339e`, the final fix.
 
-| Check | Before VA | Before VA2 | After VA | After VA2 |
-|---|---|---|---|---|
-| Failed FCB read (BAD): AL, CX, ext. error, INT 24h | 01, 0, 53h, 1× (08 sector not found) | same | same | same |
-| BAD open age before → after the failed read | 0001 → **0000** | 0001 → **0000** | 0001 → 0001 | 0001 → 0001 |
-| Refused FCB write (DENY, read-only): AL, CX, ext. error, INT 24h | 01, 0, 05h (access denied), none | same | same | same |
-| DENY open age before → after the refused write | 0002 → **0000** | 0002 → **0000** | 0002 → 0002 | 0002 → 0002 |
-| DENY age after a later successful read | 0000 (still lost) | 0000 | 0002 | 0002 |
-| Cache full: third open evicts the LRU entry (DENY), keeps NEXT | PASS | PASS | PASS | PASS |
-| Evicted FCB reads again (regenerated SFT, age FFFF by `BlastSFT`) | PASS | PASS | PASS | PASS |
-| Closes, empty cache, reopen/read/close | PASS | PASS | PASS | PASS |
-| Probe verdict / exit code | AGE LOST / 2 | AGE LOST / 2 | PASS / 0 | PASS / 0 |
-| `DIR B:` after the probe | 3 files, 1,296,384 free | same | same | same |
-| B2 smoke (`docs/B2/run-smoke.py`), two boots | PASS | PASS | PASS | PASS |
-| CHKDSK free (boot 1 / boot 2) | 719,872 / 761,856 | same | same | same |
-| CHKDSK memory free (FASTOPEN loaded) | 513,664 | 513,664 | 513,664 | 513,664 |
-| COPY / EDLIN `1D`, `L`, `E` / TYPE / CHKDSK spot check | PASS | PASS | PASS | PASS |
-| CHKDSK memory free (no FASTOPEN) | 524,064 | 524,064 | 524,064 | 524,064 |
+VA and VA2 printed identical logs for each build:
+[before](B4/age-before-va.txt), [age only](B4/age-d7e17a4-va.txt),
+[after](B4/age-after-va.txt). Each cell below holds for both VA and VA2.
 
-- **B2 smoke:** the before and after screens are identical, apart from the
-  build stamp and file times. Both `FC /B` comparisons say "no differences
-  encountered", and CHKDSK reports no errors.
-- **Spot check:** the screens match, apart from the stamp, the times and
-  one screen captured while COPY was still printing.
-- **Resident size:** unchanged. 655,360 − 513,664 = 141,696 bytes are in
-  use after boot with FASTOPEN, the same in both builds.
+| Check | Before | Age only | After |
+|---|---|---|---|
+| Failed FCB read (BAD): AL, CX, ext. error, INT 24h | 01, 0, 53h, 1× (08 sector not found) | same | same |
+| BAD open age before → after the failed read | 0001 → **0000** | 0001 → 0001 | 0001 → 0001 |
+| BAD LRU before → after the failed read | 0001 → **0000** | 0001 → **0000** | 0001 → 0002 (newest) |
+| Next FCB open (DENY) with one entry free | **evicts BAD** | **evicts BAD** | uses the free entry; BAD kept |
+| Refused FCB write (DENY, read-only): AL, CX, ext. error, INT 24h | 01, 0, 05h (access denied), none | same | same |
+| DENY open age before → after the refused write | 0002 → **0000** | 0002 → 0002 | 0002 → 0002 |
+| DENY LRU before → after the refused write | 0002 → **0000** | 0002 → **0000** | 0003 → 0004 (newest) |
+| Cache full: third open evicts the LRU entry (DENY), keeps NEXT | PASS | PASS | PASS |
+| Evicted FCB reads again (regenerated SFT, age FFFF by `BlastSFT`) | PASS | PASS | PASS |
+| Closes, empty cache, reopen/read/close | PASS | PASS | PASS |
+| Probe exit code | 6 (age + LRU) | 4 (LRU) | 0 |
+| `DIR B:` after the probe | 3 files, 1,296,384 free | same | same |
+| B2 smoke (`docs/B2/run-smoke.py`), two boots | PASS | PASS | PASS |
+| CHKDSK disk free (boot 1 / boot 2) | 719,872 / 761,856 | same | same |
+| CHKDSK memory free (FASTOPEN loaded) | 513,664 | 513,664 | 513,648 |
+| COPY / EDLIN `1D`, `L`, `E` / TYPE / CHKDSK spot check | PASS | PASS | PASS |
+| CHKDSK memory free (no FASTOPEN) | 524,064 | 524,064 | 524,048 |
+
+- **B2 smoke:** apart from the build stamp, file times and the 16-byte
+  memory difference, the screens are identical across the three builds.
+  The final build was run twice. In both runs, some screens of the final
+  build were captured while a command was still being typed or was still
+  printing. Its later screens show those commands complete, and the end
+  states match (36 files, 761,856 bytes free). Both `FC /B` comparisons say "no
+  differences encountered", and CHKDSK reports no errors.
+- **Spot check:** the screens match, apart from the stamp, the times, the
+  16-byte memory difference, and one screen of the before run captured
+  while COPY was still printing.
+- **Resident size:** before and with the age-only fix, 655,360 − 513,664 =
+  141,696 bytes are in use after boot with FASTOPEN. With the final fix
+  it is 141,712 bytes: 16 bytes (one paragraph) more, from the larger
+  MSDOS.SYS (38,848 → 38,864 bytes).
 
 ## NOT RUN
 
@@ -129,5 +170,7 @@ VA and VA2 printed identical logs:
 - The FCB sequential and random-record calls (14h/15h/21h/22h). They go
   through the same `FCBIO` code but were not run.
 - An age above 0 in the position high word (files of 64 KiB or more).
+- The `FCBLRU` wrap (`ResetLRU`) reached from the error path. It needs
+  65,535 FCB calls.
 - K1 key-input regression: B4 changes no console code.
 - HDD boot, 2D media, real hardware.

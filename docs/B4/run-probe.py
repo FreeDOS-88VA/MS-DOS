@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, os.environ['VAEG_QA'])
 from m75_scsi_harness import decode_screen
 vaeg, roms = os.environ['VAEG'], os.environ['VAEG_ROMS']
-CMDS = ['FCBAGE > AGE.LOG', 'IF ERRORLEVEL 2 ECHO EXIT=2',
+CMDS = ['FCBAGE > AGE.LOG', 'IF ERRORLEVEL 1 ECHO EXIT NONZERO',
         'IF NOT ERRORLEVEL 1 ECHO EXIT=0', 'DIR B:']
 
 

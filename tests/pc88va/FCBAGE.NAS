@@ -6,8 +6,10 @@
 ; READ/WRITE lines: open age before and after the failed call, AL, CX,
 ; extended error (INT 21h/59h), INT 24 count and the INT 24 error (DI).
 ; SFT lines: each FCB cache entry as offset:ref-count LRU open-age name.
-; Exit code 0 = PASS, 2 = open age lost (expected before the B4 fix),
-; 1 = some other step failed (the step letter is printed).
+; READ/WRITE lines also give sf_LRU before and after the failed call.
+; Exit code 0 = PASS; otherwise bit 1 = open age lost, bit 2 = LRU stale
+; (both expected before the B4 fix), 1 = some other step failed (the step
+; letter is printed).
 bits 16
 cpu 8086
 org 100h
@@ -51,6 +53,22 @@ org 100h
     mov dx,deny
     call open
     call show
+    ; The cache still has a free entry, so this open must use it and keep
+    ; BAD (an open FCB whose last call failed) in the cache.
+    mov dx,bad
+    call find
+    jnc .kept
+    mov byte [lru_fail],1
+    mov si,bad_evicted
+    call print
+    jmp .opened
+.kept:
+    mov si,free_used
+    call print
+.opened:
+    mov dx,deny
+    call find
+    jc failure
     ; A refused FCB write: DENY.DAT is read-only (access denied, no INT 24).
     mov si,write_msg
     mov ah,28h
@@ -114,14 +132,36 @@ org 100h
     call show
     mov si,followup
     call print
-    mov si,passed
-    xor al,al
+    mov si,age_kept
     cmp byte [age_fail],0
-    je .verdict
+    je .age
     mov si,age_lost
-    mov al,2
-.verdict:
+.age:
+    call print
+    mov si,lru_fresh
+    cmp byte [lru_fail],0
+    je .lru
+    mov si,lru_stale
+.lru:
+    call print
+    mov al,[age_fail]
+    shl al,1
+    mov ah,[lru_fail]
+    shl ah,1
+    shl ah,1
+    or al,ah
     push ax
+    mov si,verdict_pass
+    or al,al
+    jz .verdict
+    mov si,verdict_fail
+.verdict:
+    call print
+    pop ax
+    push ax
+    xor ah,ah
+    call hex
+    mov si,newline
     call print
     pop ax
     jmp finish
@@ -228,6 +268,8 @@ try_io:
     mov [age_before],bx
     or bx,bx
     jz failure
+    mov bx,[es:di+15h]        ; sf_LRU = sf_position (keep AH)
+    mov [lru_before],bx
     mov [critical_count],word 0
     mov [critical_error],word 0ffffh
     push si
@@ -246,13 +288,24 @@ try_io:
     mov ax,[es:di+17h]
     mov [age_after],ax
     cmp ax,[age_before]
-    je .report
+    je .lru
     mov byte [age_fail],1
+.lru:
+    ; The entry must now carry the newest LRU count of all live entries,
+    ; as after a successful call.
+    mov ax,[es:di+15h]
+    mov [lru_after],ax
+    cmp ax,[lru_before]
+    jbe .stale
+    call newest
+    jnc .report
+.stale:
+    mov byte [lru_fail],1
 .report:
     pop si
     call print
     mov bx,age_before
-    mov cx,7
+    mov cx,9
 .words:
     mov ax,[bx]
     call hex
@@ -268,6 +321,36 @@ try_io:
     jne failure
     cmp word [extended],0
     je failure
+    ret
+
+; CF set if a live FCB SFT other than ES:DI has an LRU count above AX.
+newest:
+    push es
+    push di
+    push bx
+    push cx
+    mov bx,di
+    les di,[cache]
+    mov cx,2
+.entry:
+    cmp di,bx
+    je .next
+    cmp word [es:di],0
+    je .next
+    cmp [es:di+15h],ax
+    ja .older
+.next:
+    add di,3bh
+    loop .entry
+    clc
+    jmp .done
+.older:
+    stc
+.done:
+    pop cx
+    pop bx
+    pop di
+    pop es
     ret
 
 show:
@@ -405,15 +488,24 @@ records: dw 0
 extended: dw 0
 critical_count: dw 0
 critical_error: dw 0
-read_msg: db 'READ  before/after AL CX ext I24-count I24-DI: ',0
-write_msg: db 'WRITE before/after AL CX ext I24-count I24-DI: ',0
+lru_before: dw 0
+lru_after: dw 0
+lru_fail: db 0
+read_msg: db 'READ  age b/a, AL CX ext I24n I24DI, LRU b/a: ',0
+write_msg: db 'WRITE age b/a, AL CX ext I24n I24DI, LRU b/a: ',0
 sft_msg: db 'SFT slot:ref LRU age name: ',0
 read_fail: db 'Good read failed, AL CX: ',0
 newline: db 13,10,0
 evicted: db 'DENY evicted by BAD; NEXT kept',13,10,0
 followup: db 'Regenerated read, closes, reopen OK; cache empty',13,10,0
-passed: db 'FCBAGE PASS: open age kept',13,10,0
-age_lost: db 'FCBAGE AGE LOST',13,10,0
+age_kept: db 'Open age kept',13,10,0
+age_lost: db 'OPEN AGE LOST',13,10,0
+lru_fresh: db 'LRU fresh after failed I/O; free entry used',13,10,0
+lru_stale: db 'LRU STALE after failed I/O',13,10,0
+free_used: db 'DENY used the free entry; BAD kept',13,10,0
+bad_evicted: db 'BAD EVICTED although an entry was free',13,10,0
+verdict_pass: db 'FCBAGE PASS, exit ',0
+verdict_fail: db 'FCBAGE FAIL, exit ',0
 failed: db 'FCBAGE FAIL at step '
 step: db '0',13,10,0
 dma: times 128 db 0
