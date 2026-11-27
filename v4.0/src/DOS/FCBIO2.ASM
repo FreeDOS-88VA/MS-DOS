@@ -350,6 +350,11 @@ ENDIF
 	; Restore the FCB open age before the error path discards it.
 	LES	DI,CS:[ThisSFT]
 	POP	ES:[DI].sf_OpenAge
+	; sf_LRU (sf_position low word) still holds the byte position.
+	; Give it a fresh LRU count the way SaveFCBInfo does on success.
+	SaveReg <AX,BX,CX>		; AX = error code for FCBDeath
+	invoke	FCBPokeLRU
+	RestoreReg  <CX,BX,AX>
 	JMP	FCBDeath
 FCBIOSuccess:
 	CMP	BYTE PTR [DISK_FULL],0	; treat disk full as error
