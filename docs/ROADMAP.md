@@ -494,6 +494,14 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   an FCB read error and write denial (local floppy and a redirector case
   if available) return the error and later FCB opens/closes/eviction work;
   B2 smoke and K1 regression on VA and VA2.
+  Result 2026-11-27 (fix `d7e17a4`, awaiting review): the `FCBAGE` probe on
+  vaeg m153 VA and VA2 shows the age lost before the fix (failed read
+  0001 → 0000, refused write 0002 → 0000) and kept after it (0001, 0002);
+  eviction, regeneration, closes and reopen pass on both builds; B2 smoke,
+  COPY/EDLIN/CHKDSK identical, CHKDSK memory free 513,664 unchanged.
+  Found, not fixed: the same error path leaves `sf_LRU` as the position
+  low word. NOT RUN: redirector, SHARE with a keep count, write-protected
+  disk, K1 regression (no console change).
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
