@@ -29,6 +29,7 @@ Entry unregistered. Parked system and startup files were retained.	登録を解�
 Startup names (if present):	起動設定ファイル名 (存在する場合):
 No PC-Engine entries.	PC-Engine の登録はありません。
 Boot-menu update pending.	起動メニューの更新が完了していません。
+Boot-menu switch recovered; DOS files unchanged.	起動メニューの切り替えを完了しました。DOS ファイルは変更していません。
 Cannot safely refresh the SASI boot files.	SASI 起動ファイルを安全に更新できません。
 Free a root directory entry in either DOS kernel block and retry SYS.	DOS 起動ファイルのどちらかと同じブロック内のルート項目を空けてから SYS を実行してください。
 Capture not started. Kernel entries need room in one root block.	登録を開始しませんでした。DOS 起動項目を同じルートブロックに置く空きが必要です。

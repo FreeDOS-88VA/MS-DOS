@@ -361,10 +361,18 @@ replay a pending menu operation before starting a refresh.
 The unreleased fixes 3–5 experimented with a redo log, temporary IPL
 and staging file. Disks touched by those builds are not supported in
 place: refresh them from the floppy. `SYS C:` treats an armed block 0
-as foreign and prompts before replacing it. `VASYS.JRN` is an ordinary
-file that can be deleted; former tail markers are ignored. No refresh
+as foreign and prompts before replacing it. Do not delete a leftover
+`VASYS.JRN` (or `BOOTMENU.JRN`) with DEL: its start cluster may now belong
+to another file. Back up the files you need and reformat, or restore a
+backup. Former tail markers are ignored. No refresh
 writes beyond the BPB volume or changes IPL blocks 0–3; only the
 existing IPL install/upgrade paths write those blocks.
+
+On a menu disk, any unrecognized block 0 is treated as a foreign IPL:
+SYS asks for confirmation and replaces it only when the menu state and
+every registered file set validate (fix 6 removed the earlier extra
+condition that block 0 had to equal the last entry's saved IPL). The
+file checks still refuse unknown files under the real names.
 
 New SYS must recognize the old IPL, validate and retain the old state
 entries, and install a matching IPL and stage as a pair. D5 releases
