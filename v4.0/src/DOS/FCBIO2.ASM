@@ -345,8 +345,18 @@ dos_fcb_call_done:
 	popf
 ENDIF
 
-	JC	FCBDeath
-
+	JNC	FCBIOSuccess
+	; Failed I/O may not return ES:DI pointing at the SFT.
+	; Restore the FCB open age before the error path discards it.
+	LES	DI,CS:[ThisSFT]
+	POP	ES:[DI].sf_OpenAge
+	; sf_LRU (sf_position low word) still holds the byte position.
+	; Give it a fresh LRU count the way SaveFCBInfo does on success.
+	SaveReg <AX,BX,CX>		; AX = error code for FCBDeath
+	invoke	FCBPokeLRU
+	RestoreReg  <CX,BX,AX>
+	JMP	FCBDeath
+FCBIOSuccess:
 	CMP	BYTE PTR [DISK_FULL],0	; treat disk full as error
 	JZ	NODSKFULL
 	MOV	BYTE PTR [DISK_FULL],0	; clear the flag

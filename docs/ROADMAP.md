@@ -487,6 +487,30 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
 - B3 (`docs/B3-lookahead-buffers.md`): fixed VA/VA2 boot with
   `BUFFERS=n,m` by sizing the look-ahead allocation for the actual
   maximum sector size. Accepted 2026-11-23.
+- B4 (`docs/B4-fcb-openage.md`): MS-DOS 4.0 FCB read/write error path
+  loses the SFT open age (`DOS/FCBIO2.ASM`: `PUSH DX` saves `sf_OpenAge`
+  overlaid by the position high word; `JC FCBDeath` skips the restore).
+  Gate: restore the age on the error path without changing success paths;
+  an FCB read error and write denial (local floppy and a redirector case
+  if available) return the error and later FCB opens/closes/eviction work;
+  B2 smoke and K1 regression on VA and VA2.
+  Result 2026-11-27 (fixes `d7e17a4` age and `d869339` LRU, awaiting
+  review). The `FCBAGE` probe on vaeg m153 VA and VA2 shows:
+  - before: the failed read and the refused write both set the open age
+    and the LRU to 0, and the next open evicted the failed FCB although
+    a cache entry was free;
+  - after: the age is kept, the LRU is fresh (newest), and the free entry
+    is used.
+  Eviction, regeneration, closes and reopen pass. The B2 smoke and the
+  COPY/EDLIN/CHKDSK screens are identical. CHKDSK memory free drops by
+  16 bytes (513,664 → 513,648; MSDOS.SYS +16 bytes). NOT RUN:
+  redirector, SHARE with a keep count, write-protected disk, `FCBLRU`
+  wrap. K1 regression waived by Opus 5.5 (2026-11-27): the change has
+  no console code, and outside FCBIO the binary differs only by one
+  relocated call target. Known limit: an INT 24h Abort during a failed
+  FCB read/write still leaves the freed SFT's age/LRU stale (pre-existing,
+  `DOS_ABORT`); follow-up. Accepted 2026-11-27 (fix by a Claude subagent,
+  reviewed by another; pi runs were blocked by the provider filter).
 
 ## Devices (later)
 - AUX on the communication BIOS (INT 8Ah), PRN on the printer BIOS.
