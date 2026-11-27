@@ -14,10 +14,7 @@ JRSRC   DW      0
 JRLEN   DW      0
 
 D5JRNEW:
-        CALL    D5JRPAIR
-        D5CF    D5NOROOM
-        CALL    D5JRCLUSTERS
-        D5CF    D5NOROOM
+        ; SYS preflight picked JRSLOT and JRCL along with the DOS files.
         ; Prepare the menu image and saved IPL before changing allocation.
         MOV     ES,[BMSTSEG]
         PUSH    DS

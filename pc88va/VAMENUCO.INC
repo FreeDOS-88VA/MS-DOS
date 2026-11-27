@@ -231,7 +231,18 @@ FENTRY: CMP     BYTE PTR ES:[DI],0
         POP     SI
         JNE     FSKIP
         CMP     [SLOT],0FFFFH
+        IFDEF   SYSSWAP
+        JE      FFIRST
+        CMP     [RFFIND2],0
+        JE      FERR
+        CMP     [RFDUP],0FFFFH
         JNE     FERR
+        MOV     [RFDUP],BX
+        JMP     SHORT FSKIP
+FFIRST:
+        ELSE
+        JNE     FERR
+        ENDIF
         MOV     [SLOT],BX
         PUSH    AX
         PUSH    DS
@@ -433,21 +444,11 @@ PUTSLOT:MOV     BX,DI
 ; AX = logical LBA, ES:BP = aligned DMA buffer. BX = block within
 ; logical sector on write. INT 81h uses a 32-bit physical block number.
 READSEC:
-        IFDEF   SYSREDO
-        CMP     [TXPLAN],0
-        JE      BMREAD
-        JMP     TXREAD
-        ENDIF
 BMREAD: PUSH    BX
         XOR     BX,BX
         MOV     CX,8104H
         JMP     SHORT TRANSFER
 WRITEBLOCK:
-        IFDEF   SYSREDO
-        CMP     [TXPLAN],0
-        JE      BMWRITE
-        JMP     TXWRITE
-        ENDIF
 BMWRITE:PUSH    BX
         MOV     CX,8201H
 TRANSFER:

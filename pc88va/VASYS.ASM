@@ -12,7 +12,7 @@ START:  JMP     MAIN
 
 WORKSEG DW      0
 SOURCE  DB      0
-HDIDX   DW      0
+HDSTAGE DW      0
 S_USAGE DB      'Usage: SYS d: [/L | /P | /C | /D n] (switches for SASI only)',13,10,'$'
 S_SAME  DB      'Cannot SYS to the current drive',13,10,'$'
 S_BAD   DB      'Target disk is not a PC-88VA 2HD MS-DOS disk',13,10,'$'
@@ -36,16 +36,10 @@ D5PAIRPARK DB   '  VACFG0.SYS / VAEXEC0.BAT',13,10,'$'
 D5NONE  DB      'No PC-Engine entries.',13,10,'$'
 D5WAIT  DB      'Boot-menu update pending.',13,10,'$'
 RFMSG   DB      'Cannot safely refresh the SASI boot files.',13,10,'$'
-TXROOM  DB      'Free a root directory entry in either DOS kernel block and retry SYS.',13,10,'$'
-TXBROKEN DB     'SASI recovery stopped. Do not write to this drive. Restore a known good backup.',13,10,'$'
-TXTAILMSG DB    'SASI redo area is not available; no new boot files installed.',13,10,'$'
-TXFIXED DB      'Restored the SASI IPL from the intact DOS volume.',13,10,'$'
-TXCAPWARN DB    'Capture committed. Kernel entries still need room in one root block.',13,10,'$'
-RFLEFTMSG DB    'Old DOS chains left allocated due to damage; run CHKDSK after SYS.',13,10,'$'
-RFJMSG  DB      'Invalid or incompatible VASYS.JRN; check the volume before retrying SYS.',13,10,'$'
-TXMESSAGE MACRO
-TXMSG   DB      'SASI redo failed. Boot the MS-DOS floppy and run SYS C:',13,10,0
-        ENDM
+RFROOM  DB      'Free a root directory entry in either DOS kernel block and retry SYS.',13,10,'$'
+RFCAPWARN DB    'Capture not started. Kernel entries need room in one root block.',13,10,'$'
+RFLEFTMSG DB    'Some old DOS chains were left allocated; check the volume with CHKDSK.',13,10,'$'
+RFSPACE DB      'Not enough free SASI clusters for both sets of DOS files.',13,10,'$'
 
 ; Use an internal stack; staging system files may cross the COM segment.
 MAIN:   MOV     SP,OFFSET STKTOP
@@ -158,11 +152,11 @@ HDALLOC:MOV     AX,[WORKSEG]
         MOV     [BMSTSEG],AX
         ADD     AX,256
         MOV     [RFSEG],AX
-        ADD     AX,64
-        ; The redo buffer and LOADSYS staging share the same space.
-        ; Never plan a transaction while the source bytes are needed.
-        MOV     [TXSEG],AX
-        MOV     [NEXTSEG],AX
+        ADD     AX,192          ;Swap records and directory ownership counts.
+        MOV     [RFFATSEG],AX
+        ADD     AX,256          ;First FAT; second FAT borrows source staging.
+        MOV     [HDSTAGE],AX
+        ADD     AX,256
         CMP     AX,DS:[2]
         JBE     HDVALID
         MOV     DX,OFFSET S_NOMEM
@@ -183,10 +177,8 @@ HDFATID:MOV     AL,[FTYPE]
         CMP     BYTE PTR ES:[2],0FFH
         JNE     NOTNEC
         CALL    HIPLCHECK
-        JNC     HDRESUME
+        JNC     HDTYPE
         JMP     HDSYSIO
-HDRESUME:CALL   TXRESUME
-        JC      HDEARLYERR
 HDTYPE: CALL    D5TYPE
         MOV     [D5IPL],AL
         CMP     [D5OP],0
@@ -220,61 +212,16 @@ HDCONFIRMED:MOV DX,OFFSET S_HDIPL
         JC      HDEARLYERR
 HDPLAN: CALL    D5PLAN
         JC      HDEARLYERR
-        CMP     [D5IPL],2
-        JB      HDCOPY
-        CALL    RFRECOVER
-        JC      HDEARLYERR
-HDCOPY: CMP     [D5IPL],2
-        JB      HDINSTALL
         CALL    RFNEW
         JC      HDEARLYERR
-        JMP     SHORT HDPUBLISH
-HDINSTALL:
-        ; Check all source files before writing the capture marker.
-        MOV     [HDIDX],0
-HDTEST: MOV     BX,[HDIDX]
-        CALL    HDLOADONE
-        JC      HDEARLYERR
-        ADD     [HDIDX],2
-        CMP     [HDIDX],NSYS*2
-        JB      HDTEST
-        CALL    D5CAPTURE
-        JC      HDEARLYERR
-        MOV     [HDIDX],0
-HDSAVE: MOV     BX,[HDIDX]
-        CALL    HDLOADONE
-        JC      HDEARLYERR
-        PUSH    CS
-        POP     ES
-        MOV     AX,[HDIDX]
-        MOV     [SYSIDX],AX
-        MOV     AL,[DRV]
-        ADD     AL,'A'
-        MOV     [SYSLTR],AL
-        MOV     [SYSCNT],1
-        CALL    SAVES1
+        CALL    D5COMMIT
         JC      HDSYSERR
-        ADD     [HDIDX],2
-        CMP     [HDIDX],NSYS*2
-        JB      HDSAVE
-        MOV     AH,0DH
-        INT     21H
-HDPUBLISH:CALL  D5COMMIT
-        JC      HDSYSERR
-        CMP     [D5IPL],2
-        JAE     HDDONE
-        CALL    RFSLOTS
-        JNC     HDDONE
-        CMP     DX,OFFSET TXROOM
-        JNE     HDSYSERR
-        MOV     DX,OFFSET TXCAPWARN
-        CALL    PUTS
-HDDONE: CALL    HNOTE
+        CALL    HNOTE
         JMP     SUCCESS
 ; Load only source file BX (an even index). The one staging window is
 ; available for the next file as soon as its current data is written.
 HDLOADONE:
-        MOV     AX,[TXSEG]
+        MOV     AX,[HDSTAGE]
         MOV     [NEXTSEG],AX
         MOV     [SYSIDX],BX
         MOV     [SYSCNT],1
@@ -302,12 +249,11 @@ HDSYSIO:MOV     DX,OFFSET S_IOERR
 HDSYSERR:JMP    ERROR
 
 MENUDOS EQU     1
-SYSREDO EQU     1
+SYSSWAP EQU     1
         INCLUDE VAMENUCO.INC
         INCLUDE VAMENUIN.INC
-        INCLUDE VASYSJR.INC
-        INCLUDE VASYSMOV.INC
-        INCLUDE VASYSTX.INC
+        INCLUDE VASYSSW.INC
+        INCLUDE VASYSCK.INC
         DW      256 DUP (0)
 STKTOP  LABEL   WORD
 ENDPROG LABEL   BYTE

@@ -396,11 +396,8 @@ D5FOREIGN:
         JE      D5PENDING
         CMP     BYTE PTR ES:[ST_PHASE],0
         D5NZ    D5ERROR
-        MOV     BL,ES:[ST_LAST]
-        OR      BL,BL
-        JE      D5BADPCE
-        CALL    D5MATCHIPL
-        D5CF    D5ERROR
+        ; The operator confirmed replacement of a foreign IPL. A clean
+        ; existing menu can be retained independently of that IPL.
         CALL    CHECKFILES
         D5CF    D5ERROR
         RET
@@ -884,11 +881,6 @@ D5DELRESULT:
 
 D5PREP: CMP     BYTE PTR ES:[ST_OWNER],0
         D5NZ    D5NEEDOS
-        CALL    RFRECOVER
-        D5CF    D5PASS
-        MOV     ES,[BMSTSEG]
-        CALL    RFSLOTS
-        D5CF    D5PASS
         CMP     BYTE PTR ES:[ST_PHASE],2
         D5Z     D5VALIDP
         CMP     BYTE PTR ES:[ST_PHASE],0
