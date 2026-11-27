@@ -20,6 +20,7 @@ IPL:    CLI
         XOR     DX,DX
         MOV     BP,512
         CALL    READROM
+        JC      FAIL
         JMP     STAGE2
 
 ; ROM relative addressing. Preserve loop state and segment registers.
@@ -43,7 +44,8 @@ READROM:PUSH    AX
         POP     CX
         POP     BX
         POP     AX
-        JNC     READOK
+        CLD
+        RET
 FAIL:   PUSH    CS
         POP     DS
         MOV     SI,OFFSET MSG
@@ -53,9 +55,6 @@ FAIL:   PUSH    CS
 HALT:   CLI
         HLT
         JMP     SHORT HALT
-READOK: CLD
-        RET
-
 ; AX = logical LBA, ES:BP = 1 KiB aligned DMA buffer. No transfer
 ; can cross a physical 64 KiB boundary, including the last file sector.
 READSEC:MOV     CX,AX
@@ -71,7 +70,48 @@ READSEC:MOV     CX,AX
         RET
 
 MSG     DB      'Cannot boot MS-DOS from SASI target 0',13,10,0
-        DB      'MSDOS-VA SASI IPL',0
+MENUNAME DB     'BOOTMENUSYS'
+        INCLUDE VAMENUSZ.INC     ;Generated from VAMENU.ASM.
+
+; The distribution embeds the exact length and CRC of our second stage.
+; Never execute a partial read, bad chain, or mismatching stage image.
+TRYMENU:MOV     [LOADSEG],3800H
+        MOV     [LOADSIZE],4096
+        MOV     SI,OFFSET DATNAME
+        CALL    LOADFILE
+        JC      MENUERR
+        PUSH    [FIRSTLBA]
+        MOV     [LOADSEG],3400H
+        MOV     [LOADSIZE],MENUSIZE
+        MOV     SI,OFFSET MENUNAME
+        CALL    LOADFILE
+        POP     BX
+        JC      MENUERR
+        PUSH    DS
+        MOV     AX,3400H
+        MOV     DS,AX
+        XOR     SI,SI
+        MOV     CX,MENUSIZE
+        CALL    CRC16
+        POP     DS
+        CMP     DX,MENUCRC
+        JNE     MENUERR
+        MOV     AX,BX            ;State file's first logical sector.
+        MOV     BX,[ROOTLBA]
+        MOV     CX,[DATALBA]
+        DB      09AH            ;CALL FAR 3400:0000, RETF to DOS on return.
+        DW      0,3400H
+MENUEND:PUSH    CS
+        POP     DS
+        CLD
+        RET
+MENUERR:MOV     SI,OFFSET MENUBAD
+        MOV     DX,8000H
+        MOV     AH,2
+        INT     83H
+        JMP     SHORT MENUEND
+        ORG     255
+MENUFLAG DB     0               ;Opt-in; a plain FORMAT /S stays on the D4 path.
         ORG     512
 STAGE2: MOV     AX,0900H
         XOR     BX,BX
@@ -98,6 +138,7 @@ STAGE2: MOV     AX,0900H
         MOV     BP,2000H         ;FAT at 3000:2000..2FFF.
         MOV     AX,1
 FATLOOP:CALL    READSEC
+        JC      BADGEOM
         ADD     BP,1024
         INC     AX
         CMP     AX,[SPF]
@@ -107,13 +148,19 @@ FATLOOP:CALL    READSEC
         JNE     BADGEOM
         CMP     BYTE PTR DS:[2002H],0FFH
         JNE     BADGEOM
+        CMP     [MENUFLAG],0
+        JE      DOSBOOT
+        CALL    TRYMENU
+DOSBOOT:MOV     [LOADSIZE],0
         MOV     [LOADSEG],1000H
         MOV     SI,OFFSET IONAME
         CALL    LOADFILE
+        JC      BADGEOM
         PUSH    [LOADSEG]
         MOV     SI,OFFSET DOSNAME
         CALL    LOADFILE
         POP     DX
+        JC      BADGEOM
         MOV     AX,5648H         ;VAIO SASI boot marker; BL = target.
         XOR     BX,BX
         DB      0EAH
@@ -126,6 +173,7 @@ LOADFILE:
         MOV     BP,1000H         ;One root sector at a time.
         MOV     AX,[ROOTLBA]
 ROOTSEC:CALL    READSEC
+        JC      BADFILE
         MOV     DI,BP
 ROOTENT:CMP     BYTE PTR [DI],0
         JE      BADFILE
@@ -145,11 +193,20 @@ ROOTNEXT:
         INC     AX
         CMP     AX,[DATALBA]
         JB      ROOTSEC
-BADFILE:JMP     FAIL
+BADFILE:STC
+        RET
 FOUND:  CMP     WORD PTR [DI+30],0
         JNE     BADFILE
         MOV     AX,[DI+28]
-        OR      AX,AX
+        CMP     [LOADSIZE],0
+        JE      SIZEOK
+        MOV     BL,[DI+11]
+        AND     BL,0DFH         ;DOS sets archive on write.
+        CMP     BL,7
+        JNE     BADFILE
+        CMP     AX,[LOADSIZE]
+        JNE     BADFILE
+SIZEOK: OR      AX,AX
         JZ      BADFILE
         DEC     AX
         MOV     CL,10
@@ -157,6 +214,7 @@ FOUND:  CMP     WORD PTR [DI+30],0
         INC     AX
         MOV     [LEFTSEC],AX
         MOV     BX,[DI+26]
+        MOV     [FIRSTLBA],0
         XOR     BP,BP
 CLUSTER:CMP     BX,2
         JB      BADFILE
@@ -165,9 +223,13 @@ CLUSTER:CMP     BX,2
         LEA     AX,[BX-2]
         MUL     [SPC]
         ADD     AX,[DATALBA]
-        MOV     DI,[SPC]
+        CMP     [FIRSTLBA],0
+        JNE     GOTLBA
+        MOV     [FIRSTLBA],AX
+GOTLBA: MOV     DI,[SPC]
 FILESEC:MOV     ES,[LOADSEG]
         CALL    READSEC
+        JC      BADFILE
         ADD     [LOADSEG],40H
         INC     AX
         DEC     [LEFTSEC]
@@ -186,9 +248,10 @@ CHAIN1: AND     AX,0FFFH
         MOV     BX,AX
         CMP     [LEFTSEC],0
         JNE     CLUSTER          ;Size bounds even a cyclic chain.
-        CMP     AX,0FF8H
-        JB      BADFILE
+        CMP     AX,0FF8H        ;CF directly reports a missing EOC.
         RET
+
+        INCLUDE VACRC16.INC
 
 ; FAT length, first root and data sectors, largest full cluster, SPC.
 GEOM    DW      1,3,22,617,8
@@ -203,6 +266,10 @@ SPC     DW      0
 FATID   DW      0
 LOADSEG DW      0
 LEFTSEC DW      0
+LOADSIZE DW     0
+FIRSTLBA DW     0
+DATNAME DB      'BOOTMENUDAT'
+MENUBAD DB      'Boot menu unavailable; starting MS-DOS.',13,10,0
 IONAME  DB      'IO      SYS'
 DOSNAME DB      'MSDOS   SYS'
         ORG     1023

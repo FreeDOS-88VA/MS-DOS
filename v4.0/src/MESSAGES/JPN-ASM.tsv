@@ -11,12 +11,30 @@ out of memory	メモリ不足
 Resync failed.  Files are too different\n	相違が多すぎるため比較を続けられません\n
 Unknown error	不明なエラー
 @pc88va/VASYS.ASM
-Usage: SYS d: (2HD floppy or NEC SASI)	使い方: SYS d: (2HD または NEC SASI)
+Usage: SYS d: [/L | /P | /C | /D n] (switches for SASI only)	使い方: SYS d: [/L | /P | /C | /D n] (スイッチは SASI 専用)
 Cannot SYS to the current drive	現在のドライブには SYS を実行できません
 Target disk is not a PC-88VA 2HD MS-DOS disk	転送先は PC-88VA 用の 2HD MS-DOS ディスクではありません
 Disk error on the target drive	転送先ドライブにディスクエラーが発生しました
 Target is not a mounted NEC-layout SASI volume	転送先は使用可能な NEC 形式の SASI ボリュームではありません
 Cannot SYS to the boot drive	起動ドライブには SYS を実行できません
+Inconsistent or missing SASI boot-menu files; no new IPL installed.	SASI 起動メニューのファイルがないか不正です。IPL は変更していません。
+Expected a complete PC-Engine set and a replaced PC-Engine IPL.	PC-Engine の IPL と一式のシステムファイルが必要です。
+No free boot-menu entry or root directory slot.	起動メニューまたはルートディレクトリに空きがありません。
+Boot MS-DOS from the menu to park the active set before preparing.	準備の前にメニューから MS-DOS を起動して使用中のファイルを退避してください。
+Label (up to 15 ASCII characters, Enter for PC-Engine n): $	名前 (ASCII 15 文字まで、既定値 PC-Engine n は ENTER): $
+Label must be printable ASCII.	名前には表示できる ASCII 文字だけを使ってください。
+Prepared for another PC-Engine SYS. Use SYS d: /C to cancel.	次の PC-Engine SYS の準備ができました。取り消しは SYS d: /C です。
+Preparation cancelled.	準備を取り消しました。
+Entry unregistered. Parked system and startup files were retained.	登録を解除しました。退避したシステムファイルと起動設定ファイルは残っています。
+Startup names (if present):	起動設定ファイル名 (存在する場合):
+No PC-Engine entries.	PC-Engine の登録はありません。
+Boot-menu update pending.	起動メニューの更新が完了していません。
+Boot-menu switch recovered; DOS files unchanged.	起動メニューの切り替えを完了しました。DOS ファイルは変更していません。
+Cannot safely refresh the SASI boot files.	SASI 起動ファイルを安全に更新できません。
+Free a root directory entry in either DOS kernel block and retry SYS.	DOS 起動ファイルのどちらかと同じブロック内のルート項目を空けてから SYS を実行してください。
+Capture not started. Kernel entries need room in one root block.	登録を開始しませんでした。DOS 起動項目を同じルートブロックに置く空きが必要です。
+Some old DOS chains were left allocated; check the volume with CHKDSK.	一部の旧 DOS チェーンを残しました。CHKDSK でボリュームを確認してください。
+Not enough free SASI clusters for both sets of DOS files.	新旧の DOS ファイルを置くための空きクラスタが SASI にありません。
 @pc88va/VAFORMAT.ASM
 Usage: FORMAT A:|B: [/S] [/V:label]	使い方: FORMAT A:|B: [/S] [/V:label]
        FORMAT d:|/H0|/H1 [/S] [/V:label] (SASI)	        FORMAT d:|/H0|/H1 [/S] [/V:label] (SASI)

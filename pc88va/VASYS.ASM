@@ -12,12 +12,34 @@ START:  JMP     MAIN
 
 WORKSEG DW      0
 SOURCE  DB      0
-S_USAGE DB      'Usage: SYS d: (2HD floppy or NEC SASI)',13,10,'$'
+HDSTAGE DW      0
+S_USAGE DB      'Usage: SYS d: [/L | /P | /C | /D n] (switches for SASI only)',13,10,'$'
 S_SAME  DB      'Cannot SYS to the current drive',13,10,'$'
 S_BAD   DB      'Target disk is not a PC-88VA 2HD MS-DOS disk',13,10,'$'
 S_IOERR DB      'Disk error on the target drive',13,10,'$'
 S_NEC   DB      'Target is not a mounted NEC-layout SASI volume',13,10,'$'
 S_BOOT  DB      'Cannot SYS to the boot drive',13,10,'$'
+S_JRDONE DB     'Boot-menu switch recovered; DOS files unchanged.',13,10,'$'
+D5BADMSG DB     'Inconsistent or missing SASI boot-menu files; no new IPL installed.',13,10,'$'
+D5NOTPC DB      'Expected a complete PC-Engine set and a replaced PC-Engine IPL.',13,10,'$'
+D5ROOM  DB      'No free boot-menu entry or root directory slot.',13,10,'$'
+D5NEED  DB      'Boot MS-DOS from the menu to park the active set before preparing.',13,10,'$'
+D5LABELASK DB   'Label (up to 15 ASCII characters, Enter for PC-Engine n): $'
+D5BADLABEL DB   'Label must be printable ASCII.',13,10,'$'
+D5PREPDONE DB   'Prepared for another PC-Engine SYS. Use SYS d: /C to cancel.',13,10,'$'
+D5CANDONE DB    'Preparation cancelled.',13,10,'$'
+D5DELDONE DB    'Entry unregistered. Parked system and startup files were retained.',13,10,'$'
+D5PAIRHDR DB    'Startup names (if present):',13,10,'$'
+D5PAIRDOS DB    '0 MS-DOS',13,10,'$'
+D5PAIRREAL DB   '  CONFIG.SYS / AUTOEXEC.BAT',13,10,'$'
+D5PAIRPARK DB   '  VACFG0.SYS / VAEXEC0.BAT',13,10,'$'
+D5NONE  DB      'No PC-Engine entries.',13,10,'$'
+D5WAIT  DB      'Boot-menu update pending.',13,10,'$'
+RFMSG   DB      'Cannot safely refresh the SASI boot files.',13,10,'$'
+RFROOM  DB      'Free a root directory entry in either DOS kernel block and retry SYS.',13,10,'$'
+RFCAPWARN DB    'Capture not started. Kernel entries need room in one root block.',13,10,'$'
+RFLEFTMSG DB    'Some old DOS chains were left allocated; check the volume with CHKDSK.',13,10,'$'
+RFSPACE DB      'Not enough free SASI clusters for both sets of DOS files.',13,10,'$'
 
 ; Use an internal stack; staging system files may cross the COM segment.
 MAIN:   MOV     SP,OFFSET STKTOP
@@ -32,6 +54,9 @@ SYSARG: LODSB
         JE      SYSARG
         CMP     AL,13
         JE      SYSMAIN
+        DEC     SI
+        CALL    D5ARGS
+        JNC     SYSMAIN
         JMP     USAGE
 SYSMAIN:MOV     AX,OFFSET ENDPROG+15
         MOV     CL,4
@@ -43,6 +68,10 @@ SYSMAIN:MOV     AX,OFFSET ENDPROG+15
         MOV     [NEXTSEG],AX
         MOV     AH,19H
         INT     21H
+        CMP     [D5OP],0
+        JNE     LOADIT
+        CMP     [DRV],1
+        JA      LOADIT          ;SASI may need journal recovery first.
         CMP     AL,[DRV]
         JNE     LOADIT
         MOV     DX,OFFSET S_SAME
@@ -50,8 +79,9 @@ SYSMAIN:MOV     AX,OFFSET ENDPROG+15
 LOADIT: ADD     AL,'A'
         MOV     [SOURCE],AL
         CMP     [DRV],1
-        JBE     FLOPPY
-        JMP     HDSYS
+        JA      HDSYS
+        CMP     [D5OP],0
+        JNE     USAGE
 FLOPPY: MOV     CX,NSYS         ;Include COMMAND.COM for standalone boot.
         CALL    LOADSYS
         JC      ERROR
@@ -109,13 +139,7 @@ HDSYS:  MOV     BL,[DRV]
         CMP     AL,2
         JAE     NOTNEC
         MOV     [FTARGET],AL
-        MOV     AX,3305H
-        INT     21H
-        DEC     DL
-        CMP     DL,[DRV]
-        JNE     HDALLOC
-        MOV     DX,OFFSET S_BOOT
-        JMP     ERROR
+        JMP     SHORT HDALLOC
 NOTNEC: MOV     DX,OFFSET S_NEC
         JMP     ERROR
 HDALLOC:MOV     AX,[WORKSEG]
@@ -123,7 +147,16 @@ HDALLOC:MOV     AX,[WORKSEG]
         AND     AX,0FFC0H
         MOV     [WORKSEG],AX
         ADD     AX,64
-        MOV     [NEXTSEG],AX
+        MOV     [BMBUFSEG],AX
+        ADD     AX,64
+        MOV     [BMSTSEG],AX
+        ADD     AX,256
+        MOV     [RFSEG],AX
+        ADD     AX,192          ;Swap records and directory ownership counts.
+        MOV     [RFFATSEG],AX
+        ADD     AX,256          ;First FAT; second FAT borrows source staging.
+        MOV     [HDSTAGE],AX
+        ADD     AX,256
         CMP     AX,DS:[2]
         JBE     HDVALID
         MOV     DX,OFFSET S_NOMEM
@@ -134,8 +167,9 @@ HDVALID:CALL    HPROBE
         MOV     ES,[WORKSEG]
         MOV     [FBLOCK],4
         CALL    HREAD
-        JC      HDSYSIO
-        MOV     AL,[FTYPE]
+        JNC     HDFATID
+        JMP     HDSYSIO
+HDFATID:MOV     AL,[FTYPE]
         ADD     AL,0D0H
         MOV     AH,0FFH
         CMP     WORD PTR ES:[0],AX
@@ -143,38 +177,83 @@ HDVALID:CALL    HPROBE
         CMP     BYTE PTR ES:[2],0FFH
         JNE     NOTNEC
         CALL    HIPLCHECK
-        JC      HDSYSIO
-        OR      AL,AL
-        JZ      HDCOPY
+        JNC     HDTYPE
+        JMP     HDSYSIO
+HDTYPE: CALL    D5TYPE
+        MOV     [D5IPL],AL
+        CMP     [D5OP],0
+        JE      HDNORMAL
+        CALL    D5COMMAND
+        JC      HDEARLYERR
+        MOV     AX,4C00H
+        INT     21H
+HDNORMAL:MOV    AX,3305H
+        INT     21H
+        DEC     DL
+        CMP     DL,[DRV]
+        JNE     HDSELSRC
+        JMP     HDLOCAL
+HDSELSRC:MOV    AL,[SOURCE]
+        SUB     AL,'A'
+        CMP     AL,[DRV]
+        JNE     HDCHKSRC
+        JMP     HDSOURCED
+HDCHKSRC:CMP     [D5IPL],1
+        JNE     HDPLAN
         CALL    HCONFSTDIN
-        JC      HDSYSERR
-        MOV     DX,OFFSET S_HDIPL
+        JNC     HDCONFIRMED
+HDEARLYERR:JMP  HDSYSERR
+HDCONFIRMED:MOV DX,OFFSET S_HDIPL
         CALL    PUTS
         MOV     DX,OFFSET S_HDPROMPT
         CALL    PUTS
         CALL    HYES
         MOV     DX,OFFSET S_HDCANCEL
+        JC      HDEARLYERR
+HDPLAN: CALL    D5PLAN
+        JC      HDEARLYERR
+        CALL    RFNEW
+        JC      HDEARLYERR
+        CALL    D5COMMIT
         JC      HDSYSERR
-HDCOPY: MOV     AL,[SOURCE]
-        MOV     CX,NSYS
-        CALL    LOADSYS
-        JC      HDSYSERR
-        PUSH    CS
-        POP     ES
-        MOV     AL,[DRV]
-        ADD     AL,'A'
-        MOV     CX,NSYS
-        CALL    SAVESYS
-        JC      HDSYSERR
-        MOV     AH,0DH
-        INT     21H
-        CALL    HIPLWRITE
-        JC      HDSYSIO
         CALL    HNOTE
         JMP     SUCCESS
+; Load only source file BX (an even index). The one staging window is
+; available for the next file as soon as its current data is written.
+HDLOADONE:
+        MOV     AX,[HDSTAGE]
+        MOV     [NEXTSEG],AX
+        MOV     [SYSIDX],BX
+        MOV     [SYSCNT],1
+        MOV     AL,[SOURCE]
+        MOV     [SYSLTR],AL
+        JMP     LOADS1
+HDLOCAL:MOV     DX,OFFSET S_BOOT
+        JMP     SHORT HDJRONLY
+HDSOURCED:MOV   DX,OFFSET S_SAME
+HDJRONLY:CMP    [D5IPL],3
+        JNE     HDSYSERR
+        PUSH    DX
+        CALL    D5SETUP
+        POP     BX
+        JC      HDSYSERR
+        CMP     [D5REPLAYED],0
+        JNE     HDJRDONE
+        MOV     DX,BX
+        JMP     SHORT HDSYSERR
+HDJRDONE:MOV    DX,OFFSET S_JRDONE
+        CALL    PUTS
+        MOV     AX,4C00H
+        INT     21H
 HDSYSIO:MOV     DX,OFFSET S_IOERR
 HDSYSERR:JMP    ERROR
 
+MENUDOS EQU     1
+SYSSWAP EQU     1
+        INCLUDE VAMENUCO.INC
+        INCLUDE VAMENUIN.INC
+        INCLUDE VASYSSW.INC
+        INCLUDE VASYSCK.INC
         DW      256 DUP (0)
 STKTOP  LABEL   WORD
 ENDPROG LABEL   BYTE

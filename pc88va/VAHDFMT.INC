@@ -60,7 +60,8 @@ HFDNEXT:ADD     [HSEG],40H
         JMP     HFILE
 HFDONE: RET
 
-; Append system entries after any volume label in the first root sector.
+; Reserve slots 0..2 (1..3 with a volume label) for the system files.
+; Both kernel entries must fit in one 256-byte block for later SYS.
 HDROOTFILES:
         XOR     DI,DI
         CMP     [HASLBL],0

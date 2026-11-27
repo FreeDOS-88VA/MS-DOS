@@ -445,6 +445,33 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   timestamps of all three system files in SASI and floppy `FORMAT /S`
   and in `SYS`.
 
+### D5 — Choose PC-Engine 1.05, PC-Engine 1.1 or MS-DOS at SASI boot
+- One NEC-layout SASI volume holds PC-Engine 1.05, PC-Engine 1.1 and
+  MS-DOS. `SYS C:` saves a foreign PC-Engine IPL and parks its system
+  files under per-version names. The HDD boot menu lists the saved
+  PC-Engine versions and MS-DOS, waits 10 seconds and then boots the
+  entry chosen last; before starting a PC-Engine version it renames that
+  version's files to their real names and runs its saved IPL.
+  (Maintainer, 2026-11-26: three-way menu, default = last choice,
+  coexistence by renaming at boot.)
+- Gate (vaeg VA and VA2): build a volume with 1.05 and 1.1 by the
+  documented procedure; each menu entry boots (PC-Engine to Ready with
+  the right version, MS-DOS to C>); the timeout boots the last choice,
+  including after a power-off between boots; CHKDSK clean in MS-DOS
+  after every switch; a volume without saved IPLs boots MS-DOS with no
+  menu (D4 behaviour); D4 HDD and floppy regressions.
+- D5 accepted 2026-11-27 (`docs/D5-dual-boot.md`, vaeg VA/VA2, 5/40 MB,
+  256 KiB): IPL + `BOOTMENU.SYS` stage + `BOOTMENU.DAT`; menu shows the
+  model (`PC-88VA`, `PC-88VA2/VA3/VA-91`, `PC-88VA?`), 10 s timeout to the
+  last choice, typeahead flushed. Per-system CONFIG.SYS/AUTOEXEC.BAT.
+  Switches are journaled and rolled forward HDD-only after a power loss.
+  `SYS C:` capture, `/P` `/C` `/L` `/D n`; DOS files refreshed by a
+  lost-chain swap (one root-block publish write, no writes outside the
+  volume). Reviews by pi (first) and Claude subagents (later rounds, pi
+  review blocked by the provider filter). NOT RUN: real hardware, VA3,
+  VA+VA-91, torn writes, PC-Engine 1.00. Follow-up: MS-DOS 4.0 CHKDSK
+  hangs on a cross-linked volume (pre-existing).
+
 ## Follow-ups
 - F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and
   floppy) and SYS keep the source files' date/time; a 40 MB second SASI
