@@ -353,9 +353,10 @@ SYS can re-mirror that narrowly recognized difference after preflight.
 Other discrepancies are refused without refreshing the files. SYS
 cannot prove which anonymous lost chains it owns, so it does not
 reclaim them. After a cut, use `CHKDSK` to inspect the volume and
-`CHKDSK /F` to reclaim lost chains (answer `N` at the prompt to convert
-them to files if the contents are not needed). This applies to either
-SASI target. The existing boot-menu journals are separate and unchanged.
+`CHKDSK /F` to reclaim lost chains (answer `N` to “Convert lost chains to
+files” if the contents are not needed). This applies to either SASI
+target. The existing boot-menu journals are separate; SYS can still
+replay a pending menu operation before starting a refresh.
 
 The unreleased fixes 3–5 experimented with a redo log, temporary IPL
 and staging file. Disks touched by those builds are not supported in
@@ -671,5 +672,56 @@ by `SYS B:` produced independently bootable 2HD floppies on both
 models. Active `/D` parked the removed entry's startup files, restored
 the DOS pair and left its four PC-Engine system files untouched.
 
-**NOT RUN:** a new exhaustive capture/prepare or refresh-cut matrix,
+**NOT RUN on fix 2:** a new exhaustive capture/prepare or refresh-cut matrix,
 active-removal cut injection, torn writes, or physical hardware.
+
+## Fix 6 verification — lost-chain swap
+
+On vaeg, the host applied every durable prefix of 7,329 traced SYS
+writes from the rebuilt `b3aa633` distribution. It checked both FATs
+and every published chain, verified the kernel pair was old or new
+(with the selected missing-file exception before publication), and
+found no cross-links. The only FAT differences were a single in-flight
+mirror entry; other unreferenced allocations were lost chains. None of
+these SYS writes touched IPL blocks 0–3 or went past the BPB volume.
+
+| Fixture | Models | SYS writes per run | Kernel pair write |
+|---|---|---:|---:|
+| 5 MB D4 refresh, no menu state | VA, VA2 | 473 | 445 |
+| 5 MB D5 refresh, PC-Engine owner | VA, VA2 | 483 | 445 |
+| 5 MB D5 refresh, DOS owner | VA, VA2 | 473 | 445 |
+| 5 MB missing `IO.SYS` | VA, VA2 | 465 | 445 |
+| 5 MB missing `MSDOS.SYS` | VA, VA2 | 463 | 445 |
+| 5 MB missing `COMMAND.COM` | VA, VA2 | 463 | 445 |
+| 5 MB straddle relocation | VA, VA2 | 620 | 583 |
+| 40 MB D4 refresh | VA2 | 449 | 433 |
+
+92 sampled HDD boots reached the C: prompt and completed guest CHKDSK:
+six cuts per case (including publication), seven per straddle case.
+All samples for a missing boot file were at or after publication.
+At the duplicate-name cut (write 165), CHKDSK reported 14 lost units
+in three chains and no duplicate-name or cross-link error on either
+model. The 26 sampled `CHKDSK /F` runs reclaimed the lost clusters.
+Floppy SYS also retried successfully after a FAT mirror cut and after
+the duplicate-name cut.
+
+Regressions: journal replay at menu-switch cuts 1, 5 and 9 on both
+models; M4 two-version capture, startup-file ownership, prepare/cancel,
+selection and removal on VA (640 KiB) and VA2 (256 KiB); standalone
+256 KiB SYS and no-state D4 boot; recovery with a foreign IPL and
+missing kernel; bootable floppy SYS and FORMAT /S; Japanese-build
+floppy SYS, HDD boot and Japanese CHKDSK output. Missing source,
+insufficient clusters, a full kernel block during capture, and a FAT
+mismatch affecting a live chain were refused without writes. A cyclic
+old chain was left allocated, and a chain still referenced from a
+subdirectory was retained. The traced M4 sequences stayed within the
+volume and touched blocks 0–3 only on IPL install (D5 capture or the
+intervening PC-Engine install). The floppy tests made no SASI writes.
+
+Rebuilt `msdos4-pc88va-2hd.d88` SHA-256:
+
+- EN: `d3023be5deb00abb7f73df8551a38c2cc4b6f8d06ab9d98d5047f62e777e3ecb`
+- JA: `1654811f72a6790f3890fa01f860cc7c86b9ba2d7dcc8017d12fe7edbeddd758`
+
+The cuts model atomic physical writes, not torn writes. No physical
+SASI hardware was tested.
