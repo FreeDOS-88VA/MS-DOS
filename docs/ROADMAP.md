@@ -488,6 +488,7 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   keys typed after the menu choice and shortens the English capture
   prompt). The stray `日` cells the maintainer saw were not reproduced;
   the hand-off now clears the whole text screen.
+
 ## Follow-ups
 - F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and
   floppy) and SYS keep the source files' date/time; a 40 MB second SASI
