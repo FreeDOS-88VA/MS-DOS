@@ -471,6 +471,14 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   review blocked by the provider filter). NOT RUN: real hardware, VA3,
   VA+VA-91, torn writes, PC-Engine 1.00. Follow-up: MS-DOS 4.0 CHKDSK
   hangs on a cross-linked volume (pre-existing).
+- D5.1 (maintainer feedback 2026-11-28): clear the screen before handing
+  off to the chosen system (no menu remnants; MS-DOS starts with its own
+  banner on a clean screen); the MS-DOS entry reads `MS-DOS 4.00`;
+  PC-Engine labels up to 23 characters (e.g. `PC-Engine 1.1 (VA2/3)`),
+  with a state-format version bump and an upgrade on `SYS C:`. Gate:
+  vaeg VA/VA2 menu → each entry boots on a clean screen; long labels
+  captured and shown; an old-format disk upgraded by `SYS C:`; D5 fix-6
+  regressions sample.
 
 ## Follow-ups
 - F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and
