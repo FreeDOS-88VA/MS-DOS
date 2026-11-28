@@ -471,7 +471,23 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   review blocked by the provider filter). NOT RUN: real hardware, VA3,
   VA+VA-91, torn writes, PC-Engine 1.00. Follow-up: MS-DOS 4.0 CHKDSK
   hangs on a cross-linked volume (pre-existing).
+- D5.1 (maintainer feedback 2026-11-28): clear the screen before handing
+  off to the chosen system (no menu remnants; MS-DOS starts with its own
+  banner on a clean screen); the MS-DOS entry reads `MS-DOS 4.00`;
+  PC-Engine labels up to 23 characters (e.g. `PC-Engine 1.1 (VA2/3)`),
+  with a state-format version bump and an upgrade on `SYS C:`. Gate:
+  vaeg VA/VA2 menu → each entry boots on a clean screen; long labels
+  captured and shown; an old-format disk upgraded by `SYS C:`; D5 fix-6
+  regressions sample. **PASS on vaeg m153** (VA and VA2, 5 MB; VA2 also
+  40 MB). Fix 1: flush trailing Enter before hand-off and fit the
+  label prompt in 80 columns; all three VA2 choices passed the cell-by-cell
+  screen check on 5 MB and 40 MB. See [D5.1 results](D5-dual-boot.md#d51--clean-hand-off-and-longer-labels).
+  Physical hardware was not tested.
 
+  D5.1 accepted 2026-11-28 (reviewed by a Claude subagent; fix 1 flushes
+  keys typed after the menu choice and shortens the English capture
+  prompt). The stray `日` cells the maintainer saw were not reproduced;
+  the hand-off now clears the whole text screen.
 ## Follow-ups
 - F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and
   floppy) and SYS keep the source files' date/time; a 40 MB second SASI

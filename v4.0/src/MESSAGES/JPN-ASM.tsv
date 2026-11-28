@@ -21,7 +21,7 @@ Inconsistent or missing SASI boot-menu files; no new IPL installed.	SASI 起動�
 Expected a complete PC-Engine set and a replaced PC-Engine IPL.	PC-Engine の IPL と一式のシステムファイルが必要です。
 No free boot-menu entry or root directory slot.	起動メニューまたはルートディレクトリに空きがありません。
 Boot MS-DOS from the menu to park the active set before preparing.	準備の前にメニューから MS-DOS を起動して使用中のファイルを退避してください。
-Label (up to 15 ASCII characters, Enter for PC-Engine n): $	名前 (ASCII 15 文字まで、既定値 PC-Engine n は ENTER): $
+Label (23 ASCII max, Enter for PC-Engine n): $	名前 (ASCII 23 文字まで、既定値 PC-Engine n は ENTER): $
 Label must be printable ASCII.	名前には表示できる ASCII 文字だけを使ってください。
 Prepared for another PC-Engine SYS. Use SYS d: /C to cancel.	次の PC-Engine SYS の準備ができました。取り消しは SYS d: /C です。
 Preparation cancelled.	準備を取り消しました。

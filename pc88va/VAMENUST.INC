@@ -11,14 +11,17 @@ ST_PHASE EQU    6               ;0 clean, 1 switch, 2 prepared, 3 capture, 4 rem
 ST_NEXT EQU     7
 ST_PREP EQU     8               ;Four word-sized placeholder root slots.
 ST_ENT  EQU     16
-ST_VER  EQU     118             ;0 original, 1 replayable switch, 2 startup pairs.
+ST_VER  EQU     118             ;0 original, 1 replayable, 2 startup pairs, 3 long labels.
 ST_FLAGS EQU    119             ;Bit 0: keep the previous menu default.
 ST_CAPPAIR EQU  120             ;1: park the standalone PC-Engine pair in capture.
 ST_PAIR EQU     122             ;4 x (slot or FFFFh, metadata CRC), park then activate.
-STATEVER EQU    2
+ST_LABELS EQU   138             ;Version 3: three 24-byte labels, in ID order.
+PAIRVER EQU     2
+STATEVER EQU    3
+LABELLEN EQU    24
 ST_CSUM EQU     254
 ENTRYLEN EQU    34
-EN_LABEL EQU    0               ;16 bytes including NUL; empty slot if first byte is 0.
+OLDLABELLEN EQU 16             ;Version 0–2 label at the start of each entry.
 EN_CSUM EQU     16              ;CRC of saved 1024-byte IPL.
 EN_FILES EQU    18              ;4 x (root slot word, metadata CRC word).
 DOSID   EQU     0
