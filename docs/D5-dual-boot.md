@@ -741,10 +741,16 @@ SASI hardware was tested.
 After the switch commits, the stage calls INT 83h `Sfkctl` (AX=2F00h)
 then `Rescrt` (AH=2Ah) before returning to the DOS loader or copying and
 jumping to the PC-Engine IPL. These are functions 43 and 40 of the
-*PC-88VA Technical Manual* §6.4.3 (`604TEXT.TXT`). `Rescrt` reinitializes
-the text mode, cursor and display memory, not just the current split.
-The selected system then sets up its own labels and text mode. No direct
-TVRAM writes were added to the stage.
+*PC-88VA Technical Manual* §6.4.3 (`604TEXT.TXT`). Item 40 says only that
+`Rescrt` initializes the text CRT screen. Reset of the text mode and
+cursor and clearing of display memory beyond the current split were
+observed in vaeg, not specified by the manual. The selected system then
+sets up its own labels and text mode. The stage makes no direct TVRAM
+writes. Before hand-off, the stage waits for up to 12 VRTC edges
+(Technical Manual §2.2, I/O port 40h bit 5; polling is bounded), then
+flushes queued keys with INT 82h AH=0Ch (`PrmFlsh`, `603KEYB`). This
+catches a quick Enter after the digit even when no disk switch is needed.
+The pre-menu flush uses the same BIOS call without the delay.
 
 The previous stage left menu rows in text RAM. DOS initialized its own
 splits and wrote over only the top of that buffer; the remainder stayed
@@ -757,19 +763,31 @@ This reproduces the stale-cell mechanism, not the origin of those cells
 on the maintainer's hardware.
 
 `SYS C: /L` and the menu show `MS-DOS 4.00`. Capture accepts up to 23
-printable ASCII characters. Version 3 adds a label table in the same
-atomic metadata block. Plain `SYS C:` recognizes the released v2 IPL,
-installs the new stage and IPL, and upgrades the metadata in one block
-write. Entry IDs, parked names, file slots, and saved IPLs do not move.
+printable ASCII characters. With a full-length label the capture line
+uses 68 columns in English and 78 in Japanese. Version 3 adds a label
+table in the same atomic metadata block. Plain `SYS C:` recognizes the
+released v2 IPL, installs the new stage and IPL, and upgrades the metadata
+in one block write. Entry IDs, parked names, file slots, and saved IPLs do not move.
 The new stage can still read v0–v2, so it can boot between stage
 publication and the state write. An unknown version falls back to DOS
 without writing to disk.
 
-**Gate: PASS** on vaeg m153, VA and VA2 at 640 KiB (5 MB each, plus
-VA2 at 40 MB). Both PC-Engine entries reached `Ready`, and DOS printed
-`日本語MS-DOS version 4.00` from row 0. Rendered screenshots and raw
-TVRAM checks showed no menu remnants or stray characters; each system
-showed its own label line. VA2/5 MB evidence: [menu](D5/d51-menu.png),
+The original gate ran on vaeg m153, VA and VA2 at 640 KiB (5 MB each,
+plus VA2 at 40 MB). Both PC-Engine entries reached `Ready`, and DOS
+printed `日本語MS-DOS version 4.00` from row 0. Review found that the
+original check missed a PC-Engine error and second `Ready` after Enter.
+The updated [TVRAM checker](D5/check-d51-screen.py) checks each 16-bit
+character cell across the 25 main rows and the function-key line,
+including both halves of double-width glyphs. It rejects the old capture
+with the error. **Fix 1 gate: PASS** on vaeg m153, VA2 at 640 KiB with
+5 MB and 40 MB three-way volumes. For each choice, the harness sent the
+digit followed by Enter. Each PC-Engine boot displayed one `Ready` and no
+error, with four nonblank double-width cells in the label line. DOS showed
+its own banner and prompt, with six such cells starting at row 0.
+Repeating `1` then Enter with entry 1 already active also passed on
+VA2/5 MB (keys six guest frames apart); a flush without the VRTC delay
+failed that test. Updated VA2/5 MB evidence:
+[menu](D5/d51-menu.png),
 [1.05 capture](D5/d51-pce105.png), [1.1 capture](D5/d51-pce11.png),
 [MS-DOS](D5/d51-msdos.png). An exact 23-character label was captured,
 shown in the menu and listed with `/L` on VA.
@@ -783,8 +801,9 @@ of 11; D5.1 and no-state D4 refresh on VA; floppy `SYS` on VA and
 FAT checks were clean for the tested three-way volumes. Real hardware
 and torn writes were not tested.
 
-The D1 → D4 → D5 builder produced the Japanese distribution at
-`15ab676`: SHA-256
-`c84483a46d0713042593ae2c65ef32b72c8980fab70a89711408dc13021163b7`.
-The IPL is **1024 bytes** and the stage is **3032 bytes**; both matched
-the direct MASM 5.10 build.
+The D1 → D4 → D5 builder produced the updated Japanese distribution at
+`12d39722`, in scratch at `d51/fix1-final/msdos4-pc88va-2hd.d88`
+(relative to the PC-88VA scratch root). SHA-256:
+`cba17d2b29c1b4d368c2a030d9b4f86004929c9767cd50556226ccc7862b00cc`.
+The IPL is **1024 bytes** and the stage is **3064 bytes**; both matched
+an independent MASM 5.10 / LINK 3.65 assembly.

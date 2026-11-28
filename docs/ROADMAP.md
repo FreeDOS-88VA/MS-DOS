@@ -479,7 +479,9 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   vaeg VA/VA2 menu → each entry boots on a clean screen; long labels
   captured and shown; an old-format disk upgraded by `SYS C:`; D5 fix-6
   regressions sample. **PASS on vaeg m153** (VA and VA2, 5 MB; VA2 also
-  40 MB). See [D5.1 results](D5-dual-boot.md#d51--clean-hand-off-and-longer-labels).
+  40 MB). Fix 1: flush trailing Enter before hand-off and fit the
+  label prompt in 80 columns; all three VA2 choices passed the cell-by-cell
+  screen check on 5 MB and 40 MB. See [D5.1 results](D5-dual-boot.md#d51--clean-hand-off-and-longer-labels).
   Physical hardware was not tested.
 
 ## Follow-ups
