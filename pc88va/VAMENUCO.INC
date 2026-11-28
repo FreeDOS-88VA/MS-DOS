@@ -46,6 +46,7 @@ READY:  CALL    CHECKFILES
         CALL    SWITCH
         JC      BADMENU
         CALL    CLEARTEXT
+        CALL    KEYTAIL         ;Swallow a quick Enter following the digit.
         CMP     [CHOICE],DOSID
         JNE     CHAINIPL
 JUSTDOS:RETF
@@ -530,13 +531,7 @@ ONEXT:  INC     BL
         CALL    PRINT
         MOV     BL,ES:[ST_LAST]
         MOV     [CHOICE],BL
-        PUSH    DS
-        PUSH    ES
-        MOV     AH,0CH          ;Primitive keyboard buffer flush (603KEYB).
-        INT     82H
-        POP     ES
-        POP     DS
-        CLD
+        CALL    FLUSHKEYS
         CALL    CLOCK
         JC      FORCEOS
         MOV     [STARTSEC],DL
@@ -583,6 +578,30 @@ POLLMORE:DEC    DI
         JNZ     POLL
 FORCEOS:MOV     [CHOICE],DOSID
         JMP     SHORT CHOSEN
+; Allow about 0.2 s for the trailing key to arrive even on a no-write
+; switch. Poll VRTC (Technical Manual 2.2, port 40h bit 5); bound the
+; polling in case VRTC does not toggle. Then flush the BIOS queue.
+KEYTAIL:MOV     AH,12
+KTFRAME:MOV     CX,0FFFFH
+KTDISP: IN      AL,40H
+        TEST    AL,20H
+        LOOPNZ  KTDISP
+        JCXZ    FLUSHKEYS
+KTVRTC: IN      AL,40H
+        TEST    AL,20H
+        LOOPZ   KTVRTC
+        JCXZ    FLUSHKEYS
+        DEC     AH
+        JNZ     KTFRAME
+FLUSHKEYS:
+        PUSH    DS
+        PUSH    ES
+        MOV     AH,0CH          ;Primitive keyboard buffer flush (603KEYB).
+        INT     82H
+        POP     ES
+        POP     DS
+        CLD
+        RET
 CLOCK:  MOV     AH,2
         INT     8CH
         CMP     CH,24

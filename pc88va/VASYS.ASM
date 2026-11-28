@@ -24,7 +24,7 @@ D5BADMSG DB     'Inconsistent or missing SASI boot-menu files; no new IPL instal
 D5NOTPC DB      'Expected a complete PC-Engine set and a replaced PC-Engine IPL.',13,10,'$'
 D5ROOM  DB      'No free boot-menu entry or root directory slot.',13,10,'$'
 D5NEED  DB      'Boot MS-DOS from the menu to park the active set before preparing.',13,10,'$'
-D5LABELASK DB   'Label (up to 23 ASCII characters, Enter for PC-Engine n): $'
+D5LABELASK DB   'Label (23 ASCII max, Enter for PC-Engine n): $'
 D5BADLABEL DB   'Label must be printable ASCII.',13,10,'$'
 D5PREPDONE DB   'Prepared for another PC-Engine SYS. Use SYS d: /C to cancel.',13,10,'$'
 D5CANDONE DB    'Preparation cancelled.',13,10,'$'
