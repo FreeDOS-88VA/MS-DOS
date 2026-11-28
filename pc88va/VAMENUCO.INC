@@ -16,7 +16,8 @@ MAIN:   PUSH    CS
         JC      BADMENU
         CALL    VALIDATE
         JNC     VALID
-BADMENU:MOV     SI,OFFSET BADMSG
+BADMENU:CALL    CLEARTEXT
+        MOV     SI,OFFSET BADMSG
         JMP     SHORT DOSMSG
 VALID:  CMP     BYTE PTR ES:[ST_PHASE],2
         JNE     UNPREP
@@ -44,6 +45,7 @@ READY:  CALL    CHECKFILES
         CALL    CHOOSE
         CALL    SWITCH
         JC      BADMENU
+        CALL    CLEARTEXT
         CMP     [CHOICE],DOSID
         JNE     CHAINIPL
 JUSTDOS:RETF
@@ -97,8 +99,8 @@ VCRC:
         CMP     BYTE PTR ES:[ST_PHASE],4
         JA      VREJECT
         JNE     VSWITCH
-        CMP     BYTE PTR ES:[ST_VER],STATEVER
-        JNE     VREJECT
+        CMP     BYTE PTR ES:[ST_VER],PAIRVER
+        JB      VREJECT
         CMP     BYTE PTR ES:[ST_NEXT],0
         JNE     VREJECT
         CMP     BYTE PTR ES:[ST_OWNER],0
@@ -119,11 +121,10 @@ VOWNER:
         CALL    IDOK
         JC      INVALID
         MOV     BL,1
-VLOOP:  CALL    ENTRY
-        CMP     BYTE PTR ES:[DI+EN_LABEL],0
+VLOOP:  CALL    LABELPTR
+        CMP     BYTE PTR ES:[DI],0
         JE      VNEXT
         INC     [COUNT]
-        MOV     CX,16
         MOV     SI,DI
 VLABEL: MOV     AL,ES:[SI]
         OR      AL,AL
@@ -135,7 +136,8 @@ VLABEL: MOV     AL,ES:[SI]
         INC     SI
         LOOP    VLABEL
         JMP     SHORT INVALID
-VLEND:  MOV     DX,ES:[DI+EN_CSUM]
+VLEND:  CALL    ENTRY
+        MOV     DX,ES:[DI+EN_CSUM]
         PUSH    DX
         CALL    IPLPTR
         PUSH    DS
@@ -154,15 +156,28 @@ VNEXT:  INC     BL
 INVALID:STC
         RET
 
-; BL = entry ID. ENTRY leaves BX alone; IPLPTR returns AX:SI.
+; BL = entry ID. ENTRY and LABELPTR leave BX alone; IPLPTR returns AX:SI.
 IDOK:   OR      BL,BL
         JZ      IDGOOD
         CMP     BL,MAXID
         JA      INVALID
-        CALL    ENTRY
+        CALL    LABELPTR
         CMP     BYTE PTR ES:[DI],0
         JE      INVALID
 IDGOOD: CLC
+        RET
+; ES:DI = label, CX = available bytes including the terminator.
+LABELPTR:
+        MOV     CX,OLDLABELLEN
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JB      ENTRY
+        MOV     CX,LABELLEN
+        MOV     AL,CL
+        MOV     AH,BL
+        DEC     AH
+        MUL     AH
+        ADD     AX,ST_LABELS
+        MOV     DI,AX
         RET
 ENTRY:  MOV     AL,ENTRYLEN
         MOV     AH,BL
@@ -294,7 +309,10 @@ MOVESET:MOV     ES:[ST_NEXT],BL
         RET
 SWMARK:
         MOV     BYTE PTR ES:[ST_PHASE],1
-        MOV     BYTE PTR ES:[ST_VER],STATEVER
+        CMP     BYTE PTR ES:[ST_VER],PAIRVER
+        JAE     SWFLAGS
+        MOV     BYTE PTR ES:[ST_VER],PAIRVER
+SWFLAGS:
         IFDEF   MENUDOS
         MOV     AL,[KEEPDEFAULT]
         MOV     ES:[ST_FLAGS],AL
@@ -306,7 +324,7 @@ RECOVERSW:
         CALL    CHECKFILES
         JNC     SWCHECK
         RET
-SWCHECK:CMP     BYTE PTR ES:[ST_VER],STATEVER
+SWCHECK:CMP     BYTE PTR ES:[ST_VER],PAIRVER
         JB      SWCORE
         CALL    PSOWNERS
         CALL    PSCHECK
@@ -333,7 +351,7 @@ SWCORE: MOV     AL,ES:[ST_OWNER]
         MOV     [ACTIVATE],1
         CALL    RENAMESET
         JC      SWERR
-        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        CMP     BYTE PTR ES:[ST_VER],PAIRVER
         JB      SWLAST
         CALL    PSAPPLY
         JC      SWERR
@@ -362,7 +380,7 @@ RECOVERDEL:
         MOV     BYTE PTR ES:[ST_PHASE],0
 UNREGISTER:
         DEC     [COUNT]
-        CALL    ENTRY
+        CALL    LABELPTR
         MOV     BYTE PTR ES:[DI],0
         CMP     BL,ES:[ST_LAST]
         JNE     SAVE
@@ -488,7 +506,7 @@ CHOOSE: MOV     SI,OFFSET HEADER
         CALL    PRINT
         MOV     BL,1
         MOV     BH,1
-OPTIONS:CALL    ENTRY
+OPTIONS:CALL    LABELPTR
         CMP     BYTE PTR ES:[DI],0
         JE      ONEXT
         CALL    DIGIT
@@ -630,7 +648,22 @@ RESTMAP:MOV     DX,153H
         POPF
         POP     ES
         RET
+; PC-88VA Technical Manual 6.4.3 (604TEXT.TXT), functions 43 and 40.
+; Hide soft keys then reset the ROM text screen before returning or chaining.
+CLEARTEXT:
+        MOV     AX,2F00H
+        CALL    TEXTBIOS
+        MOV     AX,2A00H
+        JMP     SHORT TEXTBIOS
 PRINT:  PUSH    AX
+        PUSH    DX
+        MOV     AH,2
+        MOV     DX,8000H
+        CALL    TEXTBIOS
+        POP     DX
+        POP     AX
+        RET
+TEXTBIOS:
         PUSH    BX
         PUSH    CX
         PUSH    DX
@@ -639,8 +672,6 @@ PRINT:  PUSH    AX
         PUSH    BP
         PUSH    DS
         PUSH    ES
-        MOV     AH,2
-        MOV     DX,8000H
         INT     83H
         POP     ES
         POP     DS
@@ -650,7 +681,6 @@ PRINT:  PUSH    AX
         POP     DX
         POP     CX
         POP     BX
-        POP     AX
         CLD
         RET
 
@@ -686,7 +716,7 @@ VANAME  DB      '[PC-88VA]',13,10,0
 VA2NAME DB      '[PC-88VA2/VA3/VA-91]',13,10,0
 UNKNOWN DB      '[PC-88VA?]',13,10,0
 PREFIX  DB      '0: ',0
-DOSLINE DB      'MS-DOS'
+DOSLINE DB      'MS-DOS 4.00'
 NEWLINE DB      13,10,0
 UPDLINE DB      13
 DEFAULT DB      'Enter = '

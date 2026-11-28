@@ -23,7 +23,7 @@ CSET:   MOV     BL,[SETID]
         JNE     CLABEL
         JMP     CNEXT
 CLABEL:
-        CALL    ENTRY
+        CALL    LABELPTR
         CMP     BYTE PTR ES:[DI],0
         JE      CNEXT
         CALL    NAMES

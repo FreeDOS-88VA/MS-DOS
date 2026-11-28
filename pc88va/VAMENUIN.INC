@@ -41,7 +41,7 @@ D5SIZE  DW      0
 D5POS   DW      0
 D5PAR   DW      0
 D5END   DB      0
-D5LABEL DB      16,0,16 DUP (0)
+D5LABEL DB      LABELLEN,0,LABELLEN DUP (0)
 D5LABELDEF DB   'PC-Engine 0',0
 D5DAT   DB      'BOOTMENUDAT'
 D5SYS   DB      'BOOTMENUSYS'
@@ -126,6 +126,8 @@ D5TOLD: ; Released D4 and D5 IPLs (our own code only).
         MOV     AL,2
         RET
 D5TV0:  CMP     BX,0D7F5H      ;Original D5 and fix 1 share the stage ABI.
+        JE      D5TOLDMENU
+        CMP     BX,2492H       ;Released D5 with startup pairs.
         JE      D5TOLDMENU
         CMP     BX,5434H
         JNE     D5TRET
@@ -448,6 +450,7 @@ D5CAPDOSEND:MOV SI,OFFSET D5SYS
         CMP     AX,0FFFFH
         D5NZ    D5NOROOM
 D5GETLABEL:
+        CALL    D5LONGSTATE
         MOV     AL,[SETID]
         MOV     [D5CAP],AL
         ADD     AL,'0'
@@ -467,7 +470,7 @@ D5GETLABEL:
         MOV     BYTE PTR [SI+BX],0
 D5LABCP:MOV     ES,[BMSTSEG]
         MOV     BL,[D5CAP]
-        CALL    ENTRY
+        CALL    LABELPTR
 D5LABL: LODSB
         STOSB
         OR      AL,AL
@@ -486,7 +489,7 @@ D5LABELGOOD:CLC
 D5AVAILABLE:
         MOV     [SETID],1
 D5IDTRY:MOV     BL,[SETID]
-        CALL    ENTRY
+        CALL    LABELPTR
         CMP     BYTE PTR ES:[DI],0
         JNE     D5IDNEXT
         MOV     [FILEID],0
@@ -630,7 +633,7 @@ D5UPSTATE:
         MOV     ES,[BMSTSEG]
         CMP     BYTE PTR ES:[ST_VER],STATEVER
         JE      D5PARKDOS
-        MOV     BYTE PTR ES:[ST_VER],STATEVER
+        CALL    D5LONGSTATE
         CALL    SAVE
         D5CF    D5IOERR
 D5PARKDOS:
@@ -702,7 +705,7 @@ D5BOOTSTRAP:
         JMP     D5OPEN
 D5PARKCAP:
         MOV     ES,[BMSTSEG]
-        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        CMP     BYTE PTR ES:[ST_VER],PAIRVER
         JB      D5CAPCORE
         CMP     BYTE PTR ES:[ST_CAPPAIR],1
         JNE     D5CAPCORE
@@ -715,7 +718,7 @@ D5CAPCORE:
         MOV     [ACTIVATE],0
         CALL    RENAMESET
         D5CF    D5IOERR
-        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        CMP     BYTE PTR ES:[ST_VER],PAIRVER
         JB      D5CAPFINISH
         CMP     BYTE PTR ES:[ST_CAPPAIR],1
         JNE     D5CAPFINISH
@@ -737,8 +740,34 @@ D5NEWSTAGE:
         CALL    D5PUBLISH
         D5CF    D5IOERR
         MOV     ES,[BMSTSEG]
-        MOV     BYTE PTR ES:[ST_VER],STATEVER
+        CALL    D5LONGSTATE
         JMP     SAVE
+
+; Convert validated short labels in RAM. SAVE publishes labels and version
+; together in one block. IDs, metadata, saved IPLs and parked names stay put.
+D5LONGSTATE:
+        CMP     BYTE PTR ES:[ST_VER],STATEVER
+        JE      D5LONGDONE
+        MOV     DI,ST_LABELS
+        MOV     SI,ST_ENT
+        PUSH    DS
+        PUSH    ES
+        POP     DS
+        XOR     AX,AX
+        MOV     CX,MAXID
+D5LONGCOPY:
+        PUSH    CX
+        MOV     CX,OLDLABELLEN/2
+        REP     MOVSW
+        MOV     CX,(LABELLEN-OLDLABELLEN)/2
+        REP     STOSW
+        ADD     SI,ENTRYLEN-OLDLABELLEN
+        POP     CX
+        LOOP    D5LONGCOPY
+        POP     DS
+        MOV     BYTE PTR ES:[ST_VER],STATEVER
+D5LONGDONE:RET
+
 D5STAGEFILE:
         MOV     AX,[D5STAGE]
         CALL    D5WRITESTAGE
@@ -813,7 +842,7 @@ D5LFIRST:MOV    DX,OFFSET D5PAIRHDR
         MOV     [SETID],1
 D5LENTRY:MOV    BL,[SETID]
         MOV     ES,[BMSTSEG]
-        CALL    ENTRY
+        CALL    LABELPTR
         CMP     BYTE PTR ES:[DI],0
         JE      D5LNEXT
         MOV     DL,[SETID]
@@ -862,8 +891,8 @@ D5REMOVE:
         D5CF    D5ERROR
         CMP     BL,ES:[ST_OWNER]
         JNE     D5UNREG
-        CMP     BYTE PTR ES:[ST_VER],STATEVER
-        D5NZ    D5ERROR
+        CMP     BYTE PTR ES:[ST_VER],PAIRVER
+        D5CF    D5ERROR
         MOV     BYTE PTR ES:[ST_NEXT],0
         CALL    PSOWNERS
         CALL    PSPLAN
