@@ -478,7 +478,9 @@ The builder writes `v4.0/src/CMD/COMMAND/VAREL.INC` (track `main` for
   with a state-format version bump and an upgrade on `SYS C:`. Gate:
   vaeg VA/VA2 menu → each entry boots on a clean screen; long labels
   captured and shown; an old-format disk upgraded by `SYS C:`; D5 fix-6
-  regressions sample.
+  regressions sample. **PASS on vaeg m153** (VA and VA2, 5 MB; VA2 also
+  40 MB). See [D5.1 results](D5-dual-boot.md#d51--clean-hand-off-and-longer-labels).
+  Physical hardware was not tested.
 
 ## Follow-ups
 - F1 accepted 2026-11-23 (`docs/F1-small-fixes.md`): FORMAT /S (SASI and

@@ -223,16 +223,18 @@ words. Its layout:
 | 4 | 4 | Owner ID, last choice, phase (0 clean, 1 switch, 2 prepared, 3 capture, 4 active removal), pending target ID |
 | 8 | 8 | Four root slot numbers reserved by `/P`, when prepared |
 | 16 | 102 | Three 34-byte entry records (IDs 1–3); DOS is ID 0 |
-| 118 | 1 | State version: 0 = original D5; 1 = replayable switch; 2 = per-system startup files |
+| 118 | 1 | State version: 0 = original D5; 1 = replayable switch; 2 = per-system startup files; 3 = long labels |
 | 119 | 1 | Switch flags: bit 0 preserves the previous default during SYS |
 | 120 | 1 | Set during standalone capture to park the captured system's startup files |
-| 122 | 16 | Version 2 startup journal: four `(root slot or FFFFh, CRC-16/IBM)` records, CONFIG then AUTOEXEC for the outgoing and incoming owners |
+| 122 | 16 | Version 2+ startup journal: four `(root slot or FFFFh, CRC-16/IBM)` records, CONFIG then AUTOEXEC for the outgoing and incoming owners |
+| 138 | 72 | Version 3 labels: three 24-byte NUL-terminated printable ASCII fields, indexed by entry ID |
 | 254 | 2 | CRC-16/IBM (initial 0) of bytes 0–253 |
 | 1024 | 3072 | Three saved 1024-byte IPLs, in ID order |
 
-Unused bytes are reserved. Each record is a NUL-terminated 16-byte
-ASCII label (first byte zero means unregistered), the saved IPL CRC,
-and four `(root slot, metadata CRC)` pairs. The latter CRC covers the
+Unused bytes are reserved. Each record starts with the legacy 16-byte
+NUL-terminated ASCII label (ignored in version 3), then the saved IPL
+CRC and four `(root slot, metadata CRC)` pairs. A label starting with
+zero is unregistered, whichever label table the version uses. The latter CRC covers the
 20 bytes after the name and attributes. File order is `ENGINEIO.SYS`,
 `PCENGINE.SYS`, `ADVGBIOS.SYS`, `PCENGINE.COM`. Parked names are
 `VAij0000.SYS`, where `i` is the persistent entry ID (1–3) and `j` is
@@ -733,3 +735,56 @@ Rebuilt `msdos4-pc88va-2hd.d88` SHA-256:
 
 The cuts model atomic physical writes, not torn writes. No physical
 SASI hardware was tested.
+
+## D5.1 — Clean hand-off and longer labels
+
+After the switch commits, the stage calls INT 83h `Sfkctl` (AX=2F00h)
+then `Rescrt` (AH=2Ah) before returning to the DOS loader or copying and
+jumping to the PC-Engine IPL. These are functions 43 and 40 of the
+*PC-88VA Technical Manual* §6.4.3 (`604TEXT.TXT`). `Rescrt` reinitializes
+the text mode, cursor and display memory, not just the current split.
+The selected system then sets up its own labels and text mode. No direct
+TVRAM writes were added to the stage.
+
+The previous stage left menu rows in text RAM. DOS initialized its own
+splits and wrote over only the top of that buffer; the remainder stayed
+visible. To test the reported `日` remnants, we seeded the two banner
+cells for `日` and their attributes in TVRAM rows 16–24 during a VA2
+switch. The [previous stage](D5/d51-stale-text.png) left both the glyphs
+and attributes there; [D5.1](D5/d51-cleared-text.png) zeroed both planes,
+including the main-buffer row that DOS replaces with its label line.
+This reproduces the stale-cell mechanism, not the origin of those cells
+on the maintainer's hardware.
+
+`SYS C: /L` and the menu show `MS-DOS 4.00`. Capture accepts up to 23
+printable ASCII characters. Version 3 adds a label table in the same
+atomic metadata block. Plain `SYS C:` recognizes the released v2 IPL,
+installs the new stage and IPL, and upgrades the metadata in one block
+write. Entry IDs, parked names, file slots, and saved IPLs do not move.
+The new stage can still read v0–v2, so it can boot between stage
+publication and the state write. An unknown version falls back to DOS
+without writing to disk.
+
+**Gate: PASS** on vaeg m153, VA and VA2 at 640 KiB (5 MB each, plus
+VA2 at 40 MB). Both PC-Engine entries reached `Ready`, and DOS printed
+`日本語MS-DOS version 4.00` from row 0. Rendered screenshots and raw
+TVRAM checks showed no menu remnants or stray characters; each system
+showed its own label line. VA2/5 MB evidence: [menu](D5/d51-menu.png),
+[1.05 capture](D5/d51-pce105.png), [1.1 capture](D5/d51-pce11.png),
+[MS-DOS](D5/d51-msdos.png). An exact 23-character label was captured,
+shown in the menu and listed with `/L` on VA.
+
+A released-format three-way volume upgraded on plain `SYS C:`. The
+saved IPLs and parked directory entries matched before and after. A
+correctly checksummed unknown version booted DOS with zero traced SASI
+writes. Also passed: timeout default; VA2 switch replay after write 4
+of 11; D5.1 and no-state D4 refresh on VA; floppy `SYS` on VA and
+`FORMAT /S` on VA2, followed by boot from each target. CHKDSK and host
+FAT checks were clean for the tested three-way volumes. Real hardware
+and torn writes were not tested.
+
+The D1 → D4 → D5 builder produced the Japanese distribution at
+`15ab676`: SHA-256
+`c84483a46d0713042593ae2c65ef32b72c8980fab70a89711408dc13021163b7`.
+The IPL is **1024 bytes** and the stage is **3032 bytes**; both matched
+the direct MASM 5.10 build.
